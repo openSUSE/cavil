@@ -50,7 +50,7 @@ t.test('Cavil UI - new unresolved matches badges', skipUnlessOnline, async t => 
     await t.test('an AI recommendation below the box leads to its note', async t => {
       const rec = page.locator('#ai-recommendation');
       t.match(await rec.innerText(), /I recommend\s+accepting\s+this review/, 'verdict in a sentence');
-      t.match(await rec.innerText(), /Asked by ai_lawyer · /, 'names who asked the assistant');
+      t.match(await rec.innerText(), /Sent by review-bot · /, 'a bot account sent it');
       t.equal(await rec.locator('.ai-recommendation-success').count(), 1, 'ACCEPT is green');
 
       await rec.click();

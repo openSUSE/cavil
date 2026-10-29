@@ -810,7 +810,8 @@ export default {
   border-color: var(--cavil-accent-vivid-fade);
   color: var(--cavil-accent-strong);
 }
-.report-note-role-user {
+.report-note-role-user,
+.report-note-role-bot {
   background: var(--cavil-neutral-bg);
   border-color: rgba(var(--cavil-neutral-alt-rgb), 0.25);
   color: var(--cavil-fg-muted);

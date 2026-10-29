@@ -51,4 +51,20 @@ subtest 'Remove role' => sub {
   unlike $buffer, qr/admin/, 'no admin role';
 };
 
+subtest 'Bot accounts keep to the agent role' => sub {
+  my $buffer = '';
+  {
+    open my $handle, '>', \$buffer;
+    local *STDOUT = $handle;
+    $app->start('user', '-A', 'agent', '1');
+  }
+  like $buffer, qr/agent/, 'agent role';
+
+  eval { $app->start('user', '-A', 'lawyer', '1') };
+  like $@, qr/^Role "lawyer" cannot be combined with "agent", bot accounts only hold the "agent" role$/m,
+    'a person role is refused';
+  is_deeply $app->users->find(id => 1)->{roles}, ['user', 'agent'], 'roles unchanged';
+  is $app->users->grant_first_admin(1), 0, 'a bot account never becomes the first admin';
+};
+
 done_testing();

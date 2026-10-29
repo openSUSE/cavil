@@ -851,7 +851,7 @@ FILE
     {'LICENSE-APACHE.txt' => "report-notice distinctive apache license marker\n"}
   );
 
-  my $ai_id = $app->users->find_or_create(login => 'ai_lawyer', email => 'ai@example.com', roles => ['lawyer'])->{id};
+  my $ai_id = $app->users->find_or_create(login => 'review-bot', roles => ['user', 'agent'])->{id};
   $app->notes->add($v2, 'report-notice', $ai_id,
     "AI-assisted review recommendation: ACCEPT\n\nIssues for legal reviewer:\n- Declared license matches.\n",
     0, 1, ['review']);

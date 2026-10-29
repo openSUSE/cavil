@@ -184,7 +184,7 @@
             {{ aiRecommendation.after }}
           </div>
           <div class="ai-recommendation-meta">
-            Asked by {{ aiRecommendation.author_login }} &middot;
+            {{ aiRecommendation.bot ? 'Sent' : 'Asked' }} by {{ aiRecommendation.author_login }} &middot;
             <span :title="aiRecommendation.timestamp">{{ aiRecommendation.created }}</span>
           </div>
         </div>

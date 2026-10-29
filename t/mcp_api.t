@@ -1187,6 +1187,27 @@ subtest 'MCP' => sub {
       $t->app->users->add_role(2, 'admin');
     };
 
+    subtest 'List tools (agent)' => sub {
+      my $users = $t->app->users;
+      my @roles = @{$users->find(id => 2)->{roles}};
+      eval { $users->add_role(2, 'agent') };
+      like $@, qr/Role "agent" cannot be combined with "\w+"/, 'a person cannot become a bot account';
+      $users->remove_role(2, $_) for @roles;
+      $users->add_role(2, 'agent');
+      eval { $users->add_role(2, 'manager') };
+      like $@, qr/Role "manager" cannot be combined with "agent"/, 'a bot account cannot get a person role';
+
+      my @tools = map { $_->{name} } @{$client->list_tools->{tools}};
+      ok((grep { $_ eq 'cavil_create_note' } @tools),             'bot can write notes');
+      ok((grep { $_ eq 'cavil_propose_license_pattern' } @tools), 'bot can propose');
+      ok(!(grep {/^cavil_(accept|reject)_review$/} @tools),       'bot never decides, even with a finalize key');
+      my $res = eval { $client->call_tool('cavil_accept_review', {package_id => 1, result => 'ok'}) };
+      like $res ? $res->{content}[0]{text} : $@, qr/not found/i, 'and cannot call the hidden tool directly';
+
+      $users->remove_role(2, 'agent');
+      $users->add_role(2, $_) for @roles;
+    };
+
     subtest 'cavil_create_note tool' => sub {
       subtest 'Create note' => sub {
         my $result = $client->call_tool('cavil_create_note', {package_id => 1, body => "AI note\n\n* check me"});

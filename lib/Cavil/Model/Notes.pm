@@ -264,10 +264,10 @@ sub relevant_tagged_note ($self, $package_name, $package_id, $checksum, $tag, %o
   return $row ? $row->{id} : undef;
 }
 
-# Any user with a write key can post an AI note, so only those by reviewers speak for the report
+# Any user with a write key can post an AI note, so only those by trusted authors speak for the report
 sub ai_recommendation ($self, $package_name, $package_id, $checksum) {
   my $sql = q{
-    SELECT c.id, substring(c.body FROM ?) AS verdict, u.login AS author_login,
+    SELECT c.id, substring(c.body FROM ?) AS verdict, u.login AS author_login, 'agent' = ANY(u.roles) AS bot,
            EXTRACT(EPOCH FROM c.created) AS created_epoch
       FROM package_notes c
       JOIN bot_users u ON c.author = u.id
@@ -277,7 +277,7 @@ sub ai_recommendation ($self, $package_name, $package_id, $checksum) {
      ORDER BY c.id DESC LIMIT 1
   };
   my $verdict = '^\s*AI-assisted review recommendation:\s*(ACCEPT|NEEDS HUMAN REVIEW|REJECT)\s*(\n|$)';
-  return $self->pg->db->query($sql, $verdict, $package_name, [REVIEW_TAG], roles_with_capability('review'),
+  return $self->pg->db->query($sql, $verdict, $package_name, [REVIEW_TAG], roles_with_capability('recommend'),
     $package_id, $checksum, $verdict)->hash;
 }
 

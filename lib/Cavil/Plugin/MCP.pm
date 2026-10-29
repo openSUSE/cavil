@@ -8,19 +8,20 @@ use MCP::Server;
 use Cavil::Util qw(checkout_path pattern_matches pattern_contains_redundant_skip read_lines),
   qw(validate_tags @LICENSE_FLAGS);
 use Cavil::Model::Notes qw(NOTE_BODY_MAX_LENGTH REVIEW_TAG);
+use Cavil::Role         qw(capabilities_for);
 use File::Find          qw(find);
 use List::Util          qw(max);
 use Mojo::File          qw(path);
 use Text::Glob          qw(glob_to_regex);
 
-my $WRITE_TOOL_ROLES = {
-  cavil_accept_review           => {admin => 1, lawyer => 1, manager => 1},
-  cavil_reject_review           => {admin => 1, lawyer => 1},
-  cavil_propose_ignore_snippet  => {admin => 1, lawyer => 1, contributor => 1},
-  cavil_propose_license_pattern => {admin => 1, lawyer => 1, contributor => 1},
-  cavil_propose_ignore_glob     => {admin => 1, lawyer => 1, contributor => 1},
-  cavil_create_snippet          => {admin => 1, lawyer => 1, contributor => 1},
-  cavil_report_missing_license  => {admin => 1, lawyer => 1, contributor => 1}
+my $WRITE_TOOL_CAPABILITIES = {
+  cavil_accept_review           => 'review',
+  cavil_reject_review           => 'curate',
+  cavil_propose_ignore_snippet  => 'propose',
+  cavil_propose_license_pattern => 'propose',
+  cavil_propose_ignore_glob     => 'propose',
+  cavil_create_snippet          => 'propose',
+  cavil_report_missing_license  => 'propose'
 };
 my $WRITE_ACCESS_TOOLS = {cavil_create_note => 1};
 
@@ -1056,7 +1057,7 @@ sub _decide ($tool, $id, $state, $result, $outcome) {
 sub _filter_tools ($server, $tools, $context) {
   my $c      = $context->{controller};
   my %scopes = map { $_ => 1 } @{$c->current_user_scopes};
-  my $roles  = $c->current_user_roles;
+  my %caps   = map { $_ => 1 } @{capabilities_for(@{$c->current_user_roles})};
 
   my $filtered = [];
   for my $tool (@$tools) {
@@ -1064,9 +1065,8 @@ sub _filter_tools ($server, $tools, $context) {
     if ($WRITE_ACCESS_TOOLS->{$name}) {
       next unless $scopes{'cavil:write'};
     }
-    if (my $check = $WRITE_TOOL_ROLES->{$name}) {
-      next unless $scopes{'cavil:write'};
-      next unless grep { $check->{$_} } @$roles;
+    if (my $cap = $WRITE_TOOL_CAPABILITIES->{$name}) {
+      next unless $scopes{'cavil:write'} && $caps{$cap};
     }
     if ($FINALIZE_REVIEW_TOOLS->{$name}) {
       next unless $scopes{'cavil:reviews.finalize'};

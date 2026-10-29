@@ -173,9 +173,10 @@ naming a role, and roles are named bundles of capabilities.
 | view | Read reports, review results, licenses, snippets and statistics. |
 | classify | Validate AI text-classification results, creating training data. |
 | propose | Propose patterns, ignores and snippets; a proposal needs a curator to take effect. |
+| recommend | AI-assisted review notes by this account are shown as the recommendation on the report. |
 | curate | Curate the corpus and drive reviews: create/edit/remove patterns, manage ignores and comment templates, accept or reject proposals, apply snippet decisions, edit review tags, reindex, and accept or reject reviews. |
 | infra | Operate the instance: the job dashboard, the automatic acceptance, excluded files, bot token and SBOM settings, and package upload into the review backlog. |
-| review | Move a report from `new` to `acceptable` (a non-lawyer expert sign-off), or replace the comment of an `acceptable` one. Never changes a rejection or a lawyer sign-off. AI-assisted review notes by these users are shown as the recommendation on the report. |
+| review | Move a report from `new` to `acceptable` (a non-lawyer expert sign-off), or replace the comment of an `acceptable` one. Never changes a rejection or a lawyer sign-off. |
 | review_lawyer | Move a report from `new` to `acceptable_by_lawyer` (the legal sign-off). |
 | upload_ephemeral | Upload archives for ephemeral one-off reviews, via the web form or the User API. Without `infra` every upload is forced ephemeral, so it can never reach the review backlog. |
 
@@ -183,22 +184,32 @@ naming a role, and roles are named bundles of capabilities.
 the same curator core and differ by one capability each - `admin` also runs the instance (`infra`),
 `lawyer` also carries the legal sign-off (`review_lawyer`) - so neither is a superset of the other, and
 the `lawyer` role alone is enough to curate and sign off. `uploader` is for users who only need one-off legal
-reports: it can make ephemeral uploads and nothing else.
+reports: it can make ephemeral uploads and nothing else. `agent` is for bot accounts (see below).
 
-| Role | view | classify | propose | curate | review | infra | review_lawyer | upload_ephemeral |
-|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| user | ✓ | | | | | | | |
-| uploader | ✓ | | | | | | | ✓ |
-| classifier | ✓ | ✓ | | | | | | |
-| contributor | ✓ | | ✓ | | | | | |
-| manager | ✓ | | | | ✓ | | | |
-| admin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | | ✓ |
-| lawyer | ✓ | ✓ | ✓ | ✓ | ✓ | | ✓ | ✓ |
+| Role | view | classify | propose | recommend | curate | review | infra | review_lawyer | upload_ephemeral |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| user | ✓ | | | | | | | | |
+| uploader | ✓ | | | | | | | | ✓ |
+| classifier | ✓ | ✓ | | | | | | | |
+| contributor | ✓ | | ✓ | | | | | | |
+| manager | ✓ | | | ✓ | | ✓ | | | |
+| admin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | | ✓ |
+| lawyer | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | | ✓ | ✓ |
+| agent | ✓ | | ✓ | ✓ | | | | | |
 
 `acceptable_by_lawyer` means a lawyer signed off, so it is always derived from the `review_lawyer`
 capability and never taken from the request: a non-lawyer curator can accept a package but can never
 assert a lawyer sign-off, on either the web or automation path. A user's capabilities are the union of
 their assigned roles.
+
+**Bot accounts** run agent skills, such as the review-note assistant, on a schedule instead of under a person's API
+key. A bot account logs in through OpenID Connect like anyone else, once, to create its API key, and an admin then
+gives it the `agent` role. That role is what makes it a bot account: it can never be combined with a role meant for
+people, in either direction, so a bot cannot pick up a person's powers by accident. A bot can read, write notes and
+propose patterns and ignores, which still need a curator, and its review notes count as the recommendation on the
+report. It can never accept or reject a review, whatever scopes its API key has, and it does not see lawyer-only
+notes, so they cannot leak into a public note. Who owns a bot account is tracked by whoever runs the identity
+provider, not by Cavil.
 
 The Settings page groups its sections into personal settings, the ones that shape reviews for everybody, the
 integrations with the outside world, and the instance itself, and each section asks for its own capability, so people
@@ -1043,8 +1054,9 @@ call.
 
 The newest recommendation that applies to the report (written on it, or on a review with an identical license report)
 is also shown on the report page itself, right below the reason it needs review, and links to the full note. Only notes
-by users with the `review` capability count there: any API key with write access can post an AI note, and a
-recommendation shown that prominently has to come from someone trusted to make the decision themselves. A note whose
+by accounts with the `recommend` capability count there (people who can review packages themselves, and bot
+accounts): any API key with write access can post an AI note, and a recommendation shown that prominently has to come
+from an account trusted for it. A note whose
 first line is not the skill's fixed recommendation line is left in the Notes tab only.
 
 Notes are shared across every review of a package *name*, which makes them the natural home for context that outlives

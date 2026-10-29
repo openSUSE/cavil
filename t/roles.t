@@ -42,13 +42,13 @@ my @probes = (
     cap    => 'propose',
     method => 'get_ok',
     url    => '/snippets/from_file/999999/1/2',
-    allow  => [qw(admin contributor lawyer)]
+    allow  => [qw(admin agent contributor lawyer)]
   },
   {
     cap    => 'propose',
     method => 'get_ok',
     url    => '/snippets/from_path/999999/some/file.txt?start=1&end=2',
-    allow  => [qw(admin contributor lawyer)]
+    allow  => [qw(admin agent contributor lawyer)]
   },
   {cap => 'classify', method => 'post_ok', url => '/snippets/999999', allow => [qw(admin classifier lawyer)]},
   {
@@ -66,7 +66,7 @@ my @probes = (
     cap    => 'logged_in/settings',
     method => 'get_ok',
     url    => '/settings/api-keys',
-    allow  => [qw(user uploader classifier contributor manager admin lawyer)]
+    allow  => [qw(user uploader classifier contributor manager admin lawyer agent)]
   },
 
   # Reading templates only needs a login, managers write review comments too and need the picker
@@ -74,12 +74,12 @@ my @probes = (
     cap    => 'logged_in/templates',
     method => 'get_ok',
     url    => '/comment-templates/all',
-    allow  => [qw(user uploader classifier contributor manager admin lawyer)]
+    allow  => [qw(user uploader classifier contributor manager admin lawyer agent)]
   },
 );
 
 subtest 'capability matrix' => sub {
-  for my $role (qw(user uploader classifier contributor manager admin lawyer)) {
+  for my $role (qw(user uploader classifier contributor manager admin lawyer agent)) {
     $set_roles->($role);
     for my $p (@probes) {
       my $allowed = grep { $_ eq $role } @{$p->{allow}};

@@ -1086,13 +1086,24 @@ subtest 'AI recommendation in the report metadata' => sub {
     ->status_is(200)
     ->json_is('/ai_recommendation/id'           => $review->{id})
     ->json_is('/ai_recommendation/verdict'      => 'NEEDS HUMAN REVIEW')
-    ->json_is('/ai_recommendation/author_login' => 'manager_user');
+    ->json_is('/ai_recommendation/author_login' => 'manager_user')
+    ->json_is('/ai_recommendation/bot'          => 0, 'a person');
 
   $t->get_ok('/reviews/meta/2')->status_is(200)->json_is('/ai_recommendation/verdict' => 'REJECT');
   $db->update('bot_packages', {checksum => 'rec-A'}, {id => 2});
   $t->get_ok('/reviews/meta/2')
     ->status_is(200)
     ->json_is('/ai_recommendation/id' => $review->{id}, 'identical report shares the recommendation');
+
+  my $bot_id = $app->users->find_or_create(login => 'review-bot', roles => ['user'])->{id};
+  $app->users->add_role($bot_id, 'agent');
+  my $bot_note = $add->(1, 'perl-Mojolicious', $bot_id, $rec->('ACCEPT'), 0, 1, ['review']);
+  $t->get_ok('/reviews/meta/1')
+    ->status_is(200)
+    ->json_is('/ai_recommendation/id'           => $bot_note->{id})
+    ->json_is('/ai_recommendation/author_login' => 'review-bot', 'a bot account speaks for the report')
+    ->json_is('/ai_recommendation/bot'          => 1,            'and is flagged as one');
+  $t->get_ok('/reviews/notes/1')->status_is(200)->json_is('/notes/0/author/badge' => 'bot', 'and is labelled a bot');
   logout($t);
 
   $notes->remove($_) for @ids;

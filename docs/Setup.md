@@ -260,6 +260,17 @@ sign-off, `manager` signs off as a non-lawyer expert, `contributor` proposes pat
 snippets, and `uploader` can only make ephemeral one-off uploads. Use `-A`/`-R` to add and remove them; the full
 capability matrix is in the [Architecture](Architecture.md) guide.
 
+Agent skills that run on a schedule, such as the review-note assistant, should use a dedicated bot account instead of
+a person's API key. Have the bot log in once, so its account exists, then give it the `agent` role:
+
+```sh
+CAVIL_CONF=/path/to/cavil.conf script/cavil user -A agent <id>
+```
+
+The bot then creates a read-write API key on its own **Settings** page (the option to accept and reject reviews has
+no effect for a bot). The `agent` role cannot be combined with any
+of the roles above, and a bot account can never accept or reject a review.
+
 ### 8. Review the settings
 
 Some decisions are made in the web interface rather than in `cavil.conf`. Log in as the admin, open **Settings** from

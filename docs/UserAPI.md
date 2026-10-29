@@ -92,6 +92,7 @@ Authorization HTTP header:
 | [`cavil_propose_ignore_snippet`](#cavil_propose_ignore_snippet) | Read-write | Propose ignoring a snippet |
 | [`cavil_propose_license_pattern`](#cavil_propose_license_pattern) | Read-write | Propose a license pattern |
 | [`cavil_propose_ignore_glob`](#cavil_propose_ignore_glob) | Read-write | Propose a file exclusion glob |
+| [`cavil_create_snippet`](#cavil_create_snippet) | Read-write | Capture a line range as a new snippet |
 | [`cavil_report_missing_license`](#cavil_report_missing_license) | Read-write | Report an unrecognized license |
 
 ### MCP tools
@@ -219,7 +220,8 @@ Create a public note for a specific package, marked as AI-assisted.
   idempotent. (string, optional)
 
 A note tagged `review` whose first line is `AI-assisted review recommendation: ACCEPT` (or `NEEDS HUMAN REVIEW`,
-`REJECT`) is shown as the recommendation on the report, when its author has a role that can review packages.
+`REJECT`) is shown as the recommendation on the report, when its author has the `manager`, `admin`, `lawyer` or `agent`
+role.
 
 #### cavil_get_notes
 
@@ -256,7 +258,7 @@ Reject a legal review for a specific package. Packages with limitations always n
 
 Propose to ignore a specific snippet in the legal review.
 
-- **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
+- **Required Roles**: `contributor`, `agent`, `lawyer` or `admin` (read-write)
 - `package_id`: ID of package to ignore snippet for. (number, required)
 - `snippet_id`: ID of snippet to ignore. (number, required)
 - `reason`: Reason for snippet to be ignored. (string, required)
@@ -271,7 +273,7 @@ count and an example pattern each) and must be repeated with `risk` set to one o
 license and risk that were filed. If the license is unknown, pass an integer `risk` to propose introducing it as a new
 license; that proposal lands on the lawyers' **Missing Licenses** page to ratify.
 
-- **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
+- **Required Roles**: `contributor`, `agent`, `lawyer` or `admin` (read-write)
 - `package_id`: ID of the package the snippet belongs to. (number, required)
 - `snippet_id`: ID of the snippet the pattern is derived from. (number, required)
 - `pattern`: License pattern text; must match the snippet. (string, required)
@@ -285,17 +287,29 @@ license; that proposal lands on the lawyers' **Missing Licenses** page to ratify
 
 Propose a file path glob to exclude whole files from scanning system-wide.
 
-- **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
+- **Required Roles**: `contributor`, `agent`, `lawyer` or `admin` (read-write)
 - `package_id`: ID of package the glob is proposed from; rejected unless it matches a reported file. (number, required)
 - `glob`: File path glob, e.g. `pkgname-*/testdata/*.log`. (string, required)
 - `reason`: Reason the matched files should be ignored. (string, required)
+
+#### cavil_create_snippet
+
+Create a new snippet from a line range in a file, to capture more than an existing snippet covers (for example when an
+unresolved match is only a fragment of a full license text). Returns the new snippet id, which can then be used with
+`cavil_propose_license_pattern`.
+
+- **Required Roles**: `contributor`, `agent`, `lawyer` or `admin` (read-write)
+- `package_id`: ID of package the file belongs to. (number, required)
+- `file_path`: Path of the file, as listed by `cavil_list_files`. (string, required)
+- `start_line`: First line of the snippet. (number, required)
+- `end_line`: Last line of the snippet. (number, required)
 
 #### cavil_report_missing_license
 
 Report a snippet as genuine license text that cannot be confidently patterned, so a lawyer can author the real
 pattern (it lands on the Missing Licenses review queue).
 
-- **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
+- **Required Roles**: `contributor`, `agent`, `lawyer` or `admin` (read-write)
 - `package_id`: ID of package the snippet belongs to. (number, required)
 - `snippet_id`: ID of snippet to report as a missing license. (number, required)
 - `reason`: Reason the snippet needs human review. (string, required)
@@ -318,7 +332,8 @@ running one is as simple as typing a short command at the agent prompt.
   (**ACCEPT** / **REJECT** / **NEEDS HUMAN REVIEW**), a few specific things to look at, and how confident the AI is.
   **The skill never accepts or rejects the review itself** - that decision stays with you. Run it interactively on
   packages you're about to read, or kick it off against the whole backlog each morning so you arrive at your desk
-  with a curated reading list. Most reviewers will want to learn this skill first.
+  with a curated reading list. Scheduled runs like that belong under a dedicated bot account rather than your own API
+  key; the [Setup](Setup.md) guide shows how to create one. Most reviewers will want to learn this skill first.
 
   When the report carries a **Legal Review Notices from Packagers** section, the skill treats it as claims to check
   rather than as an answer, and the note tells you which ones it confirmed and which it could not. That matters
@@ -432,8 +447,8 @@ nothing changes the package state until a human reviewer accepts or rejects it i
 **What you'll see on the report.** The recommendation also appears right on the report, as a small robot with a speech
 bubble below "why this needs review" (for example "I recommend accepting this review."). Click it to jump to the full
 note. It shows the newest review note that applies to this exact report, written on it or on another review with an
-identical license report, and only if the person who ran the skill can review packages themselves (the `manager`,
-`admin` and `lawyer` roles). Notes from anyone else stay in the Notes tab.
+identical license report, and only if it was written by someone who can review packages themselves (the `manager`,
+`admin` and `lawyer` roles) or by a bot account (the `agent` role). Notes from anyone else stay in the Notes tab.
 
 If a note turns out to matter beyond the review it was written on - a standing decision about the package, a caveat
 for whoever picks up the next version - lawyers and admins can **pin** it with the thumbtack in the note header.

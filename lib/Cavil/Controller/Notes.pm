@@ -293,12 +293,13 @@ sub _format_note ($self, $row, $user_id, $current_checksum = undef) {
   };
 }
 
-# Highest-precedence role wins, GitHub-style. Lawyer outranks admin (legal
-# expertise is the stronger signal for a legal-review note) outranks plain
-# user. Returns undef for bots or other roles so the UI can omit the chip.
+# Highest-precedence role wins, GitHub-style. Bot accounts are labelled as such, lawyer outranks admin (legal
+# expertise is the stronger signal for a legal-review note) outranks plain user. Returns undef for internal and
+# other roles so the UI can omit the chip.
 sub _author_badge ($roles) {
   return undef unless $roles && @$roles;
   my %has = map { $_ => 1 } @$roles;
+  return 'bot'    if $has{agent};
   return 'lawyer' if $has{lawyer};
   return 'admin'  if $has{admin};
   return 'user'   if $has{user};

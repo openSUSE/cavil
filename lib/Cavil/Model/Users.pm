@@ -4,10 +4,18 @@
 package Cavil::Model::Users;
 use Mojo::Base -base, -signatures;
 
+use Cavil::Role qw(role_conflict);
+
 has 'pg';
 
 sub add_role ($self, $id, $role) {
-  $self->pg->db->query('update bot_users set roles = array_cat(roles, ?) where id = ?', [$role], $id);
+  my $db = $self->pg->db;
+  if (my $user = $db->select('bot_users', ['roles'], {id => $id})->hash) {
+    my $conflict = role_conflict($role, @{$user->{roles}});
+    die qq{Role "$role" cannot be combined with "$conflict", bot accounts only hold the "agent" role\n}
+      if defined $conflict;
+  }
+  $db->query('update bot_users set roles = array_cat(roles, ?) where id = ?', [$role], $id);
 }
 
 sub find ($self, %args) {
@@ -37,8 +45,8 @@ sub id_for_login ($self, $login) {
 sub grant_first_admin ($self, $id) {
   return $self->pg->db->query(
     q{UPDATE bot_users SET roles = array_append(roles, 'admin')
-       WHERE id = ? AND NOT 'admin' = ANY(roles) AND NOT EXISTS (SELECT 1 FROM bot_users WHERE 'admin' = ANY(roles))},
-    $id
+       WHERE id = ? AND NOT 'admin' = ANY(roles) AND NOT 'agent' = ANY(roles)
+         AND NOT EXISTS (SELECT 1 FROM bot_users WHERE 'admin' = ANY(roles))}, $id
   )->rows;
 }
 
