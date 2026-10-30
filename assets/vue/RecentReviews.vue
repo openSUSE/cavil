@@ -71,7 +71,7 @@
           <th class="link">Link</th>
           <th class="imported">Imported</th>
           <th class="reviewed">Reviewed</th>
-          <th class="package">Package</th>
+          <th class="package">Name</th>
           <th class="state">State</th>
           <th class="result">Comment</th>
           <th class="login">Reviewing User</th>

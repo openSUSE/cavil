@@ -5,8 +5,8 @@
     :filter="filter"
     filter-aria-label="Audit log filters"
     filter-input-id="audit-log-filter-input"
-    filter-label="Filter by package name or id"
-    filter-placeholder="Filter by package name or id"
+    filter-label="Filter by name or id"
+    filter-placeholder="Filter by name or id"
     plural="events"
     singular="event"
     :start="start"
@@ -57,7 +57,7 @@
       <thead>
         <tr>
           <th>Time</th>
-          <th>Package</th>
+          <th>Name</th>
           <th>Subject</th>
           <th>Event</th>
           <th>By</th>

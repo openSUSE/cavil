@@ -16,7 +16,7 @@
       <div v-if="adding" class="cavil-reveal">
         <form class="cavil-settings-inline-form" @submit.prevent="add()">
           <div>
-            <label for="exclusion-package" class="form-label">Package</label>
+            <label for="exclusion-package" class="form-label">Name</label>
             <input id="exclusion-package" v-model="rule.package_glob" class="form-control" placeholder="rust*" />
             <div class="form-text">Use * to match several packages.</div>
           </div>
@@ -71,7 +71,7 @@
       <table class="cavil-list-table table">
         <thead>
           <tr>
-            <th>Package</th>
+            <th>Name</th>
             <th>File</th>
             <th>Reason</th>
             <th>Added</th>

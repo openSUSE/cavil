@@ -48,7 +48,7 @@
         <tr>
           <th class="link">Product</th>
           <th class="created">Updated</th>
-          <th colspan="2">Packages</th>
+          <th colspan="2">Reviews</th>
         </tr>
       </thead>
       <tbody v-if="products === null">

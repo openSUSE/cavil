@@ -72,7 +72,7 @@
           <th class="priority">Priority</th>
           <th class="link">Link</th>
           <th class="imported">Imported</th>
-          <th class="package">Package</th>
+          <th class="package">Name</th>
           <th class="report">Report</th>
         </tr>
       </thead>

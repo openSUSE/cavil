@@ -54,12 +54,12 @@
               >
             </dd>
           </template>
-          <dt>Package ID</dt>
+          <dt>ID</dt>
           <dd>
             <copyable-text
               :value="String(pkgId)"
               class="report-metadata-id"
-              title="Click to copy package ID"
+              title="Click to copy ID"
               id="pkg-id"
               >#{{ pkgId }}</copyable-text
             >

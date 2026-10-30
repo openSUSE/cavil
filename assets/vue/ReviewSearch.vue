@@ -52,7 +52,7 @@
           <th class="state">State</th>
           <th class="comment">Comment</th>
           <th class="user">Reviewing User</th>
-          <th class="created">Package</th>
+          <th class="created">Name</th>
           <th class="ids">Ids</th>
           <th class="report">Report</th>
         </tr>

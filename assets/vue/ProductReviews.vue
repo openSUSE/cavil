@@ -6,8 +6,8 @@
     count-icon="fa-solid fa-box-open"
     filter-aria-label="Package review filters"
     filter-input-id="product-reviews-filter-input"
-    filter-label="Filter packages"
-    filter-placeholder="Filter packages"
+    filter-label="Filter reviews"
+    filter-placeholder="Filter reviews"
     :page-title="currentProduct"
     plural="packages"
     singular="package"
@@ -177,7 +177,7 @@
     <table class="cavil-list-table table">
       <thead>
         <tr>
-          <th class="package">Package</th>
+          <th class="package">Name</th>
           <th class="state">State</th>
           <th class="report">Report</th>
         </tr>

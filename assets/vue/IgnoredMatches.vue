@@ -41,7 +41,7 @@
         <thead>
           <tr>
             <th>Snippet</th>
-            <th>Package</th>
+            <th>Name</th>
             <th>Matches</th>
             <th>Created</th>
             <th>Contributor</th>

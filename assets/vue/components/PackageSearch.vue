@@ -21,7 +21,7 @@
             v-model="query"
             type="text"
             class="form-control cavil-search-input"
-            placeholder="Package name, request or id"
+            placeholder="Name, request or id"
             autocomplete="off"
             @input="onInput"
             @keydown.down.prevent="move(1)"

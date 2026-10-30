@@ -33,7 +33,7 @@
         <tr>
           <th class="priority">Priority</th>
           <th class="link">Link</th>
-          <th class="package">Package</th>
+          <th class="package">Name</th>
           <th class="login">Uploaded By</th>
           <th class="imported">Uploaded</th>
           <th class="reviewed">Deletes</th>
