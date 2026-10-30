@@ -51,20 +51,13 @@ $dir->child('apache_file.txt')->spurt("# SPDX-License-Identifier: Apache-2.0\n\n
 $dir->child('gpl2_file.txt')->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\nThis is another test file.\n");
 $dir->child('LICENSES')->make_path->child('MPL-2.0.txt')->spurt("SPDX-License-Identifier: MPL-2.0\n");
 
+my $mcp_dir = $dir->child('mcp_get_file_dir')->make_path;
+$mcp_dir->child('mcp_get_file.txt')->spew(encode('UTF-8', "first line\nsecond 👌 line\nthird line\nfourth line\n"));
+$mcp_dir->child('nested')->make_path->child('nested_file.txt')->spew("nested content\n");
+$dir->child('mcp_root_file.txt')->spew("root content\n");
+
 $t->app->minion->enqueue(unpack => [1]);
 $t->app->minion->perform_jobs;
-
-# Add deterministic test files for cavil_get_file/cavil_list_files MCP tools, again after every re-unpack
-my $unpacked_dir = $dir->child('.unpacked');
-
-sub add_mcp_files {
-  $unpacked_dir->make_path;
-  my $mcp_dir = $unpacked_dir->child('mcp_get_file_dir')->make_path;
-  $mcp_dir->child('mcp_get_file.txt')->spew(encode('UTF-8', "first line\nsecond 👌 line\nthird line\nfourth line\n"));
-  $mcp_dir->child('nested')->make_path->child('nested_file.txt')->spew("nested content\n");
-  $unpacked_dir->child('mcp_root_file.txt')->spew("root content\n");
-}
-add_mcp_files();
 
 subtest 'MCP' => sub {
   my $key           = '';
@@ -264,6 +257,25 @@ subtest 'MCP' => sub {
 
         eval { $client->call_tool('cavil_search_snippets', {limit => 0}) };
         like $@, qr/Invalid arguments/, 'rejects out-of-range limit';
+      };
+
+      subtest 'Statement timeout' => sub {
+        no warnings 'redefine';
+        {
+          my $search = \&Cavil::Model::Snippets::_snippet_search;
+          local *Cavil::Model::Snippets::_snippet_search = sub ($self, $db, $options) {
+            $db->query('SELECT pg_sleep(5)');
+            return $search->($self, $db, $options);
+          };
+          like $t->app->snippets->snippet_search({timeout => 0.1})->{error}, qr/Search timed out/,
+            'real statement timeout reported';
+        }
+
+        local *Cavil::Model::Snippets::_snippet_search
+          = sub { die "DBD::Pg::st execute failed: ERROR:  canceling statement due to statement timeout\n" };
+        my $result = $client->call_tool('cavil_search_snippets', {search => 'ZZMCP'});
+        ok $result->{isError}, 'is an error';
+        like $result->{content}[0]{text}, qr/Search timed out/, 'timeout reported to the agent';
       };
     };
 
@@ -727,7 +739,6 @@ subtest 'MCP' => sub {
         $modules->remove_tree;
         $t->app->minion->enqueue(unpack => [1]);
         $t->app->minion->perform_jobs;
-        add_mcp_files();
       };
 
       subtest 'Embargoed package' => sub {
@@ -1018,8 +1029,12 @@ subtest 'MCP' => sub {
       };
 
       subtest 'File list limit' => sub {
-        my $mcp_many_files_dir = $unpacked_dir->child('mcp_many_files')->make_path;
+        my $mcp_many_files_dir = $dir->child('mcp_many_files')->make_path;
         $mcp_many_files_dir->child("file_$_.txt")->spurt("x\n") for (1 .. 1001);
+        $dir->child('mcp_long_lines.txt')->spurt(join(' ', ('word') x 100) . "\n");
+        $dir->child('mcp_shipped.processed.txt')->spurt("shipped under this name\n");
+        $t->app->minion->enqueue(unpack => [1]);
+        $t->app->minion->perform_jobs;
 
         subtest 'Maximum file list size exceeded' => sub {
           my $result = $client->call_tool('cavil_list_files', {package_id => 1, file_glob => 'mcp_many_files/*'});
@@ -1033,6 +1048,24 @@ subtest 'MCP' => sub {
           ok !$result->{isError}, 'not an error';
           is $result->{content}[0]{text}, 'mcp_many_files/file_1.txt', 'returns single filtered file';
         };
+
+        subtest 'Processed copy is listed under its original name' => sub {
+          ok -e $dir->child('.unpacked', 'mcp_long_lines.processed.txt'), 'processed copy exists';
+          my $result = $client->call_tool('cavil_list_files', {package_id => 1, file_glob => 'mcp_long_lines*'});
+          ok !$result->{isError}, 'not an error';
+          is $result->{content}[0]{text}, 'mcp_long_lines.txt', 'original name only';
+        };
+
+        subtest 'Shipped file with ".processed" in its name keeps it' => sub {
+          my $result = $client->call_tool('cavil_list_files', {package_id => 1, file_glob => 'mcp_shipped*'});
+          ok !$result->{isError}, 'not an error';
+          is $result->{content}[0]{text}, 'mcp_shipped.processed.txt', 'real name';
+        };
+
+        $mcp_many_files_dir->remove_tree;
+        $dir->child($_)->remove for qw(mcp_long_lines.txt mcp_shipped.processed.txt);
+        $t->app->minion->enqueue(unpack => [1]);
+        $t->app->minion->perform_jobs;
       };
     };
   };

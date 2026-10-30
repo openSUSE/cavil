@@ -169,6 +169,8 @@ sub unpacked_file_stats ($self) {
   return $stats;
 }
 
+sub unpacked_names ($self) { [keys %{$self->_unpacked}] }
+
 sub unpacked_files ($self, $bucket_size = undef) {
   my $unpacked = $self->_unpacked;
 

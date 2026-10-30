@@ -472,7 +472,20 @@ sub unclassified ($self, $options) {
 # Grouping by content-derived snippet id aggregates identical text fleet-wide.
 sub snippet_search ($self, $options) {
   my $db = $self->pg->db;
+  return $self->_snippet_search($db, $options) unless my $timeout = $options->{timeout};
 
+  # A search over a big package or the whole fleet can run for minutes, and Postgres keeps going long after the
+  # client gave up; a timeout is reported, never retried
+  my $tx = $db->begin;
+  $db->query("SET LOCAL statement_timeout = '${timeout}s'");
+  my $result = eval { $self->_snippet_search($db, $options) };
+  return {error => 'Search timed out, narrow it with package_id, license or more distinctive search terms'}
+    if !$result && $@ =~ /statement timeout/;
+  die $@ unless $result;
+  return $result;
+}
+
+sub _snippet_search ($self, $db, $options) {
   my $limit  = $options->{limit}  || 20;
   my $offset = $options->{offset} || 0;
   my $group  = ($options->{group} // 'text') eq 'none' ? 'none' : 'text';

@@ -5,13 +5,12 @@ package Cavil::Plugin::MCP;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use MCP::Server;
-use Cavil::Util qw(checkout_path pattern_matches pattern_contains_redundant_skip read_lines),
+use Cavil::Checkout;
+use Cavil::Util qw(checkout_path original_filename pattern_matches pattern_contains_redundant_skip read_lines),
   qw(validate_tags @LICENSE_FLAGS);
 use Cavil::Model::Notes qw(NOTE_BODY_MAX_LENGTH REVIEW_TAG);
 use Cavil::Role         qw(capabilities_for);
-use File::Find          qw(find);
 use List::Util          qw(max);
-use Mojo::File          qw(path);
 use Text::Glob          qw(glob_to_regex);
 
 my $WRITE_TOOL_CAPABILITIES = {
@@ -28,6 +27,7 @@ my $WRITE_ACCESS_TOOLS = {cavil_create_note => 1};
 my $FINALIZE_REVIEW_TOOLS = {cavil_accept_review => 1, cavil_reject_review => 1};
 
 use constant BROAD_PATTERN_PACKAGES => 20;
+use constant SNIPPET_SEARCH_TIMEOUT => 10;
 
 # Proposal reasons are shown to the reviewing lawyer rendered as Markdown
 my $PROPOSAL_REASON = {
@@ -635,9 +635,11 @@ sub tool_cavil_search_snippets ($tool, $args) {
       package_id => $package_id,
       license    => $args->{license},
       search     => $args->{search},
-      detail     => ($args->{detail} ? 1 : 0)
+      detail     => ($args->{detail} ? 1 : 0),
+      timeout    => SNIPPET_SEARCH_TIMEOUT
     }
   );
+  return $tool->text_result($result->{error}, 1) if $result->{error};
 
   return $c->render_to_string(
     'mcp/snippets',
@@ -684,32 +686,13 @@ sub tool_cavil_list_files ($tool, $args) {
 
   local $Text::Glob::strict_wildcard_slash = 0;
   my $regex = glob_to_regex($glob);
-  my $root  = checkout_path($c->app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked');
-  return $tool->text_result('Package is not yet unpacked', 1) unless -d $root;
+  my $dir   = checkout_path($c->app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir});
 
-  my @files;
-  my $file_limit_reached = "__CAVIL_MCP_LIST_FILES_LIMIT_REACHED__\n";
-  eval {
-    find(
-      {
-        wanted => sub {
-          return if -d $File::Find::name;
-          my $relative = path($File::Find::name)->to_rel($root)->to_string;
-          return unless $relative =~ $regex;
-          push @files, $relative;
-          die $file_limit_reached if @files > 1000;
-        },
-        no_chdir => 1
-      },
-      $root->to_string
-    );
-  };
-  if ($@) {
-    return $tool->text_result('Maximum file list size exceeded', 1) if $@ eq $file_limit_reached;
-    die $@;
-  }
-
-  return $tool->text_result('No files found', 1) unless @files;
+  # The unpack manifest, never a walk of the tree: stat-ing all files of a big checkout takes minutes on a cold cache
+  return $tool->text_result('Package is not yet unpacked', 1) unless -f $dir->child('.postprocessed.json');
+  my @files = grep {/$regex/} map { _listed_name($dir, $_) } @{Cavil::Checkout->new($dir)->unpacked_names};
+  return $tool->text_result('Maximum file list size exceeded', 1) if @files > 1000;
+  return $tool->text_result('No files found',                  1) unless @files;
   return $tool->text_result(join("\n", sort @files));
 }
 
@@ -1079,6 +1062,12 @@ sub _filter_tools ($server, $tools, $context) {
 
 # Facts the reviewer would otherwise have to research: which words each $SKIP swallowed in this snippet, what
 # curated patterns say about the exact text the pattern covers, and how far the pattern reaches in the corpus
+# Postprocess never touches a name already containing ".processed", so only an existing original proves it was made
+sub _listed_name ($dir, $name) {
+  my $original = original_filename($name);
+  return $original ne $name && -f $dir->child('.unpacked', $original) ? $original : $name;
+}
+
 sub _pattern_evidence ($c, $pattern, $text) {
   my $patterns  = $c->patterns;
   my $alignment = $patterns->align($pattern, $text) // {lines => [], text => $text, skips => []};
