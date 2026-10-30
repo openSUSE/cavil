@@ -25,7 +25,6 @@ export default {
 .legal-loading {
   --legal-loading-accent: var(--cavil-loading-accent);
   --legal-loading-ink: var(--cavil-fg-emphasis);
-  --legal-loading-surface: var(--cavil-canvas-subtle);
 
   align-items: center;
   color: var(--cavil-fg-muted);
@@ -57,16 +56,10 @@ export default {
 .legal-loading-icon-shell {
   align-items: center;
   animation: legal-loading-weigh 1.55s ease-in-out infinite;
-  background: var(--legal-loading-surface);
-  border: 1px solid rgba(var(--cavil-neutral-alt-rgb), 0.22);
-  border-radius: 0.65rem;
-  box-sizing: border-box;
-  box-shadow: 0 0.35rem 0.8rem rgba(var(--cavil-shadow-deep-rgb), 0.07);
   color: var(--legal-loading-accent);
   display: grid;
   font-size: 1.35rem;
   height: 2.5rem;
-  overflow: hidden;
   place-items: center;
   position: relative;
   transform-origin: 50% 70%;
