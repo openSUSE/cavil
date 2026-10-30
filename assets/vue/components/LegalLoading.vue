@@ -88,9 +88,9 @@ export default {
   animation: legal-loading-pulse 1.55s ease-in-out infinite;
   background: rgba(var(--cavil-loading-rgb), 0.12);
   border-radius: 999px;
-  height: 1.8rem;
+  height: 2.4rem;
   position: absolute;
-  width: 1.8rem;
+  width: 2.4rem;
 }
 .legal-loading-text {
   color: var(--cavil-fg-muted);
@@ -110,8 +110,8 @@ export default {
   width: 2rem;
 }
 .legal-loading-small .legal-loading-pulse {
-  height: 1.35rem;
-  width: 1.35rem;
+  height: 1.8rem;
+  width: 1.8rem;
 }
 
 @keyframes legal-loading-weigh {
