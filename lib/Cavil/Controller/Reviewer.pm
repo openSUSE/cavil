@@ -37,7 +37,7 @@ sub set_tags ($self) {
   my $id = $self->stash('id');
   return $self->render(json => {error => 'Package not found'}, status => 404) unless $self->packages->find($id);
 
-  my ($tags, $error) = tags_from_request($self->req, qr/^CVE(-|$)/i);
+  my ($tags, $error) = tags_from_request($self->req);
   return $self->render(json => {error => $error}, status => 400) if $error;
 
   $self->packages->set_tags($id, $tags);

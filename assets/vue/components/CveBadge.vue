@@ -21,9 +21,8 @@ export default {
     }
   },
   computed: {
-    // Matches the single "CVE" marker as well as any legacy per-id "CVE-..." tags.
     hasCve() {
-      return (this.tags ?? []).some(tag => /^CVE(-|$)/i.test(tag));
+      return (this.tags ?? []).includes('CVE');
     }
   }
 };

@@ -699,19 +699,17 @@ sub obs_ssh_auth ($challenge, $user, $key) {
 
 # Tags arrive as a JSON array string (Vue UI) or repeated form params (bot/API/test clients). A present but
 # malformed tags_json is an error, not an empty list, so a bad payload never silently clears a package's tags.
-sub tags_from_request ($req, $exempt = undef) {
+sub tags_from_request ($req) {
   my $raw;
   if (defined(my $json = $req->param('tags_json'))) {
     $raw = $json eq '' ? [] : eval { from_json($json) };
     return (undef, 'tags must be an array of strings') unless ref $raw eq 'ARRAY';
   }
   else { $raw = $req->every_param('tags') }
-  return validate_tags($raw, $exempt);
+  return validate_tags($raw);
 }
 
-# $exempt is an optional regex for tags that should not count against MAX_TAGS (machine-derived package
-# CVE tags can legitimately exceed the human input cap).
-sub validate_tags ($tags, $exempt = undef) {
+sub validate_tags ($tags) {
   return ([],    undef)                              unless defined $tags;
   return (undef, 'tags must be an array of strings') unless ref $tags eq 'ARRAY';
 
@@ -725,8 +723,7 @@ sub validate_tags ($tags, $exempt = undef) {
     next                                                            if $seen{$trimmed}++;
     push @clean, $trimmed;
   }
-  my $counted = defined $exempt ? grep { $_ !~ $exempt } @clean : scalar @clean;
-  return (undef,   'too many tags, maximum is ' . MAX_TAGS) if $counted > MAX_TAGS;
+  return (undef,   'too many tags, maximum is ' . MAX_TAGS) if @clean > MAX_TAGS;
   return (\@clean, undef);
 }
 

@@ -65,7 +65,7 @@ sub create_package ($self) {
 
   return $self->reply->json_validation_error if $validation->has_error;
 
-  my ($tags, $tag_error) = tags_from_request($self->req, qr/^CVE(-|$)/i);
+  my ($tags, $tag_error) = tags_from_request($self->req);
   return $self->render(json => {error => $tag_error}, status => 400) if $tag_error;
 
   my $api     = $validation->param('api');
@@ -189,7 +189,7 @@ sub import_package ($self) {
   $validation->optional('external_link');
   return $self->reply->json_validation_error if $validation->has_error;
 
-  my ($tags, $tag_error) = tags_from_request($self->req, qr/^CVE(-|$)/i);
+  my ($tags, $tag_error) = tags_from_request($self->req);
   return $self->render(json => {error => $tag_error}, status => 400) if $tag_error;
 
   my $pkgs = $self->packages;

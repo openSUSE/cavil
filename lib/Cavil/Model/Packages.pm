@@ -765,7 +765,7 @@ sub paginate_open_reviews ($self, $options) {
         priority, state, checksum, unresolved_matches, tags, COUNT(*) OVER() AS total
       FROM bot_packages
       WHERE state = 'new' AND obsolete = FALSE AND ephemeral = FALSE $priority $search $tag $progress $embargoed $notes
-      ORDER BY priority DESC, external_link, unresolved_matches, name
+      ORDER BY priority DESC, 'CVE' = ANY(tags) DESC, external_link, unresolved_matches, name
       LIMIT ? OFFSET ?
     }, $options->{limit}, $options->{offset}
   )->hashes->to_array;
@@ -1351,13 +1351,10 @@ sub remove_documents ($self, $id) {
   );
 }
 
-# Autocomplete suggestions for the tag editor. Machine-added CVE-... tags are excluded (near-unique, they
-# would swamp the list and nobody types them by hand) and the result is capped, so this stays small no
-# matter how many CVEs accumulate.
 sub all_tags ($self) {
   return $self->pg->db->query(
     q{SELECT tag, COUNT(*)::int AS count FROM (SELECT unnest(tags) AS tag FROM bot_packages) t
-      WHERE tag !~* '^CVE(-|$)' GROUP BY tag ORDER BY count DESC, tag LIMIT 100}
+      GROUP BY tag ORDER BY count DESC, tag LIMIT 100}
   )->hashes->to_array;
 }
 

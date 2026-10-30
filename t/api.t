@@ -362,14 +362,13 @@ subtest 'Gitea request target derived from link' => sub {
 subtest 'Package tags model' => sub {
   my $pkgs = $t->app->packages;
   $pkgs->set_tags(1, []);
-  $pkgs->add_tags(1, ['CVE-2024-3654', 'security']);
-  is_deeply $pkgs->find(1)->{tags}, ['CVE-2024-3654', 'security'], 'tags added';
+  $pkgs->add_tags(1, ['CVE', 'security']);
+  is_deeply $pkgs->find(1)->{tags}, ['CVE', 'security'], 'tags added';
 
-  $pkgs->add_tags(1, ['security', 'CVE-2024-9999']);
-  is_deeply $pkgs->find(1)->{tags}, ['CVE-2024-3654', 'security', 'CVE-2024-9999'], 'add_tags unions and dedups';
+  $pkgs->add_tags(1, ['security', 'triage']);
+  is_deeply $pkgs->find(1)->{tags}, ['CVE', 'security', 'triage'], 'add_tags unions and dedups';
 
-  # Autocomplete suggestions exclude the near-unique CVE-... tags so the list cannot balloon
-  is_deeply [map { $_->{tag} } @{$pkgs->all_tags}], ['security'], 'all_tags aggregates non-CVE tags only';
+  is_deeply [map { $_->{tag} } @{$pkgs->all_tags}], ['CVE', 'security', 'triage'], 'all_tags aggregates tags';
 
   $pkgs->set_tags(1, ['only-this']);
   is_deeply $pkgs->find(1)->{tags}, ['only-this'], 'set_tags replaces the whole set';

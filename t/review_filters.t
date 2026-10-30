@@ -80,4 +80,26 @@ subtest 'recent reviews tag filter' => sub {
   is_deeply $recent_names->(''),        ['cve-pkg', 'plain-pkg'], 'no filter returns both recent';
 };
 
+subtest 'open reviews sort CVE packages first within a priority' => sub {
+  my $id = $pkgs->add(
+    %common,
+    name         => 'zzz-cve-pkg',
+    checkout_dir => 'ccc1c36647a5d356883d490da2140def',
+    package      => 'zzz-cve-pkg'
+  );
+  $pkgs->add_tags($id, ['CVE']);
+  my $page = $pkgs->paginate_open_reviews(
+    {
+      search        => '',
+      priority      => 0,
+      in_progress   => 'false',
+      not_embargoed => 'false',
+      notes         => 'any',
+      limit         => 100,
+      offset        => 0
+    }
+  )->{page};
+  is_deeply [map { $_->{name} } @$page], ['cve-pkg', 'zzz-cve-pkg', 'plain-pkg'], 'CVE packages come first';
+};
+
 done_testing;

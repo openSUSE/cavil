@@ -347,7 +347,7 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await page.route('**/reviews/meta/1', async route => {
         const response = await route.fetch();
         const data = await response.json();
-        data.tags = ['CVE-2024-3654', 'needs-second-opinion'];
+        data.tags = ['CVE', 'needs-second-opinion'];
         data.can_edit_tags = false;
         data.links = [
           {text: 'obs#123', label: 'SUSE', target: 'openSUSE:Factory/perl-Mojolicious', active: true},
@@ -447,7 +447,7 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await page.route('**/reviews/meta/1', async route => {
         const response = await route.fetch();
         const data = await response.json();
-        data.tags = ['CVE-2024-3654'];
+        data.tags = ['CVE'];
         data.can_edit_tags = true;
         await route.fulfill({response, json: data});
       });

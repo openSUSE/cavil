@@ -707,7 +707,7 @@ export default {
     },
 
     isCve(tag) {
-      return /^CVE(-|$)/i.test(tag);
+      return tag === 'CVE';
     },
 
     onTagsChanged(tags) {
