@@ -4,14 +4,15 @@
 package Cavil::Plugin::Helpers;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
+use Cavil::Checkout;
 use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(license_classification peripheral_scope report_risk);
 use Cavil::Role       qw(roles_with_capability);
-use Cavil::Util       qw(extract_spdx_identifiers license_link spdx_link);
+use Cavil::Util       qw(checkout_path decode_name extract_spdx_identifiers license_link spdx_link);
 use CommonMark        ();
 use Mojo::File        qw(path);
 use Mojo::JSON        qw(false from_json true);
-use Mojo::Util        qw(decode humanize_bytes xml_escape);
+use Mojo::Util        qw(humanize_bytes url_escape xml_escape);
 
 sub register ($self, $app, $config) {
   $app->helper('chart_data'                    => \&_chart_data);
@@ -22,9 +23,10 @@ sub register ($self, $app, $config) {
   $app->helper('current_user_can'              => \&_current_user_can);
   $app->helper('current_user_has_write_access' => \&_current_user_has_write_access);
   $app->helper('current_user_scopes'           => \&_current_user_scopes);
+  $app->helper('file_url'                      => \&_file_url);
   $app->helper('lic'                           => sub { shift; lic(@_) });
   $app->helper('lookup_reviews'                => \&_lookup_reviews);
-  $app->helper('maybe_utf8'                    => sub { decode('UTF-8', $_[1]) // $_[1] });
+  $app->helper('maybe_utf8'                    => sub { decode_name($_[1]) });
   $app->helper('mcp_report'                    => \&_mcp_report);
   $app->helper('package_summary'               => \&_package_summary);
   $app->helper('proposal_stats'                => sub { shift->patterns->proposal_stats });
@@ -238,11 +240,7 @@ sub _report_details ($c, $pkg, $report) {
       purl         => $comp->{purl},
       license      => $comp->{license},
       license_html => (length($comp->{license} // '') ? spdx_link($comp->{license}) : undef),
-      file_url     => (
-        length($comp->{source} // '')
-        ? $c->url_for('file_view', id => $pkg->{id}, file => $comp->{source})->to_string
-        : undef
-      ),
+      file_url     => (length($comp->{source} // '') ? $c->file_url('file_view', $pkg->{id}, $comp->{source}) : undef),
 
       # "Find every package that ships this component" (security/vulnerability triage), by exact purl
       search_url =>
@@ -250,8 +248,19 @@ sub _report_details ($c, $pkg, $report) {
     };
   }
 
+  # An empty report on a near-empty checkout reads like a failed checkout unless it says what is there. While a
+  # re-unpack runs, the old report stays live beside a manifest that is missing or new and a count that is unset or
+  # stale, so the list is capped by what was actually read.
+  my $checkout_files;
+  if (!keys(%$risks) && !@missed && defined $pkg->{unpacked_files} && $pkg->{unpacked_files} <= 20) {
+    my $dir   = checkout_path($c->app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir});
+    my $names = eval { Cavil::Checkout->new($dir)->listed_names } // [];
+    $checkout_files = $names if @$names && @$names <= 20;
+  }
+
   return {
     package               => {id => $pkg->{id}, name => $pkg->{name}, unresolved_matches => $pkg->{unresolved_matches}},
+    checkout_files        => $checkout_files,
     chart                 => $chart,
     license_compatibility => $report->{license_compatibility} // {licenses => [], matrix => {}, proximity => {}},
     missed_files          => \@missed,
@@ -267,7 +276,7 @@ sub _legal_documents ($c, $id) {
   return undef unless my $stored = ($c->reports->annotations($id) // {})->{legal_documents};
 
   my @documents = map {
-    { %$_, url => $c->url_for('file_view', id => $id, file => $_->{path})->to_string }
+    { %$_, url => $c->file_url('file_view', $id, $_->{path}) }
   } @{$stored->{documents} // []};
 
   return {documents => \@documents, dropped => $stored->{dropped} // 0};
@@ -295,6 +304,12 @@ sub _current_user_scopes ($c) { $c->stash->{'cavil.api.scopes'} // [] }
 sub _current_user_roles ($c) {
   return [] unless my $user = $c->helpers->current_user;
   return $c->users->roles($user);
+}
+
+# url_for decodes what it is given and so cannot carry a name that is not UTF-8, this escapes the bytes themselves
+sub _file_url ($c, $route, $id, $path) {
+  my $url = $c->url_for($route, id => $id, file => '')->to_string =~ s{/$}{}r;
+  return join '/', $url, map { url_escape($_, '^A-Za-z0-9\-._~!*\'()') } grep {length} split m{/}, $path;
 }
 
 sub _lookup_reviews ($c, $query, %opts) {

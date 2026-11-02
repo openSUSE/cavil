@@ -272,6 +272,20 @@ subtest 'Details after indexing' => sub {
       ->json_is('/source/window/more', 1);
     $unpacked->child($_)->remove for qw(large.txt minified.js);
 
+    # Dotfiles are package content, File::Unpack2's log and Cavil's documents at the tree root are not
+    ok -e $unpacked->child('.unpacked.json'), 'File::Unpack2 left its log in the tree';
+    $unpacked->child('.report.notice.txt.gz')->spurt('x');
+    $unpacked->child('Mojolicious-7.25', '.unpacked.json')->spurt('{}');
+    my $names = sub {
+      [map { $_->{name} } @{$t->get_ok(shift)->status_is(200)->tx->res->json->{entries}}]
+    };
+    my $root = $names->('/reviews/file_view_meta/1/');
+    ok !(grep {/^\.(?:unpacked\.json|report\.)/} @$root), 'no file of our own at the root';
+    my $dist = $names->('/reviews/file_view_meta/1/Mojolicious-7.25');
+    ok +(grep { $_ eq '.perltidyrc' } @$dist),    'package dotfile is listed';
+    ok +(grep { $_ eq '.unpacked.json' } @$dist), 'and so is a nested file that merely shares a name with ours';
+    $unpacked->child($_)->remove for '.report.notice.txt.gz', 'Mojolicious-7.25/.unpacked.json';
+
     $t->get_ok('/reviews/file_view_meta/1/does-not-exist')->status_is(404);
     $t->get_ok('/reviews/file_view_meta/1/../COPYING')->status_is(400);
   };

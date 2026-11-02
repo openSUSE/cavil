@@ -6,12 +6,12 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use MCP::Server;
 use Cavil::Checkout;
-use Cavil::Util qw(checkout_path original_filename pattern_matches pattern_contains_redundant_skip read_lines),
+use Cavil::Util
+  qw(checkout_path decode_name file_glob in_package_tree name_spellings pattern_matches pattern_contains_redundant_skip read_lines),
   qw(validate_tags @LICENSE_FLAGS);
 use Cavil::Model::Notes qw(NOTE_BODY_MAX_LENGTH REVIEW_TAG);
 use Cavil::Role         qw(capabilities_for);
 use List::Util          qw(max);
-use Text::Glob          qw(glob_to_regex);
 
 my $WRITE_TOOL_CAPABILITIES = {
   cavil_accept_review           => 'review',
@@ -659,19 +659,19 @@ sub tool_cavil_search_snippets ($tool, $args) {
 
 sub tool_cavil_get_file ($tool, $args) {
   my $id         = $args->{package_id};
-  my $path       = $args->{file_path};
   my $start_line = $args->{start_line} // 1;
   my $end_line   = $args->{end_line}   // 100;
   my $c          = _get_controller($tool);
   return $tool->text_result('Package not found', 1) unless my $pkg = $c->packages->find($id);
   return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
 
-  $path =~ s,/$,,;
+  my $base = _unpacked($c, $pkg);
+  my $path = _package_name($base, $args->{file_path} =~ s,/$,,r);
   return $tool->text_result('Invalid file path', 1) if $path =~ qr/\.\./;
-  my $file = checkout_path($c->app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', $path);
+  my $file = $base->child($path);
   return $tool->text_result('Maximum line range exceeded',     1) if ($end_line - $start_line) > 1000;
   return $tool->text_result('Invalid line range',              1) if $start_line > $end_line;
-  return $tool->text_result('File not found',                  1) unless -e $file;
+  return $tool->text_result('File not found',                  1) unless -e $file && in_package_tree($base, $file);
   return $tool->text_result('Path is a directory, not a file', 1) if -d $file;
 
   return $tool->text_result(read_lines($file, $start_line, $end_line, 1));
@@ -684,16 +684,15 @@ sub tool_cavil_list_files ($tool, $args) {
   return $tool->text_result('Package not found', 1) unless my $pkg = $c->packages->find($id);
   return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
 
-  local $Text::Glob::strict_wildcard_slash = 0;
-  my $regex = glob_to_regex($glob);
+  my $regex = file_glob($glob);
   my $dir   = checkout_path($c->app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir});
 
   # The unpack manifest, never a walk of the tree: stat-ing all files of a big checkout takes minutes on a cold cache
   return $tool->text_result('Package is not yet unpacked', 1) unless -f $dir->child('.postprocessed.json');
-  my @files = grep {/$regex/} map { _listed_name($dir, $_) } @{Cavil::Checkout->new($dir)->unpacked_names};
+  my @files = map { decode_name($_) } grep {/$regex/} @{Cavil::Checkout->new($dir)->listed_names};
   return $tool->text_result('Maximum file list size exceeded', 1) if @files > 1000;
   return $tool->text_result('No files found',                  1) unless @files;
-  return $tool->text_result(join("\n", sort @files));
+  return $tool->text_result(join("\n", @files));
 }
 
 sub tool_cavil_create_note ($tool, $args) {
@@ -992,7 +991,6 @@ sub tool_cavil_propose_ignore_glob ($tool, $args) {
 
 sub tool_cavil_create_snippet ($tool, $args) {
   my $id         = $args->{package_id};
-  my $path       = $args->{file_path};
   my $start_line = $args->{start_line};
   my $end_line   = $args->{end_line};
   my $c          = _get_controller($tool);
@@ -1004,6 +1002,7 @@ sub tool_cavil_create_snippet ($tool, $args) {
 
   # Indexing records a file only once something matched in it, so a file with nothing matched has no row
   # yet; one is created on demand, and what has to exist is the file in the unpacked checkout
+  my $path = _package_name(_unpacked($c, $pkg), $args->{file_path});
   return $tool->text_result('File not found in package', 1)
     unless defined(my $snippet_id = $c->snippets->from_file_path($id, $path, $start_line, $end_line));
 
@@ -1062,10 +1061,13 @@ sub _filter_tools ($server, $tools, $context) {
 
 # Facts the reviewer would otherwise have to research: which words each $SKIP swallowed in this snippet, what
 # curated patterns say about the exact text the pattern covers, and how far the pattern reaches in the corpus
-# Postprocess never touches a name already containing ".processed", so only an existing original proves it was made
-sub _listed_name ($dir, $name) {
-  my $original = original_filename($name);
-  return $original ne $name && -f $dir->child('.unpacked', $original) ? $original : $name;
+sub _unpacked ($c, $pkg) {
+  checkout_path($c->app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked');
+}
+
+sub _package_name ($base, $name) {
+  my @spellings = name_spellings($name);
+  return (grep { -e $base->child($_) } @spellings)[0] // $spellings[0];
 }
 
 sub _pattern_evidence ($c, $pattern, $text) {

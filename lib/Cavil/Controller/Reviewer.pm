@@ -4,9 +4,11 @@
 package Cavil::Controller::Reviewer;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use Mojo::File  qw(path);
-use Mojo::Util  qw(encode url_escape);
-use Cavil::Util qw(checkout_path lines_context path_within tags_from_request PRIORITY_WAITING);
+use Mojo::File qw(path);
+use Mojo::Util qw(encode url_escape);
+use Cavil::Util
+  qw(checkout_path decode_name encode_name in_package_tree is_internal_name lines_context tags_from_request),
+  qw(PRIORITY_WAITING);
 
 use constant WINDOW_LINES        => 2000;
 use constant LIMITATION_FALLBACK => 'Only acceptable with a limitation, see the review comment';
@@ -117,7 +119,7 @@ sub file_view_meta ($self) {
   }
   elsif (-d $file) {
     $payload->{kind}    = 'directory';
-    $payload->{entries} = $self->_file_browser_entries($package, $file, $filename);
+    $payload->{entries} = $self->_file_browser_entries($package, $ctx->{unpacked}, $file, $filename);
   }
   else {
     my $from = $self->param('from') // '';
@@ -134,17 +136,17 @@ sub file_raw ($self) {
   return $self->reply->not_found if $ctx->{unavailable} || -d $ctx->{file};
 
   my $name    = $ctx->{file}->basename;
-  my $ascii   = $name =~ s/[^\x20-\x7e]|["\\]/_/gr;
+  my $ascii   = decode_name($name) =~ s/[^\x20-\x7e]|["\\]/_/gr;
   my $headers = $self->res->headers;
   $headers->content_type('application/octet-stream');
   $headers->header('X-Content-Type-Options' => 'nosniff');
   $headers->content_disposition(
-    qq{attachment; filename="$ascii"; filename*=UTF-8''} . url_escape(encode('UTF-8', $name)));
+    qq{attachment; filename="$ascii"; filename*=UTF-8''} . url_escape(encode('UTF-8', decode_name($name))));
   return $self->reply->file($ctx->{file});
 }
 
 sub _file_browser_context ($self) {
-  my $filename = $self->stash('file');
+  my $filename = encode_name($self->stash('file'));
 
   # Reject parent traversal; this also forbids otherwise valid names containing "..".
   if ($filename =~ qr/\.\./) {
@@ -169,39 +171,31 @@ sub _file_browser_context ($self) {
   return {filename => $filename, package => $package, unavailable => 1} unless -d $unpacked;
 
   my $file = $unpacked->child($filename);
-  unless (-e $file && path_within($unpacked, $file)) {
+  unless (-e $file && in_package_tree($unpacked, $file)) {
     $self->reply->not_found;
     return undef;
   }
 
-  return {filename => $filename, package => $package, file => $file};
+  return {filename => $filename, package => $package, file => $file, unpacked => $unpacked};
 }
 
 sub _file_browser_breadcrumbs ($self, $package, $filename) {
-  my @breadcrumbs = (
-    {
-      name => $package->{name},
-      path => '',
-      url  => $self->url_for('file_view', id => $package->{id}, file => '')->to_string
-    }
-  );
+  my @breadcrumbs = ({name => $package->{name}, path => '', url => $self->file_url('file_view', $package->{id}, '')});
   my @path;
   for my $part (grep { length $_ } split '/', $filename) {
     push @path, $part;
     push @breadcrumbs,
-      {
-      name => $part,
-      path => join('/', @path),
-      url  => $self->url_for('file_view', id => $package->{id}, file => join('/', @path))->to_string
-      };
+      {name => $part, path => join('/', @path), url => $self->file_url('file_view', $package->{id}, join('/', @path))};
   }
   return \@breadcrumbs;
 }
 
-sub _file_browser_entries ($self, $package, $file, $filename) {
+sub _file_browser_entries ($self, $package, $unpacked, $file, $filename) {
   my %matched_files = map { $_ => 1 } @{$self->packages->matched_files($package->{id})};
   my (@files, @dirs, @processed);
-  for my $entry (sort { lc($a->basename) cmp lc($b->basename) } $file->list({dir => 1})->each) {
+  my $root = $file->to_rel($unpacked) eq '.';
+  for my $entry (sort { lc($a->basename) cmp lc($b->basename) } $file->list({dir => 1, hidden => 1})->each) {
+    next if $root && is_internal_name($entry->basename);
     if    (-d $entry)                          { push @dirs,      $entry }
     elsif ($entry =~ /\.processed(?:\.\w+|$)/) { push @processed, $entry }
     else                                       { push @files,     $entry }
@@ -224,7 +218,7 @@ sub _file_browser_entries ($self, $package, $file, $filename) {
       kind      => -d $entry ? 'directory' : 'file',
       processed => $processed,
       hasMatch  => $has_match,
-      url       => $self->url_for('file_view', id => $package->{id}, file => $path)->to_string
+      url       => $self->file_url('file_view', $package->{id}, $path)
       };
   }
   return \@entries;
@@ -263,7 +257,7 @@ sub _file_browser_source ($self, $package, $file, $filename, $from) {
     lines    => lines_context(\@lines),
     name     => $package->{name},
     filename => $filename,
-    rawUrl   => $self->url_for('file_raw', id => $package->{id}, file => $filename)->to_string
+    rawUrl   => $self->file_url('file_raw', $package->{id}, $filename)
   };
   return $source unless $windowed;
 

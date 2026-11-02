@@ -56,7 +56,7 @@
         <ul class="evidence-samples">
           <li v-for="sample in impact.samples" :key="sample.snippet">
             <a :href="`/reviews/details/${sample.package}`" target="_blank">{{ sample.name }}</a>
-            {{ sample.filename }}:{{ sample.sline }} · {{ sample.resolution ?? 'unresolved' }}
+            {{ displayName(sample.filename) }}:{{ sample.sline }} · {{ sample.resolution ?? 'unresolved' }}
           </li>
         </ul>
       </details>
@@ -65,6 +65,8 @@
 </template>
 
 <script>
+import {displayName} from '../helpers/links.js';
+
 // Server-computed facts of a pattern proposal (see _pattern_evidence in the MCP plugin), so a reviewer checks
 // what the pattern swallows, which curated patterns agree and how far it reaches without reading $SKIP tokens
 export default {
@@ -130,6 +132,7 @@ export default {
     }
   },
   methods: {
+    displayName,
     agrees(row) {
       return row.license === this.data.license && String(row.risk) === String(this.data.risk);
     },

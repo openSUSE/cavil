@@ -5,7 +5,7 @@ package Cavil::Model::UnpackExclusions;
 use Mojo::Base -base, -signatures;
 
 use Cavil::Model::AuditLog qw(audit_event);
-use Cavil::Util            qw(paginate);
+use Cavil::Util            qw(encode_name paginate);
 use Text::Glob             qw(glob_to_regex);
 
 has 'pg';
@@ -31,7 +31,7 @@ sub add ($self, $rule, $login) {
 
 sub for_package ($self, $name) {
   local $Text::Glob::strict_wildcard_slash = 0;
-  return [map { $_->{file} }
+  return [map { encode_name($_->{file}) }
     grep { $name =~ glob_to_regex($_->{package_glob}) }
       $self->pg->db->query('SELECT package_glob, file FROM unpack_exclusions ORDER BY id')->hashes->each];
 }

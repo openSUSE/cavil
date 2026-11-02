@@ -8,11 +8,12 @@ use Cavil::Checkout;
 use Cavil::ReportUtil
   qw(is_catalog_entry is_license_filename is_vendored_path license_terms_kind peripheral_scope peripheral_scope_label),
   qw(incompatibility_location ranked_incompatibilities unexplained_line_numbers);
-use Cavil::Util qw(checkout_path document_writer extract_spdx_identifiers md5_file original_filename read_lines);
-use List::Util  qw(max min);
-use Mojo::File  qw(path);
-use Mojo::JSON  qw(from_json);
-use Mojo::Util  qw(encode);
+use Cavil::Util
+  qw(checkout_path decode_name document_writer extract_spdx_identifiers fs_bytes md5_file original_filename read_lines);
+use List::Util qw(max min);
+use Mojo::File qw(path);
+use Mojo::JSON qw(from_json);
+use Mojo::Util qw(encode);
 
 # Every file of evidence goes through one pipeline: collected with the reasons it matters and the lines that do, merged
 # so it appears once, rendered as its head and windows around those lines, and charged to the budget of the first
@@ -225,7 +226,7 @@ sub _license_documents ($ctx, $c) {
     ->{legal_documents};
 
   my @documents = @{($legal // {})->{documents} // []};
-  my @named     = map {"`$_->{path}`"} grep { !$_->{unexplained} } @documents;
+  my @named     = map { "`" . decode_name($_->{path}) . "`" } grep { !$_->{unexplained} } @documents;
   push @{$ctx->{extras}{license}},
     'Fully matched by known license patterns, so not reproduced: ' . join(', ', @named) . '.'
     if @named;
@@ -236,7 +237,7 @@ sub _license_documents ($ctx, $c) {
   my $spans       = $app->reports->licensed_spans([values %$ids]);
   my @evidence;
   for my $doc (@unexplained) {
-    my $file = $ctx->{base}->child($doc->{path});
+    my $file = $ctx->{base}->child(fs_bytes($doc->{path}));
     next unless -f $file;
     my @lines = split /\n/, read_lines($file, 1, SCAN_LINES), -1;
     my $marks = unexplained_line_numbers($spans->{$ids->{$doc->{path}} // 0}, \@lines);
@@ -294,16 +295,18 @@ sub _merge ($ctx, $evidence) {
   my (%by_md5, @entries);
   for my $path (@order) {
     my $entry = $by_path{$path};
-    my $file  = $ctx->{base}->child($path);
+    my $file  = $ctx->{base}->child(fs_bytes($path));
     unless (-f $file && -r _ && !-B _) {
-      push @{$ctx->{extras}{$entry->{category}}}, "`$path` is not a readable text file, not reproduced.";
+      push @{$ctx->{extras}{$entry->{category}}},
+        "`@{[decode_name($path)]}` is not a readable text file, not reproduced.";
       next;
     }
     my $md5 = md5_file($file);
     if (my $original = $by_md5{$md5}) {
-      push @{$original->{reasons}}, map { [$_->[0], "identical copy `$path`: $_->[1]"] } @{$entry->{reasons}};
-      push @{$original->{lines}},   @{$entry->{lines}};
-      push @{$original->{marks}},   @{$entry->{marks}};
+      push @{$original->{reasons}},
+        map { [$_->[0], "identical copy `@{[decode_name($path)]}`: $_->[1]"] } @{$entry->{reasons}};
+      push @{$original->{lines}}, @{$entry->{lines}};
+      push @{$original->{marks}}, @{$entry->{marks}};
       next;
     }
     push @entries, $by_md5{$md5} = $entry;
@@ -344,7 +347,7 @@ sub _notes ($c, $pkg) {
 # The head of a file and a window around every line that matters, overlapping windows merged. Windows past the cap
 # are counted, never dropped silently.
 sub _render ($ctx, $entry) {
-  my $file  = $ctx->{base}->child($entry->{path});
+  my $file  = $ctx->{base}->child(fs_bytes($entry->{path}));
   my $total = _line_count($file);
   my $head  = min($entry->{head}, $total);
   my %marks = map { $_ => 1 } @{$entry->{marks}};
@@ -373,7 +376,7 @@ sub _render ($ctx, $entry) {
   if (my @left = sort { $a <=> $b } keys %left_out) {
     push @reasons, @left . " more lines of interest between lines $left[0] and $left[-1] not shown";
   }
-  return {path => $entry->{path}, reasons => \@reasons, text => $text};
+  return {path => decode_name($entry->{path}), reasons => \@reasons, text => $text};
 }
 
 # Each entry rendered under the first section that needs it and charged to its budget, a file that does not fit
@@ -399,7 +402,7 @@ sub _sections ($ctx, $entries) {
     my $block   = _render($ctx, $entry);
     my $where   = "shown under $section->{title}";
     if (length $block->{text} > $section->{budget}) {
-      push @{$section->{omitted}}, "`$entry->{path}`: " . join('; ', @{$block->{reasons}});
+      push @{$section->{omitted}}, "`$block->{path}`: " . join('; ', @{$block->{reasons}});
       $where = "not reproduced, $section->{title} reached its size limit";
     }
     else {
@@ -408,7 +411,7 @@ sub _sections ($ctx, $entries) {
     }
 
     my %seen = ($entry->{category} => 1);
-    push @{$index{$_->[0]}{also}}, "`$entry->{path}`, $where" for grep { !$seen{$_->[0]}++ } @{$entry->{reasons}};
+    push @{$index{$_->[0]}{also}}, "`$block->{path}`, $where" for grep { !$seen{$_->[0]}++ } @{$entry->{reasons}};
   }
 
   return \@sections;
@@ -457,7 +460,7 @@ sub _shipping ($ctx) {
       _evidence($main, 'shipping', 'spec file', head => _lines_within($ctx->{base}->child($main), SPEC_MAX));
   }
   else { push @{$ctx->{extras}{shipping}}, 'No spec file at the package root.' }
-  my @others = map {"`$_`"} grep { !defined $main || $_ ne $main } @specs;
+  my @others = map { "`" . decode_name($_) . "`" } grep { !defined $main || $_ ne $main } @specs;
   push @{$ctx->{extras}{shipping}}, 'Other spec files, not reproduced: ' . join(', ', @others) . '.' if @others;
 
   if (($pkg->{notice} // '') =~ /^  Declared license\b/m && (my ($changes) = grep {/^[^\/]+\.changes$/} @files)) {

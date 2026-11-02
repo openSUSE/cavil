@@ -56,6 +56,16 @@ see the packager's declaration next to upstream's own (`package.json`, `Cargo.to
 `Declared-License:` line is absent, none of them declares a license (nothing listed there means plain
 upstream source) - say so explicitly and lean toward NEEDS HUMAN REVIEW.
 
+The one exception is an **empty repository**: a package repository that was just created and holds no code yet, only
+the version-control settings files its hosting service adds. All three must hold:
+- The report says `No files matched known license patterns or keywords.` and has no `Declared-License:` line.
+- `cavil_list_files(package_id)` lists only `.gitignore` and `.gitattributes` (one or both).
+- Opened with `cavil_get_file`, they contain only ignore patterns and attribute rules.
+
+Then there is nothing to license and nothing to declare: recommend ACCEPT, and say in the summary that the checkout is
+an empty repository and which files it holds. Any other file, such as source code, a spec file, a README or a license
+text, means it is not an empty repository, and every check below applies.
+
 **Always read the package's own license-declaration files with `cavil_get_file` before you compare**,
 do not judge from the tag alone. Start with the files the `## Legal Documents` section lists, the ones with unknown
 lines first, then list siblings with `cavil_list_files` (globs like `*/LICENSE*`, `*/COPYING*`) and read what they turn
@@ -355,6 +365,7 @@ Let the risk levels and flags from 3b steer the lean:
 - **EULA flag** → NEEDS HUMAN REVIEW for a SUSE-owned EULA or one whose owner you cannot tell; a third-party one is proprietary code.
 - **Risk 5** (managed obligations - AGPL network copyleft, advertising clauses), **or a Patent / Export restricted flag** → NEEDS HUMAN REVIEW.
 - **CLA or Trademark flag** → note it, but do not change the recommendation on that alone.
+- **An empty repository (3a)** → ACCEPT; there is nothing to license and nothing to declare.
 - **Several apply** → the most severe outcome wins: REJECT over NEEDS HUMAN REVIEW over ACCEPT.
 - **Risk 1–4** → the acceptable band; the declared-license check (including the fixable-metadata vs. bad-license distinction) and the combination/aggregation check carry the decision.
 

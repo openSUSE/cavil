@@ -93,20 +93,22 @@ EOF
   # the guard is worth having: the ratio is ~2 while this is linear and ~4 if it goes quadratic again,
   # and unlike a wall-clock limit it means the same thing on a fast desktop and a loaded CI runner. The
   # trailing "@" is deliberate, so the text gets past the index() shortcut and the bounds are measured.
+  #
+  # The two sizes take turns and the best of several runs counts, so a burst of load on a busy machine (a parallel
+  # prove) lands on both sides instead of skewing one.
   subtest 'pathological input stays linear' => sub {
-    my $scan = sub ($size) {
-      my $text = substr('a.' x $size, 0, $size - 1) . '@';
-      my $best = 9e9;
-      for (1 .. 3) {
+    my %best = (15000 => 9e9, 30000 => 9e9);
+    for my $round (1 .. 7) {
+      for my $size (sort keys %best) {
+        my $text  = substr('a.' x $size, 0, $size - 1) . '@';
         my $start = time;
         my $meta  = extract_urls_and_emails($text);
         my $spent = time - $start;
-        $best = $spent if $spent < $best;
-        is_deeply $meta, {emails => {}, urls => {}}, "nothing extracted from ${size} bytes" if $_ == 1;
+        $best{$size} = $spent if $spent < $best{$size};
+        is_deeply $meta, {emails => {}, urls => {}}, "nothing extracted from ${size} bytes" if $round == 1;
       }
-      return $best;
-    };
-    my $ratio = $scan->(30000) / $scan->(15000);
+    }
+    my $ratio = $best{30000} / $best{15000};
     ok $ratio < 3, sprintf('doubling the input doubled the work (ratio %.2f, quadratic would be ~4)', $ratio);
   };
 };
@@ -164,7 +166,8 @@ subtest 'Derived documents never reach the unpacked tree' => sub {
   $src->child('vendor')->make_path->child('.report.json')->spew(qq({"tool": "not ours"}\n));
   is system('tar', '-czf', $co->child('src.tar.gz')->to_string, '-C', $src->to_string, '.'), 0, 'archive built';
 
-  # A previous run's documents sit in the checkout dir
+  # A previous run's documents sit in the checkout dir, next to a file the package ships under a similar name
+  $co->child('.report.notes')->spew("the package's own notes\n");
   $co->child('.report.spdx.json')->spew('{"spdxVersion":"SPDX-2.3","packages":[' . ('{"n":"x"},' x 200) . '{}]}');
   is system('gzip', $co->child('.report.spdx.json')->to_string), 0, 'report gzipped';
   $co->child('.report.notice.txt')->spew("NOTICE\n\nPermission is hereby granted, free of charge\n");
@@ -173,8 +176,8 @@ subtest 'Derived documents never reach the unpacked tree' => sub {
   Cavil::Checkout->new($co)->unpack;
 
   my $hash = decode_json($co->child('.postprocessed.json')->slurp)->{unpacked};
-  ok !(grep {m{^\.report\.}} keys %$hash),             'no derived document in the unpacked set';
-  ok !-e $co->child('.unpacked', '.report.spdx.json'), 'the report was not exploded into .unpacked';
+  ok !(grep {m{^\.report\.(?:spdx|notice)}} keys %$hash), 'no derived document in the unpacked set';
+  ok !-e $co->child('.unpacked', '.report.spdx.json'),    'the report was not exploded into .unpacked';
 
   # A NOTICE is nothing but license text, so indexing one would match every license it reproduces
   ok !-e $co->child('.unpacked', '.report.notice.txt'), 'nor the notice';
@@ -183,6 +186,8 @@ subtest 'Derived documents never reach the unpacked tree' => sub {
 
   ok +(grep {m{hello\.txt$}} keys %$hash),            'real source files are still unpacked';
   ok +(grep {m{vendor/\.report\.json$}} keys %$hash), "and so is a package's own .report file";
+  ok -e $co->child('.report.notes'),                  'one at the root is not deleted';
+  ok +(grep { $_ eq '.report.notes' } keys %$hash),   'and is unpacked like any other';
 };
 
 subtest 'Generated SPDX reports are never handed to the indexer' => sub {
@@ -203,9 +208,37 @@ subtest 'Generated SPDX reports are never handed to the indexer' => sub {
     }
   );
 
-  my $files = Cavil::Checkout->new($co)->unpacked_files;
+  my $checkout = Cavil::Checkout->new($co);
+  my $files    = $checkout->unpacked_files;
   is_deeply [sort map { $_->[0] } @$files], ['src/real.txt'],
     'every .report.spdx variant (incl. the .processed one) is skipped, only real files remain';
+  is_deeply $checkout->unpacked_names, ['src/real.txt'], 'and every other manifest reader skips them too';
+  is $checkout->unpacked_file_stats->{files}, 1, 'they are not counted';
+};
+
+subtest 'Listed names' => sub {
+  my $co = $TMP->child('listed-names', 'hash')->make_path;
+  $co->child('.unpacked', 'src')->make_path->child('a.txt')->spew("a\n");
+  $co->child('.postprocessed.json')->spew(
+    encode_json {
+      unpacked => {
+        '.gitignore'             => {mime => 'text/plain'},
+        '.unpacked.json'         => {mime => 'application/json'},
+        '.report.notice.txt'     => {mime => 'text/plain'},
+        '.report.Xa1b2c3d'       => {mime => 'application/gzip'},
+        '.report.notes'          => {mime => 'text/plain'},
+        'src/.unpacked.json'     => {mime => 'application/json'},
+        'src/a.processed.txt'    => {mime => 'text/plain'},
+        'src/b.processed.txt'    => {mime => 'text/plain'},
+        'src/Makefile.processed' => {mime => 'text/plain'},
+      }
+    }
+  );
+  is_deeply(
+    Cavil::Checkout->new($co)->listed_names,
+    ['.gitignore', '.report.notes', 'src/.unpacked.json', 'src/Makefile.processed', 'src/a.txt', 'src/b.processed.txt'],
+    'package dotfiles stay, built-ins at the root go, processed copies listed by an existing original'
+  );
 };
 
 subtest 'Markup files are stripped during unpack' => sub {

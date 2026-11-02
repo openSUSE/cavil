@@ -100,7 +100,17 @@
           icon="fa-solid fa-circle-check"
           data-empty-report-notice
         >
-          <p class="cavil-notice-summary">No files matching any known license patterns or keywords have been found.</p>
+          <p class="cavil-notice-summary">
+            No files matching any known license patterns or keywords have been found.
+            <template v-if="checkoutFiles.length > 0">The checkout only contains these files:</template>
+          </p>
+          <ul v-if="checkoutFiles.length > 0" class="cavil-notice-list">
+            <li v-for="file in checkoutFiles" :key="file" class="cavil-notice-item">
+              <a :href="fileViewUrl(pkgId, file)" target="_blank" rel="noopener" class="checkout-file"
+                ><FilePath :path="file"
+              /></a>
+            </li>
+          </ul>
         </CavilNoticePanel>
         <div v-else>
           <CavilNoticePanel
@@ -507,7 +517,7 @@ import ReportArtifacts from './ReportArtifacts.vue';
 import ReportFileActions from './ReportFileActions.vue';
 import ReportMatchPanel from './ReportMatchPanel.vue';
 import ReportNotes from './ReportNotes.vue';
-import {fileViewUrl} from '../helpers/links.js';
+import {displayName, fileViewUrl} from '../helpers/links.js';
 import {
   ignorePendingAction,
   resolveMatchChecksum,
@@ -569,6 +579,7 @@ export default {
   data() {
     return {
       chart: null,
+      checkoutFiles: [],
       componentFilter: '',
       components: [],
       licenseCompatibility: {licenses: [], matrix: {}, proximity: {}},
@@ -682,6 +693,7 @@ export default {
     }
   },
   methods: {
+    fileViewUrl,
     setActiveTab(tab, {scrollIntoView = false} = {}) {
       this.activeTab = tab;
       if (tab === 'notes') this.notesMounted = true;
@@ -833,6 +845,7 @@ export default {
 
       this.chart = data.chart;
       this.licenseCompatibility = data.license_compatibility ?? {licenses: [], matrix: {}, proximity: {}};
+      this.checkoutFiles = data.checkout_files ?? [];
       this.missedFiles = data.missed_files;
       this.unresolvedMatches = data.package.unresolved_matches;
       if (data.package.name) this.packageName = data.package.name;
@@ -1147,6 +1160,7 @@ export default {
         endLine: ctx.endLine,
         hash: ctx.hash,
         from: ctx.from,
+        filePath: ctx.filePath,
         action: payload.action,
         formData: payload.formData,
         license: payload.license || (payload.formData && payload.formData.license) || '',
@@ -1168,7 +1182,7 @@ export default {
     suggestGlob(path) {
       // Pre-fill with the file path, but replace the versioned top-level directory's version with
       // "*" so the glob applies to future versions too (e.g. alloy-1.2.3/x/y.log -> alloy-*/x/y.log).
-      const parts = String(path).split('/');
+      const parts = displayName(String(path)).split('/');
       parts[0] = parts[0].replace(/-[0-9][^/]*$/, '-*');
       return parts.join('/');
     },
@@ -1313,7 +1327,7 @@ export default {
         endLine: action.endLine,
         hash: action.hash,
         from: action.from,
-        filePath: action.locationLabel.split(':')[0],
+        filePath: action.filePath,
         initial: action.formData,
         editingId: action.id
       });
@@ -1391,6 +1405,17 @@ export default {
 </script>
 
 <style>
+.checkout-file {
+  color: var(--cavil-fg-muted);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration-color: transparent;
+}
+.checkout-file:hover,
+.checkout-file:focus {
+  color: var(--cavil-accent-strong);
+  text-decoration-color: currentColor;
+}
 /* The bar lines up with the sentence above it rather than running edge to edge, so the notice reads as
    one block instead of a panel with a strip stuck to its bottom */
 .reindexing-progress {

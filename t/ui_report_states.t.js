@@ -101,6 +101,11 @@ t.test('Cavil UI - report states', skipUnlessOnline, async t => {
         /No files matching any known license patterns or keywords have been found/,
         'empty report notice is shown'
       );
+      t.equal(
+        await page.locator('[data-empty-report-notice] a.checkout-file').count(),
+        0,
+        'a checkout too big to list is not listed'
+      );
       t.equal(await page.locator('[data-obsolete-report-notice]').count(), 0, 'empty report is not obsolete');
       t.equal(await page.locator('[data-report-unavailable]').count(), 0, 'empty report is available');
 

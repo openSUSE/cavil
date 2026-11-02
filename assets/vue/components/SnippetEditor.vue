@@ -254,7 +254,7 @@ import ClosestPattern from './ClosestPattern.vue';
 import LegalLoading from './LegalLoading.vue';
 import PatternFlags, {LICENSE_FLAGS, PATTERN_FLAGS} from './PatternFlags.vue';
 import {rankLicenses} from '../helpers/licenseAutocomplete.js';
-import {fileViewUrl, setupPopoverDelayed} from '../helpers/links.js';
+import {displayName, fileViewUrl, setupPopoverDelayed} from '../helpers/links.js';
 import {renderPatternTooltip, showPatternTooltip} from '../helpers/patternTooltip.js';
 import {EditorState, StateEffect, StateField} from '@codemirror/state';
 import {Decoration, EditorView, hoverTooltip} from '@codemirror/view';
@@ -418,7 +418,7 @@ export default {
       if (this.package !== null) {
         this.package.packageUrl = `/reviews/details/${this.package.id}`;
         this.package.fileUrl = fileViewUrl(this.package.id, this.package.filename, snippet.sline);
-        this.package.file = this.package.filename.split('/').pop();
+        this.package.file = displayName(this.package.filename).split('/').pop();
       }
       this.patternText = snippet.text;
       this.startLine = snippet.sline;

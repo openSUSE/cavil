@@ -9,7 +9,7 @@ use Mojo::File  qw(path tempdir);
 use Mojo::JSON  qw(from_json to_json);
 use Mojo::Pg;
 use Mojo::URL;
-use Mojo::Util qw(scope_guard);
+use Mojo::Util qw(encode md5_sum scope_guard);
 
 sub new ($class, %options) {
 
@@ -912,6 +912,48 @@ sub large_file_fixtures ($self, $app) {
   $app->minion->perform_jobs;
 
   return $pkg_id;
+}
+
+# Names as they come out of real tarballs (UTF-8 with and without a match, an old Latin-1 one), and a Gitea package
+# repository just created: Gitea's own two files and nothing else
+sub file_names_fixtures ($self, $app) {
+  $self->migrate($app);
+
+  $app->patterns->create(pattern => 'SPDX-License-Identifier: MIT', license => 'MIT', risk => 1);
+  my %files = (
+    'file-names' => {
+      encode('UTF-8', "Lizenz\x{e4}.txt")   => "SPDX-License-Identifier: MIT\n",
+      encode('UTF-8', "Notizen-\x{fc}.txt") => "nothing to see\n",
+      "alt\xe4.txt" => "SPDX-License-Identifier: MIT\n"
+    },
+    'kernel-livepatch-Test' =>
+      {'.gitignore' => ".osc\n", '.gitattributes' => "*.tar.* filter=lfs diff=lfs merge=lfs -text\n"}
+  );
+
+  my $pkgs   = $app->packages;
+  my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
+  my @ids;
+  for my $name ('file-names', 'kernel-livepatch-Test') {
+    my $md5 = md5_sum $name;
+    my $dir = $self->checkout_dir->child($name, $md5)->make_path;
+    $dir->child($_)->spew($files{$name}{$_}) for keys %{$files{$name}};
+    push @ids,
+      $pkgs->add(
+      name            => $name,
+      checkout_dir    => $md5,
+      api_url         => 'https://src.example.com',
+      requesting_user => $usr_id,
+      project         => 'pool',
+      package         => $name,
+      srcmd5          => $md5,
+      priority        => 5
+      );
+    $pkgs->imported($ids[-1]);
+    $pkgs->unpack($ids[-1]);
+  }
+  $app->minion->perform_jobs;
+
+  return @ids;
 }
 
 sub compatibility_fixtures ($self, $app) {

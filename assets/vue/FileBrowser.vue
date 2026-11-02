@@ -32,7 +32,7 @@
       <nav class="file-browser-breadcrumb" aria-label="File path">
         <span v-for="(crumb, index) in meta.breadcrumbs" :key="crumb.path" class="file-browser-breadcrumb-item">
           <span v-if="index > 0" class="file-browser-separator">/</span>
-          <a :href="crumb.url" @click="openPath($event, crumb.path)">{{ crumb.name }}</a>
+          <a :href="crumb.url" @click="openPath($event, crumb.path)">{{ displayName(crumb.name) }}</a>
         </span>
         <span class="file-browser-count">
           <template v-if="meta.kind === 'unavailable'">unavailable</template>
@@ -75,7 +75,7 @@
                 <i v-else class="fa-regular fa-file"></i>
               </td>
               <td class="file-browser-name">
-                <a :href="entry.url" @click="openPath($event, entry.path)">{{ entry.name }}</a>
+                <a :href="entry.url" @click="openPath($event, entry.path)">{{ displayName(entry.name) }}</a>
               </td>
               <td class="file-browser-kind">
                 <span v-if="entry.hasMatch" class="file-browser-match-badge">matched</span>
@@ -126,7 +126,7 @@ import FileSource from './components/FileSource.vue';
 import LegalLoading from './components/LegalLoading.vue';
 import PendingActionsWidget from './components/PendingActionsWidget.vue';
 import ProgressBar from './components/ProgressBar.vue';
-import {encodePath, fileViewUrl} from './helpers/links.js';
+import {displayName, encodePath, fileViewUrl, pathFromUrl} from './helpers/links.js';
 import {
   ignorePendingAction,
   resolveMatchChecksum,
@@ -201,6 +201,7 @@ export default {
     if (this.statePollTimer !== null) clearTimeout(this.statePollTimer);
   },
   methods: {
+    displayName,
     metaUrl(path, from) {
       return `/reviews/file_view_meta/${this.pkgId}/${encodePath(path)}${from > 1 ? `?from=${from}` : ''}`;
     },
@@ -229,8 +230,8 @@ export default {
         this.openInlineEditor = null;
         if (this.meta.kind === 'unavailable') document.title = `Unpacking ${this.meta.package.name}`;
         else if (this.meta.kind === 'directory')
-          document.title = `Directory listing of ${this.meta.currentPath || '/'}`;
-        else document.title = `Content of ${this.meta.currentPath}`;
+          document.title = `Directory listing of ${displayName(this.meta.currentPath) || '/'}`;
+        else document.title = `Content of ${displayName(this.meta.currentPath)}`;
         this.targetLine = line;
         const nextUrl = this.viewUrl(this.meta.currentPath) + (options.replace ? window.location.hash : '');
         if (options.replace) history.replaceState({path: this.meta.currentPath}, '', nextUrl);
@@ -294,7 +295,7 @@ export default {
       const prefix = `/reviews/file_view/${this.pkgId}`;
       let path = window.location.pathname.startsWith(prefix) ? window.location.pathname.slice(prefix.length) : '';
       path = path.replace(/^\//, '');
-      this.fetchPath(decodeURIComponent(path), {replace: true, seek: true});
+      this.fetchPath(pathFromUrl(path), {replace: true, seek: true});
     },
     async fetchSource(start = 0, end = 0) {
       if (!this.meta || this.meta.kind !== 'file' || !this.meta.source.id) return;
@@ -448,7 +449,7 @@ export default {
         endLine: action.endLine,
         hash: action.hash,
         from: action.from,
-        filePath: action.locationLabel.split(':')[0],
+        filePath: action.filePath,
         initial: action.formData,
         editingId: action.id
       });

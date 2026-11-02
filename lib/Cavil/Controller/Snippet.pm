@@ -8,7 +8,7 @@ use Mojo::File        qw(path);
 use Mojo::JSON        qw(true false);
 use Cavil::ReportUtil qw(smart_edit_snippet spdx_edit_snippet);
 use Cavil::Util       qw(pattern_checksum pattern_contains_redundant_skip pattern_matches @PATTERN_FLAGS);
-use Cavil::Util       qw(PRIORITY_UPKEEP PRIORITY_WAITING);
+use Cavil::Util       qw(encode_name PRIORITY_UPKEEP PRIORITY_WAITING);
 
 my $CHECKSUM_RE = qr/^(?:[a-f0-9]{32}|manual[\w:-]+)$/i;
 
@@ -183,8 +183,11 @@ sub from_path ($self) {
   $v->required('end')->num(1);
   return $self->reply->json_validation_error if $v->has_error || $v->param('start') > $v->param('end');
 
-  my $snippet = $self->snippets->from_file_path($self->stash('package'), $self->stash('file'), $v->param('start'),
-    $v->param('end'));
+  my $snippet = $self->snippets->from_file_path(
+    $self->stash('package'),
+    encode_name($self->stash('file')),
+    $v->param('start'), $v->param('end')
+  );
   return $self->reply->not_found unless defined $snippet;
 
   return $self->_snippet_created($v, $snippet);

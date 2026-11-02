@@ -10,7 +10,7 @@ use Mojo::File qw(path);
 use Mojo::JSON qw(decode_json from_json);
 use Mojo::Util;
 use Cavil::Licenses 'lic';
-use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers $COPYRIGHT_LEADER $COPYRIGHT_TOKEN);
+use Cavil::Util qw(SNIPPET_SCORE_VERSION decode_name extract_spdx_identifiers $COPYRIGHT_LEADER $COPYRIGHT_TOKEN);
 
 our @EXPORT_OK = (
   qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
@@ -537,7 +537,7 @@ sub ranked_incompatibilities ($compat) {
 
 # Describe only same-file or same-directory evidence worth opening.
 sub incompatibility_location ($row) {
-  my ($fa, $fb) = @{$row->{files} || []};
+  my ($fa, $fb) = map { decode_name($_) } @{$row->{files} || []};
   return undef unless defined $fa;
   return "same file `$fa`" if $row->{same_file} || (defined $fb && $fa eq $fb);
   return undef unless defined $fb;

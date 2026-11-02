@@ -18,7 +18,7 @@
                 <span v-if="namedDeclarations" class="metadata-declaration-name">{{ d.showName ? d.name : '' }}</span>
                 <span v-if="d.license_html !== null" v-html="d.license_html"></span>
                 <span v-else class="metadata-declaration-undeclared">No license declared</span>
-                <a :href="d.fileUrl" class="metadata-declaration-file" target="_blank">{{ d.file }}</a>
+                <a :href="d.fileUrl" class="metadata-declaration-file" target="_blank">{{ displayName(d.file) }}</a>
                 <span class="metadata-declaration-format">{{ d.format }}</span>
               </div>
             </dd>
@@ -56,11 +56,7 @@
           </template>
           <dt>ID</dt>
           <dd>
-            <copyable-text
-              :value="String(pkgId)"
-              class="report-metadata-id"
-              title="Click to copy ID"
-              id="pkg-id"
+            <copyable-text :value="String(pkgId)" class="report-metadata-id" title="Click to copy ID" id="pkg-id"
               >#{{ pkgId }}</copyable-text
             >
           </dd>
@@ -423,7 +419,7 @@ import ReportDocuments from './ReportDocuments.vue';
 import TagInput from './TagInput.vue';
 import TemplatePicker from './TemplatePicker.vue';
 import ToastNotifier from './ToastNotifier.vue';
-import {fileViewUrl, productLink, setupPopoverDelayed} from '../helpers/links.js';
+import {displayName, fileViewUrl, productLink, setupPopoverDelayed} from '../helpers/links.js';
 import {findPlaceholders} from '../helpers/placeholders.js';
 import {riskName} from '../helpers/riskLevels.js';
 import Refresh from '../mixins/refresh.js';
@@ -686,6 +682,7 @@ export default {
     if (this.hasAdminRole === true || this.hasManagerRole === true) this.loadTemplates();
   },
   methods: {
+    displayName,
     noticeLines(text) {
       return text.split('\n').length;
     },
@@ -877,8 +874,9 @@ export default {
     },
     refreshData(data) {
       const copiedFiles = data.copied_files;
-      if (copiedFiles['%doc'].length > 0) this.copiedFiles['%doc'] = copiedFiles['%doc'].join(' ');
-      if (copiedFiles['%license'].length > 0) this.copiedFiles['%license'] = copiedFiles['%license'].join(' ');
+      for (const key of ['%doc', '%license']) {
+        if (copiedFiles[key].length > 0) this.copiedFiles[key] = copiedFiles[key].map(displayName).join(' ');
+      }
 
       this.created = moment(data.created * 1000).fromNow();
       this.legalDocuments = data.legal_documents ?? null;

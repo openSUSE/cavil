@@ -12,12 +12,38 @@ const tooltip = `
 </a>
 `;
 
+// File names arrive as the filesystem's bytes, one character per byte, and travel in URLs the same way: the
+// server takes the bytes back as they are, which also keeps a name that is not UTF-8 reachable. Only what a
+// person reads gets decoded.
+const utf8 = new TextDecoder('utf-8', {fatal: true});
+const isBytes = name => !/[\u0100-\uffff]/.test(name);
+
+export function displayName(name) {
+  if (!isBytes(name)) return name;
+  try {
+    return utf8.decode(Uint8Array.from(name, c => c.charCodeAt(0)));
+  } catch {
+    return name;
+  }
+}
+
 export function encodePath(path) {
   return path
     .split('/')
     .filter(part => part.length > 0)
-    .map(part => encodeURIComponent(part))
+    .map(part =>
+      isBytes(part)
+        ? part.replace(
+            /[^A-Za-z0-9\-_.!~*'()]/g,
+            c => `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`
+          )
+        : encodeURIComponent(part)
+    )
     .join('/');
+}
+
+export function pathFromUrl(path) {
+  return path.replace(/%([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
 }
 
 export function fileViewUrl(pkgId, path, line = 0) {

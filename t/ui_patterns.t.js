@@ -444,6 +444,9 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       await page.waitForSelector('#pending-actions-widget .pending-actions-item.state-error');
       t.match(await page.innerText('#pending-actions-widget'), /Edit-Recovery-License/);
 
+      const locationBefore = await page.innerText('#pending-actions-widget .pending-actions-item-link');
+      t.notMatch(locationBefore, /^\s*file \d+/, 'the queued action names its file');
+
       // Click Edit on the failed action - the inline editor re-opens with the prior data
       await page.locator('#pending-actions-widget button[data-action-control="edit"]').click();
       await waitForInlineSnippetEditor(page);
@@ -472,6 +475,11 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       // The edit must REPLACE the original entry, not append a new one
       const countAfterEdit = await page.locator('#pending-actions-widget .pending-actions-item').count();
       t.equal(countAfterEdit, 1, 'edited action replaces failed one (queue still has 1 item)');
+      t.equal(
+        await page.innerText('#pending-actions-widget .pending-actions-item-link'),
+        locationBefore,
+        'and still names its file after the edit'
+      );
       t.notMatch(
         await page.innerText('#pending-actions-widget'),
         /state-error|circle-exclamation/,

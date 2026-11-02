@@ -32,10 +32,10 @@
               href="#"
               class="pending-actions-item-meta pending-actions-item-link"
               @click.prevent="onJumpTo(action)"
-              :title="`Scroll to ${action.locationLabel}`"
+              :title="`Scroll to ${displayName(action.locationLabel)}`"
             >
               <i class="fa-solid fa-location-crosshairs"></i>
-              {{ action.locationLabel }}
+              {{ displayName(action.locationLabel) }}
             </a>
             <div v-if="action.error" class="pending-actions-item-error">{{ action.error }}</div>
           </div>
@@ -94,6 +94,8 @@
 </template>
 
 <script>
+import {displayName} from '../helpers/links.js';
+
 const ACTION_LABELS = {
   'create-pattern': 'Create pattern',
   'create-ignore': 'Create ignore',
@@ -142,6 +144,7 @@ export default {
     }
   },
   methods: {
+    displayName,
     actionLabel(kind) {
       return ACTION_LABELS[kind] ?? kind;
     },

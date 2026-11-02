@@ -54,6 +54,7 @@ elsif ($fixtures eq 'large_file')      { $cavil_test->large_file_fixtures($app) 
 elsif ($fixtures eq 'compatibility')   { $cavil_test->compatibility_fixtures($app) }
 elsif ($fixtures eq 'legal_documents') { $cavil_test->legal_documents_fixtures($app) }
 elsif ($fixtures eq 'obligations')     { $cavil_test->obligations_fixtures($app) }
+elsif ($fixtures eq 'file_names')      { $cavil_test->file_names_fixtures($app) }
 else                                   { $cavil_test->ui_fixtures($app) }
 
 my %report_state_original;

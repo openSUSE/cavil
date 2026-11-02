@@ -20,7 +20,7 @@ Version: <%== $version %>
 % }
 % my $primary = $summary->{declarations}[0] // {};
 % if (defined(my $declared = $primary->{license})) {
-Declared-License: <%== $declared %> (from <%== $primary->{file} %>)<%== $primary->{spdx} ? '' : ' (not a valid SPDX expression)' %>
+Declared-License: <%== $declared %> (from <%== maybe_utf8($primary->{file}) %>)<%== $primary->{spdx} ? '' : ' (not a valid SPDX expression)' %>
 % }
 % if (my $sum = $summary->{package_summary}) {
 Summary: <%== $sum %>
@@ -77,7 +77,7 @@ Decisions on other versions of this package, newest first. A lawyer's result on 
 
 %   for my $d (@{$summary->{declarations}}) {
 %     my $name = join '@', grep { length($_ // '') } $d->{name}, $d->{version};
-* `<%== $d->{file} %>` (<%== $d->{format} %>)<%== length $name ? ": $name" : '' %><%== defined $d->{license} ? ", $d->{license}" : ', no license declared' %>
+* `<%== maybe_utf8($d->{file}) %>` (<%== $d->{format} %>)<%== length $name ? ": $name" : '' %><%== defined $d->{license} ? ", $d->{license}" : ', no license declared' %>
 %   }
 %   if (grep { $_->{format} eq 'spec' } @{$summary->{declarations}}) {
 %     my $copied = $summary->{copied_files};
@@ -169,7 +169,7 @@ similarity drops.
 
 %   for my $file (@{$report->{missed_files}}) {
 %     my $license = $file->{spdx} || $file->{license};
-* `<%== $file->{name} %>`: <%== $file->{match} %>% similarity to "<%== $license %>", estimated risk <%== $file->{max_risk} %><%== $new_files->{$file->{name}} ? ' NEW' : '' %>
+* `<%== maybe_utf8($file->{name}) %>`: <%== $file->{match} %>% similarity to "<%== $license %>", estimated risk <%== $file->{max_risk} %><%== $new_files->{$file->{name}} ? ' NEW' : '' %>
 %   }
 
 % }
@@ -190,7 +190,7 @@ similarity drops.
 %     my $where = peripheral_scope_label([map { $_->[1] } @$files]);
 * <%== $matches->{spdx} || $matches->{name} %>: <%== $num %> <%== $num == 1 ? 'file' : 'files' %><%== $where ? " (only in $where)" : '' %><%== $flags ? " [flags: $flags]" : '' %><%== $new_lics->{$matches->{name}} ? ' NEW' : '' %>
 %     for (my $i = $max_files - 1; $i >= 0; $i--) {
-  - `<%== $files->[$i][1] %>`
+  - `<%== maybe_utf8($files->[$i][1]) %>`
 %     }
 %     my $diff = $num - $max_files;
 %     if ($diff > 0) {
@@ -261,7 +261,7 @@ those lines: the auto-resolved snippet counts can hide them.
 %   for my $document (@{$legal_documents->{documents}}) {
 %     my $unexplained = $document->{unexplained};
 %     my @licenses    = sort keys %{$matched{original_filename($document->{path})} // {}};
-* `<%== $document->{path} %>`: <%== @licenses ? join(', ', @licenses) . ', ' : '' %><%= $document->{lines} %> line<%= $document->{lines} == 1 ? '' : 's' %><%== $unexplained ? ", $unexplained unknown" : '' %>
+* `<%== maybe_utf8($document->{path}) %>`: <%== @licenses ? join(', ', @licenses) . ', ' : '' %><%= $document->{lines} %> line<%= $document->{lines} == 1 ? '' : 's' %><%== $unexplained ? ", $unexplained unknown" : '' %>
 %   }
 %   if (my $dropped = $legal_documents->{dropped}) {
 * ... <%= $dropped %> more not listed

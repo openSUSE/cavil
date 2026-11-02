@@ -7,12 +7,11 @@ use Mojo::Base -base, -signatures;
 use Cavil::Checkout;
 use Cavil::Licenses qw(lic scancode_suggestion);
 use Cavil::PostProcess;
-use Cavil::Util qw(document_writer fs_bytes read_lines @LICENSE_FLAGS);
+use Cavil::Util qw(decode_name document_writer fs_bytes read_lines @LICENSE_FLAGS);
 use Digest::SHA;
 use Mojo::JSON qw(encode_json);
 use Mojo::Date;
 use Mojo::URL;
-use Mojo::Util qw(decode);
 
 # BSI TR-03183-2 requires SPDX 3.0.1 (or higher) in JSON format (see section 4)
 use constant SPEC_VERSION => '3.0.1';
@@ -196,7 +195,7 @@ sub generate_to_file ($self, $id, $file, $stamp = undef) {
       $origin = 'Full license text curated in Cavil.';
     }
     elsif (defined $name && $evidence{$name} && (($text, $where) = $checkout->evidence_text($evidence{$name}))) {
-      $origin = "Text as found at ./$where.";
+      $origin = "Text as found at ./@{[decode_name($where)]}.";
     }
 
     # A vendored component's manifest string is itself the reference
@@ -475,7 +474,7 @@ sub generate_to_file ($self, $id, $file, $stamp = undef) {
         type         => 'software_File',
         spdxId       => $aid,
         creationInfo => $creation,
-        name         => './' . $delivered->basename,
+        name         => './' . decode_name($delivered->basename),
 
         # BSI required properties of the deployable component, per the TR-03183-2 SPDX mapping: it is an
         # "archive", and a "structured" file (a decomposable archive maps to "container"); a source
@@ -509,8 +508,8 @@ sub generate_to_file ($self, $id, $file, $stamp = undef) {
 
     for my $ufile (@chunk) {
       $file_num++;
-      my $real_name = $original_files{$ufile}     // $ufile;
-      my $reported  = decode('UTF-8', $real_name) // $real_name;
+      my $real_name = $original_files{$ufile} // $ufile;
+      my $reported  = decode_name($real_name);
       my $fid       = $iri->("file-$file_num");
 
       my $mfid = $matched_files->{$ufile};

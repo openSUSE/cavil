@@ -1,5 +1,5 @@
 <template>
-  <span class="cavil-path" :title="processed ? path : null"
+  <span class="cavil-path" :title="processed ? shown : null"
     ><span v-if="directory" class="cavil-path-dir">{{ directory }}</span
     ><span class="cavil-path-name">{{ name }}</span></span
   >
@@ -10,22 +10,27 @@
 // ("arara/texmf-dist/scripts/arara/arara/META-INF/LICENSE") and the name is always last, so it lands at a
 // different offset on every row. Nothing is shortened: directories are worth reading, they are just
 // repetitive, and the version directory every file shares recedes for free.
+import {displayName} from '../helpers/links.js';
+
 export default {
   name: 'FilePath',
   props: {
     path: {type: String, required: true}
   },
   computed: {
+    shown() {
+      return displayName(this.path);
+    },
     directory() {
-      const cut = this.path.lastIndexOf('/');
-      return cut < 0 ? '' : this.path.slice(0, cut + 1);
+      const cut = this.shown.lastIndexOf('/');
+      return cut < 0 ? '' : this.shown.slice(0, cut + 1);
     },
     // ".processed" is Cavil's marker for its own normalised copy of a file, not part of the upstream
     // name, and file lists only ever show that copy - the original never reaches them, so the marker
     // never distinguishes two rows. Dropping it saves every reader mentally stripping it to recover the
     // name they know; the real path stays in the title, and the file browser shows filenames as they are.
     name() {
-      const base = this.path.slice(this.path.lastIndexOf('/') + 1);
+      const base = this.shown.slice(this.shown.lastIndexOf('/') + 1);
       const match = base.match(/^(.*)\.processed(\..*)?$/);
       return match ? match[1] + (match[2] ?? '') : base;
     },

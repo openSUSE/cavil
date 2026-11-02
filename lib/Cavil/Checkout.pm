@@ -8,7 +8,7 @@ use File::Unpack2;
 use File::Spec::Functions qw(catfile);
 use Mojo::File            qw(path tempdir);
 use Cavil::Util (qw(buckets decode_json_fast encode_json_fast extract_copyrights extract_urls_and_emails fs_bytes),
-  qw(original_filename read_lines slurp_and_decode));
+  qw(is_internal_name original_filename read_lines slurp_and_decode));
 use Cavil::PostProcess;
 use Cavil::ReportUtil qw(is_license_filename);
 
@@ -87,12 +87,11 @@ sub unpack ($self, $options = {}) {
 
   # Cavil's own derived documents (Cavil::Model::Packages::DOCUMENTS), stale the moment the tree is rebuilt.
   # Deleted rather than excluded from the unpack: an exclusion glob matches every directory level, so a
-  # package shipping its own ".report.*" file would silently lose it from the index. Unpacking ours is not
-  # cosmetic either - it decompresses a NOTICE of pure license text back into the package.
-  $_->remove for $dir->list({hidden => 1})->grep(sub { $_->basename =~ /^\.report\./ })->each;
-  my $log = $dir->child('.postprocessed.json');
-  unlink $log;
-  $log = $dir->child('.unpacked.json');
+  # package shipping its own copy would silently lose it from the index. Unpacking ours is not cosmetic
+  # either - it decompresses a NOTICE of pure license text back into the package.
+  $_->remove for $dir->list({hidden => 1})->grep(sub { is_internal_name($_->basename) })->each;
+  unlink $dir->child($_) for qw(.postprocessed.json .postprocessed.json.new);
+  my $log = $dir->child('.unpacked.json');
   unlink $log;
 
   # Reset signals just to be safe
@@ -118,7 +117,10 @@ sub unpack ($self, $options = {}) {
   $unpacked->{unpacked} = _byte_names($unpacked->{unpacked});
   my $processor = Cavil::PostProcess->new($unpacked);
   $processor->postprocess;
-  $dir->child('.postprocessed.json')->spew(encode_json_fast($processor->hash));
+
+  # Moved into place, the report page reads it while a re-unpack runs and must never see half of it
+  my $manifest = $dir->child('.postprocessed.json.new')->spew(encode_json_fast($processor->hash));
+  $manifest->move_to($dir->child('.postprocessed.json'));
 
   # Whatever we had read before is what the previous unpack produced
   delete $self->{_unpacked};
@@ -146,8 +148,11 @@ sub unpack_tools {
 # The file list of a big package is several megabytes and an index job reads it twice in a row, once
 # for the stats and once for the buckets, so hold on to it for the life of the checkout object
 sub _unpacked ($self) {
-  return $self->{_unpacked}
-    //= _byte_names(decode_json_fast(path($self->dir)->child('.postprocessed.json')->slurp)->{unpacked});
+  return $self->{_unpacked} //= do {
+    my $unpacked = _byte_names(decode_json_fast(path($self->dir)->child('.postprocessed.json')->slurp)->{unpacked});
+    delete @$unpacked{grep { is_internal_name($_) } keys %$unpacked};
+    $unpacked;
+  };
 }
 
 # File names are recorded as the bytes found on disk, and JSON decoding turns those into characters: a
@@ -171,15 +176,19 @@ sub unpacked_file_stats ($self) {
 
 sub unpacked_names ($self) { [keys %{$self->_unpacked}] }
 
+# The names a person knows, sorted: a ".processed" copy is listed by its original. Postprocess never touches a
+# name already containing ".processed", so only an existing original proves it was made.
+sub listed_names ($self) {
+  my $base = path($self->dir)->child('.unpacked');
+  return [sort map { my $o = original_filename($_); $o ne $_ && -f $base->child($o) ? $o : $_ }
+      keys %{$self->_unpacked}];
+}
+
 sub unpacked_files ($self, $bucket_size = undef) {
   my $unpacked = $self->_unpacked;
 
   my @files;
   for my $file (sort keys %{$unpacked}) {
-
-    # Second line of defence, for a tree an older Cavil unpacked before the removal above existed
-    next if $file =~ m{^\.report\.};
-
     my $mime = $unpacked->{$file}{mime};
     next if $mime =~ $BLACKLIST_MIME_RE;
 

@@ -55,6 +55,7 @@ my $mcp_dir = $dir->child('mcp_get_file_dir')->make_path;
 $mcp_dir->child('mcp_get_file.txt')->spew(encode('UTF-8', "first line\nsecond 👌 line\nthird line\nfourth line\n"));
 $mcp_dir->child('nested')->make_path->child('nested_file.txt')->spew("nested content\n");
 $dir->child('mcp_root_file.txt')->spew("root content\n");
+$dir->child('.gitignore')->spew("*.o\n");
 
 $t->app->minion->enqueue(unpack => [1]);
 $t->app->minion->perform_jobs;
@@ -976,6 +977,22 @@ subtest 'MCP' => sub {
       };
     };
 
+    subtest 'cavil_get_file refuses our own files' => sub {
+      ok -e $dir->child('.unpacked', '.unpacked.json'), 'File::Unpack2 left its log in the tree';
+      for my $path ('.unpacked.json', './.unpacked.json') {
+        my $result = $client->call_tool('cavil_get_file', {package_id => 1, file_path => $path});
+        ok $result->{isError}, "$path is an error";
+        is $result->{content}[0]{text}, 'File not found', 'as if it did not exist';
+      }
+      my $result = $client->call_tool('cavil_get_file', {package_id => 1, file_path => '.gitignore'});
+      ok !$result->{isError}, 'a package dotfile can be read';
+
+      symlink $dir->child('apache_file.txt')->to_string, $dir->child('.unpacked', 'mcp_escape');
+      $result = $client->call_tool('cavil_get_file', {package_id => 1, file_path => 'mcp_escape'});
+      is $result->{content}[0]{text}, 'File not found', 'a symlink out of the tree is not followed';
+      $dir->child('.unpacked', 'mcp_escape')->remove;
+    };
+
     subtest 'cavil_list_files tool' => sub {
       subtest 'Embargoed package' => sub {
         $t->app->pg->db->update('bot_packages', {embargoed => 1}, {id => 1});
@@ -1001,9 +1018,11 @@ subtest 'MCP' => sub {
         my $result = $client->call_tool('cavil_list_files', {package_id => 1});
         ok !$result->{isError}, 'not an error';
         my $text = $result->{content}[0]{text};
-        like $text, qr/^mcp_get_file_dir\/mcp_get_file\.txt$/m,        'contains top-level file in test dir';
-        like $text, qr/^mcp_get_file_dir\/nested\/nested_file\.txt$/m, 'contains nested file';
-        like $text, qr/^mcp_root_file\.txt$/m,                         'contains root file';
+        like $text,   qr/^mcp_get_file_dir\/mcp_get_file\.txt$/m,        'contains top-level file in test dir';
+        like $text,   qr/^mcp_get_file_dir\/nested\/nested_file\.txt$/m, 'contains nested file';
+        like $text,   qr/^mcp_root_file\.txt$/m,                         'contains root file';
+        like $text,   qr/^\.gitignore$/m,                                'contains root dotfile';
+        unlike $text, qr/^\.(?:unpacked\.json|report\.)/m,               'but no file of our own';
       };
 
       subtest 'List files with exact glob' => sub {
@@ -2419,6 +2438,13 @@ subtest 'MCP' => sub {
           {package_id => 1, file_path => '../../../../../../etc/hostname', start_line => 1, end_line => 1});
         ok $result->{isError}, 'a path climbing out of the checkout is refused';
         is $result->{content}[0]{text}, 'File not found in package', 'and says so like any other bad path';
+      };
+
+      subtest 'One of our own files' => sub {
+        my $result = $client->call_tool('cavil_create_snippet',
+          {package_id => 1, file_path => '.unpacked.json', start_line => 1, end_line => 1});
+        ok $result->{isError}, 'File::Unpack2 log is refused';
+        is $result->{content}[0]{text}, 'File not found in package', 'as if it did not exist';
       };
 
       subtest 'File that is not in the checkout' => sub {

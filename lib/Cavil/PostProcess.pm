@@ -7,6 +7,7 @@ use Mojo::Base -base, -signatures;
 use List::Util                 qw(max);
 use Mojo::File                 qw(path);
 use Cavil::PostProcess::Markup qw(looks_like_markup strip_markup);
+use Cavil::Util                qw(is_internal_name);
 
 has 'hash';
 has max_line_length => 115;
@@ -272,7 +273,7 @@ sub postprocess ($self) {
     my $entry = $unpacked->{$file};
 
     # clean up after file::unpack2
-    if ($file eq '.unpacked.json' || exists $entry->{unpacked}) {
+    if (is_internal_name($file) || exists $entry->{unpacked}) {
       delete $unpacked->{$file};
       next;
     }

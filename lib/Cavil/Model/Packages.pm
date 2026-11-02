@@ -6,7 +6,7 @@ use Mojo::Base -base, -signatures;
 
 use Cavil::Model::AuditLog qw(audit_event);
 use Cavil::Model::Notes    qw(relevance_predicate);
-use Cavil::Util            qw(checkout_path external_link_data incoming_priority lookup_tokens md5_file paginate),
+use Cavil::Util qw(checkout_path external_link_data file_glob incoming_priority lookup_tokens md5_file paginate),
   qw(parse_list_filter parse_lookup), qw(PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP),
   qw(PRIORITY_WAITING @LICENSE_FLAGS);
 use IO::Uncompress::Gunzip;
@@ -14,14 +14,13 @@ use List::Util qw(max);
 use Mojo::File qw(path);
 use Mojo::JSON qw(false to_json true);
 use Mojo::Util qw(dumper encode md5_sum scope_guard);
-use Text::Glob qw(glob_to_regex);
 
 has [qw(checkout_dir classifier log minion pg)];
 
 # Adding a derived format is an entry here plus its generator; the job, the polled state, the routes and
 # the report UI all read this list. "gzip" is per entry because a format can be an archive served as it
-# lies. The ".report." prefix is not cosmetic: Cavil::Checkout keeps files carrying it out of the unpacked
-# tree and out of the indexer, so a format named anything else gets indexed as package content. A "stamp" names
+# lies. The ".report.<key>" file name is not cosmetic: Cavil::Util::is_internal_name keeps files named so out of the
+# unpacked tree and out of the indexer, so a format named anything else gets indexed as package content. A "stamp" names
 # the method fingerprinting what the document was built from, taken when its build starts and recorded in the gzip
 # header; a document whose stamp no longer matches counts as missing. That is what lets documents be built without
 # holding the package: a report promoted in the middle of a build leaves a document nobody is ever handed.
@@ -403,8 +402,7 @@ sub pkg_checkout_dir ($self, $id) {
 
 # Check the bounded report set rather than packages that may contain millions of files.
 sub glob_matches_report_files ($self, $id, $glob) {
-  local $Text::Glob::strict_wildcard_slash = 0;
-  my $regex = glob_to_regex($glob);
+  my $regex = file_glob($glob);
 
   my $files = $self->pg->db->select('matched_files', ['filename'], {package => $id, generation => 0});
   while (my $file = $files->hash) {

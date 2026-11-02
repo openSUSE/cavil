@@ -21,13 +21,14 @@ use Text::Glob 'glob_to_regex';
 use Try::Tiny;
 
 our @EXPORT_OK = (
-  qw(buckets checkout_path document_writer expand_spec_macros file_and_checksum fs_bytes md5_file slurp_and_decode),
+  qw(buckets checkout_path decode_name document_writer encode_name expand_spec_macros file_and_checksum file_glob),
+  qw(fs_bytes md5_file name_spellings slurp_and_decode),
   qw(load_ignored_files),
   qw(line_tag lines_context normalize_license_expr),
   qw(extract_copyrights extract_spdx_identifiers extract_urls_and_emails legal_review_notices),
-  qw(normalize_license_text obs_ssh_auth original_filename paginate parse_list_filter),
+  qw(is_internal_name normalize_license_text obs_ssh_auth original_filename paginate parse_list_filter),
   qw(lookup_tokens parse_lookup),
-  qw(parse_service_file path_within pattern_checksum pattern_matches pattern_contains_redundant_skip pattern_contains_skip),
+  qw(in_package_tree parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip pattern_contains_skip),
   qw(read_lines run_cmd safe_string),
   qw(request_id_from_external_link),
   qw(external_link_data license_link snippet_checksum spdx_identifiers spdx_link spdx_only_expression),
@@ -167,10 +168,37 @@ sub fs_bytes ($string) {
   return $string;
 }
 
+# A name leaving for a person or an agent, readable where the bytes are UTF-8 and left as they are where not
+sub decode_name ($name) { Mojo::Util::decode('UTF-8', $name) // $name }
+
+# A name arriving from a URL or JSON, back to bytes. Mojo::Path falls back to the raw bytes when a path is not
+# UTF-8, and only the flag tells those apart from characters.
+sub encode_name ($name) { utf8::is_utf8($name) ? Mojo::Util::encode('UTF-8', $name) : $name }
+
+# Every spelling on disk a name typed as text can stand for, UTF-8 first: decode_name shows a name that is not UTF-8
+# byte for byte, and globs were saved that way before names were decoded
+sub name_spellings ($name) {
+  my $bytes = encode_name($name);
+  return $bytes eq $name || $name =~ /[^\x00-\xff]/ ? ($bytes) : ($bytes, fs_bytes($name));
+}
+
 # Every path inside a checkout goes through here, so a name cannot be bytes on one code path and
 # characters on another. It is the flag that matters, not the codepoints: two identical strings name
 # different files if one of them carries it, because Perl hands the syscall the UTF-8 encoding instead.
 sub checkout_path (@parts) { return path(fs_bytes(path(@parts)->to_string)) }
+
+# Names relative to an unpacked tree that are File::Unpack2's log or one of Cavil's own documents swept up by an
+# unpack: ".report.<key>..." for each of Cavil::Model::Packages::DOCUMENTS (with the processed and decompressed
+# copies an older Cavil made of them) and document_writer's temporary files. Named by document, not by prefix,
+# because a package can ship a ".report.*" file of its own.
+sub is_internal_name ($name) {
+  state $internal = do {
+    require Cavil::Model::Packages;
+    my $keys = join '|', map { $_->{key} } @{Cavil::Model::Packages::DOCUMENTS()};
+    qr/^(?:\.unpacked\.json$|\.report\.(?:(?:processed\.)?(?:$keys)(?:\.|$)|[A-Za-z0-9_]{8}$))/;
+  };
+  return $name =~ $internal;
+}
 
 # The name a ".processed" copy was made from ("foo.processed.js" -> "foo.js", "Makefile.processed" ->
 # "Makefile"; see Cavil::PostProcess). Names only: the original is kept on disk, but its line numbering is not
@@ -680,11 +708,16 @@ sub lines_context ($lines) {
   return $lines;
 }
 
-sub load_ignored_files ($db) {
+# File path globs, typed as text and matched against bytes: "*" crosses directories and matches dotfiles
+sub file_glob ($glob) {
   local $Text::Glob::strict_wildcard_slash = 0;
-  my %ignored_file_res
-    = map { $_->[0] => glob_to_regex($_->[0]) } @{$db->query('SELECT glob FROM ignored_files')->arrays};
-  return \%ignored_file_res;
+  local $Text::Glob::strict_leading_dot    = 0;
+  my $regex = join '|', map { glob_to_regex($_) } name_spellings($glob);
+  return qr/$regex/;
+}
+
+sub load_ignored_files ($db) {
+  return {map { $_->[0] => file_glob($_->[0]) } @{$db->query('SELECT glob FROM ignored_files')->arrays}};
 }
 
 sub obs_ssh_auth ($challenge, $user, $key) {
@@ -740,10 +773,12 @@ sub parse_list_filter ($string, $allowed) {
 }
 
 # Unpacked archives keep their symlinks, which can point anywhere, so a name inside the tree proves nothing
-sub path_within ($root, $path) {
-  my $top  = eval { $root->realpath->to_string } // return undef;
-  my $real = eval { $path->realpath->to_string } // return undef;
-  return $real eq $top || index($real, "$top/") == 0;
+# Resolved, so a symlink shipped in the package can neither leave the tree nor reach one of our own files
+sub in_package_tree ($unpacked, $path) {
+  my $top  = eval { $unpacked->realpath } // return undef;
+  my $real = eval { $path->realpath }     // return undef;
+  return 1 if "$real" eq "$top";
+  return index("$real", "$top/") == 0 && !is_internal_name($real->to_rel($top)->to_string);
 }
 
 sub paginate ($results, $options) {

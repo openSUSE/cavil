@@ -147,7 +147,9 @@
       <div v-for="snippet in snippets" :key="snippet.id" class="row snippet-container">
         <div class="col-11 snippet-file-container">
           <div class="snippet-file">
-            <a v-if="snippet.filename !== null" :href="snippet.fileUrl" target="_blank">{{ snippet.filename }}</a>
+            <a v-if="snippet.filename !== null" :href="snippet.fileUrl" target="_blank">{{
+              displayName(snippet.filename)
+            }}</a>
             <a v-else>Unknown file</a>
             <span v-if="snippet.files === 2">, and 1 other file</span>
             <span v-else-if="snippet.files > 2">, and {{ snippet.files - 1 }} other files</span>
@@ -218,7 +220,7 @@
 import BackToTop from './components/BackToTop.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import LegalLoading from './components/LegalLoading.vue';
-import {fileViewUrl} from './helpers/links.js';
+import {displayName, fileViewUrl} from './helpers/links.js';
 import {genParamWatchers, getParams} from './helpers/params.js';
 import UserAgent from '@mojojs/user-agent';
 
@@ -254,6 +256,7 @@ export default {
     window.removeEventListener('scroll', this.handleScroll);
   },
   methods: {
+    displayName,
     async approveSnippet(snippet, approved) {
       snippet.buttonPressed = approved;
       const ua = new UserAgent({baseURL: window.location.href});

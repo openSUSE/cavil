@@ -37,6 +37,15 @@ sub waiting ($task) {
 
 sub drain () { $minion->perform_jobs }
 
+# These two have failed now and then under a parallel prove and never alone, so a failure shows the whole queue
+sub explain_queue () {
+  return if Test::More->builder->is_passing;
+  my $jobs = $minion->jobs;
+  my @all;
+  while (my $info = $jobs->next) { push @all, join ' ', @$info{qw(id task state priority)}, "[@{$info->{args}}]" }
+  diag join "\n", 'Minion queue at failure:', @all;
+}
+
 # Run just the queued jobs of one task, so the jobs they enqueue can be looked at before they run too
 sub run_task ($task) {
   my $worker = $minion->worker->register;
@@ -202,6 +211,7 @@ subtest 'Curating a pattern from the license editor is upkeep for everybody' => 
     'the fan-out job is one below the upkeep band';
 
   drain();
+  explain_queue();
 };
 
 subtest 'A pattern fan-out never gets in front of a package arriving while it runs' => sub {
@@ -253,6 +263,7 @@ subtest 'A pattern fan-out never gets in front of a package arriving while it ru
 
   is $highest, PRIORITY_UPKEEP + 4, 'the tallest rebuild climbed four steps above the upkeep band';
   ok $highest < incoming_priority(1), 'and stayed below the package that arrived in the middle of it';
+  explain_queue();
 };
 
 done_testing;

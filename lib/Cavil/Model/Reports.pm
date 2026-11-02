@@ -12,7 +12,7 @@ use Cavil::Checkout;
 use Cavil::Declarations;
 use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(estimated_risk license_compatibility license_document_candidates unexplained_lines);
-use Cavil::Util       qw(checkout_path line_tag to_json_fast @LICENSE_FLAGS);
+use Cavil::Util       qw(checkout_path fs_bytes line_tag to_json_fast @LICENSE_FLAGS);
 
 has [qw(checkout_dir pg snippet_fold)];
 
@@ -75,7 +75,7 @@ sub _legal_documents ($self, $id, $dig_report) {
   # Blankness and line numbering do not require decoding.
   my $base = checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked');
   for my $doc (@$docs) {
-    my $file = $base->child($doc->{path});
+    my $file = $base->child(fs_bytes($doc->{path}));
     next unless -r $file;
     my @lines = split /\n/, $file->slurp, -1;
     my $total = grep {/\S/} @lines;

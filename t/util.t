@@ -13,7 +13,7 @@ use Test::More;
 use Mojo::File qw(path curfile tempfile);
 use Mojo::JSON qw(decode_json);
 use Cavil::Util (
-  qw(buckets expand_spec_macros extract_copyrights legal_review_notices lines_context license_is_catch_all),
+  qw(buckets expand_spec_macros extract_copyrights file_glob legal_review_notices lines_context license_is_catch_all),
   qw(license_text),
   qw(normalize_license_expr obs_ssh_auth original_filename),
   qw(parse_lookup),
@@ -863,6 +863,21 @@ subtest 'original_filename undoes the ".processed" naming, and leaves everything
   is original_filename('lib/foo.js'),        'lib/foo.js',        'an ordinary path is untouched';
   is original_filename('processed.js'),      'processed.js',      'a file merely named "processed" is untouched';
   is original_filename('foo.processed.d/x'), 'foo.processed.d/x', 'and a directory named ".processed.d" is not a copy';
+};
+
+subtest 'file_glob' => sub {
+  ok '.gitignore'         =~ file_glob('*'),            'star matches a dotfile at the top';
+  ok '.eslintrc.min.js'   =~ file_glob('*.min.js'),     'and a dotfile with a suffix';
+  ok 'src/.github/ci.yml' =~ file_glob('src/*/ci.yml'), 'and a dot-directory';
+  ok 'a/b/c.js'           =~ file_glob('a/*.js'),       'star crosses directories';
+  ok 'a/b/c.js'           !~ file_glob('*.py'),         'but still only matches what it says';
+  ok 'x.gitignore'        !~ file_glob('.gitignore'),   'a literal is anchored';
+
+  my $text = sub { my $glob = shift; utf8::upgrade($glob); file_glob($glob) };
+  ok "Lizenz\xc3\xa4.txt" =~ $text->("Lizenz\x{e4}*"),       'a name typed as text matches its UTF-8 bytes';
+  ok "alt\xe4.txt"        =~ $text->("alt\x{e4}*"),          'and one that is not UTF-8, typed as shown';
+  ok "Lizenz\xc3\xa4.txt" =~ $text->("Lizenz\x{c3}\x{a4}*"), 'and a glob saved before names were decoded';
+  ok "alt\xe4.txt"        !~ $text->("Lizenz\x{e4}*"),       'but nothing else';
 };
 
 subtest 'safe_string' => sub {

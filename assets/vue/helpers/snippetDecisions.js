@@ -1,3 +1,4 @@
+import {encodePath} from './links.js';
 import UserAgent from '@mojojs/user-agent';
 
 // A file only gets an id once something matched in it, so one that matched nothing is addressed by path.
@@ -8,7 +9,7 @@ export function snippetRangeUrl({fileId, packageId, filePath, startLine, endLine
   if (fileId > 0) return `/snippets/from_file/${fileId}/${startLine}/${endLine}?${qs.toString()}`;
   qs.set('start', startLine);
   qs.set('end', endLine);
-  return `/snippets/from_path/${packageId}/${encodeURI(filePath)}?${qs.toString()}`;
+  return `/snippets/from_path/${packageId}/${encodePath(filePath)}?${qs.toString()}`;
 }
 
 // The checksum a licensed match must be ignored by, resolved server-side from the match's stored range so

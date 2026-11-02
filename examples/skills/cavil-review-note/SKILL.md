@@ -73,6 +73,16 @@ upstream's own (`package.json`, `Cargo.toml`, ...). No `Declared-License:` line 
 (nothing listed under `## Package Declarations` means plain upstream source): say so and lean NEEDS HUMAN REVIEW. Do not
 judge from the tag alone; first read the legal documents with unknown lines, and any NOTICE (`## Legal Documents`).
 
+The one exception is an **empty repository**: a package repository that was just created and holds no code yet, only
+the version-control settings files its hosting service adds. All three must hold:
+- The report says `No files matched known license patterns or keywords.` and has no `Declared-License:` line.
+- `cavil_list_files(package_id)` lists only `.gitignore` and `.gitattributes` (one or both).
+- Opened with `cavil_get_file`, they contain only ignore patterns and attribute rules.
+
+Then there is nothing to license and nothing to declare: recommend ACCEPT (see the empty repository example in Step 6).
+Any other file, such as source code, a spec file, a README or a license text, means it is not an empty repository, and
+every check below applies.
+
 - **Match** - the declared license covers what the shipped code is under. Bundled third-party components under their own
   permissive licenses are expected and do not make it wrong.
 - **Mismatch** - a license in shipped code (see "What ships") the declaration does not account for, or a declaration
@@ -301,7 +311,7 @@ beyond the standard checks" is a valid and common outcome; do not manufacture is
 ### Step 5 - Choose a recommendation
 ACCEPT means: the declaration is consistent with the report, the licenses are acceptable, their text obligations are
 checked and met, unresolved matches are low-risk or non-license text, and any pair that met the compatibility check was
-opened and found separate.
+opened and found separate. An empty repository (see the declared-license check) is ACCEPT.
 
 **REJECT** if any of these applies:
 - A license change to non-open-source terms. It is the headline of the note.
@@ -317,8 +327,8 @@ Otherwise **NEEDS HUMAN REVIEW** if any of these applies (never ACCEPT around th
 - A System Notice starting with "Limitation noted", or a `[limitation]` note: a lawyer set conditions for every version
   that the report cannot check. Quote them.
 - Risk 5, a Patent / Export restricted flag, a SUSE-owned EULA or one of unknown owner.
-- No declared license, or a mismatch that is only fixable metadata (including a declaration broader than reality), with
-  the correction as the next step.
+- No declared license (unless it is an empty repository), or a mismatch that is only fixable metadata (including a
+  declaration broader than reality), with the correction as the next step.
 - License-text obligations that could not be checked, or were checked only partly.
 - A combination you could not resolve, or an additional risk that does not clearly block.
 - An unverified packager claim that alone keeps a found license out of the declared tag or out of scope.
@@ -441,6 +451,20 @@ Issues for legal reviewer:
 **Suggested next step:** Reject: very high risk proprietary code. Only a lawyer can approve it for a specific product under a vendor redistribution agreement, and only after the declared license is corrected to `MIT AND LicenseRef-SUSE-NonFree`.
 
 **Confidence:** High - the proprietary EULA header in `fmha_helpers.py` is explicit.
+```
+
+An empty repository:
+
+```markdown
+AI-assisted review recommendation: ACCEPT
+
+Issues for legal reviewer:
+- Empty repository: the checkout holds only `.gitignore` and `.gitattributes`, version-control settings with no code, so there is nothing to license and nothing to declare.
+- License-text obligations: none, nothing is shipped yet.
+
+**Suggested next step:** Human reviewer can accept; the first update with actual content gets a full review.
+
+**Confidence:** High - every file in the checkout was listed and read.
 ```
 
 No notable issues:
