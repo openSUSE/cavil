@@ -14,6 +14,9 @@ use Mojo::File        qw(path);
 use Mojo::JSON        qw(false from_json true);
 use Mojo::Util        qw(humanize_bytes url_escape xml_escape);
 
+# A repository just created holds the two files its hosting service adds, a few more is still nothing yet
+use constant NEAR_EMPTY_FILES => 5;
+
 sub register ($self, $app, $config) {
   $app->helper('chart_data'                    => \&_chart_data);
   $app->helper('legal_documents'               => \&_legal_documents);
@@ -252,10 +255,10 @@ sub _report_details ($c, $pkg, $report) {
   # re-unpack runs, the old report stays live beside a manifest that is missing or new and a count that is unset or
   # stale, so the list is capped by what was actually read.
   my $checkout_files;
-  if (!keys(%$risks) && !@missed && defined $pkg->{unpacked_files} && $pkg->{unpacked_files} <= 20) {
+  if (!keys(%$risks) && !@missed && defined $pkg->{unpacked_files} && $pkg->{unpacked_files} <= NEAR_EMPTY_FILES) {
     my $dir   = checkout_path($c->app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir});
     my $names = eval { Cavil::Checkout->new($dir)->listed_names } // [];
-    $checkout_files = $names if @$names && @$names <= 20;
+    $checkout_files = $names if @$names && @$names <= NEAR_EMPTY_FILES;
   }
 
   return {

@@ -184,10 +184,10 @@ subtest 'The near-empty listing carries names as they are on disk' => sub {
 subtest 'A checkout too big to list, or mid re-unpack, is not listed' => sub {
   my $pkgs = $t->app->packages;
   my $dir  = $pkgs->pkg_checkout_dir($empty);
-  $dir->child("empty_$_.txt")->spew("nothing to see\n") for 1 .. 21;
+  $dir->child("empty_$_.txt")->spew("nothing to see\n") for 1 .. 2;
   $pkgs->unpack($empty);
   $t->app->minion->perform_jobs;
-  is $pkgs->find($empty)->{unpacked_files}, 25, 'all files unpacked';
+  is $pkgs->find($empty)->{unpacked_files}, 6, 'one more file than a near-empty checkout has';
   $t->get_ok("/reviews/report_details/$empty")
     ->status_is(200)
     ->json_is('/risks',          {})
