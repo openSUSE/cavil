@@ -62,7 +62,7 @@ has sync => sub ($self) {
   return $sync;
 };
 
-our $VERSION = '2.008';
+our $VERSION = '2.009';
 
 sub startup ($self) {
 
