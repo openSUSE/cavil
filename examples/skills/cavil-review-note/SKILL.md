@@ -219,7 +219,9 @@ obligations are met.
 The obligations are those of the licenses of everything that actually ships, declared or not (see "What ships"),
 including vendored code compiled into a binary (Go modules, Rust crates). `## Legal Documents` shows which license texts
 the package's own documents contain; for vendored trees, check with `cavil_list_files` (e.g. `*/vendor/*/LICENSE*`).
-With many components, a partial check is stated with its scope (NEEDS HUMAN REVIEW).
+With many components, a partial check is stated with its scope (NEEDS HUMAN REVIEW). A vendored component's text that
+must accompany every copy (its license, or its NOTICE under Apache-2.0 §4(d)) and is in the sources but not in the binary
+package is NEEDS HUMAN REVIEW, not REJECT: name the components and the missing text, and never call the obligations met.
 
 Read a `NOTICE` (or other attribution file) when `## Legal Documents` lists one. Beyond what must be preserved
 downstream, it often names bundled components, copyright holders or additional terms the report does not account for;
@@ -317,7 +319,7 @@ opened and found separate. An empty repository (see the declared-license check) 
 - A license change to non-open-source terms. It is the headline of the note.
 - Proprietary third-party code in shipped files, with the `LicenseRef-SUSE-NonFree` correction.
 - Risk 6 or 7 in shipped code, naming the license.
-- An unmet license-text obligation, with the fix as the next step.
+- An unmet license-text obligation of the package's own code, with the fix as the next step.
 - A confirmed combined-work conflict, naming the files on each side.
 - A declared-license mismatch whose undeclared license is itself one of the above.
 - An additional risk (Step 4, "Anything else legally material") that clearly blocks.
@@ -329,7 +331,8 @@ Otherwise **NEEDS HUMAN REVIEW** if any of these applies (never ACCEPT around th
 - Risk 5, a Patent / Export restricted flag, a SUSE-owned EULA or one of unknown owner.
 - No declared license (unless it is an empty repository), or a mismatch that is only fixable metadata (including a
   declaration broader than reality), with the correction as the next step.
-- License-text obligations that could not be checked, or were checked only partly.
+- License-text obligations that could not be checked, were checked only partly, or are unmet only for vendored
+  components.
 - A combination you could not resolve, or an additional risk that does not clearly block.
 - An unverified packager claim that alone keeps a found license out of the declared tag or out of scope.
 
@@ -361,7 +364,7 @@ Issues for legal reviewer:
 
 **Suggested next step:** what the lawyer should verify or ask the maintainer to fix.
 
-**Confidence:** Medium - note any important limitation, such as partial review of a large report.
+**Confidence:** Medium - state what you read against what the report lists (e.g. `1 of 6 Any EULA files read`).
 ```
 
 Copy the first line exactly as shown, with nothing before it and the recommendation in capitals: reviewers see it on
@@ -494,7 +497,8 @@ Issues for legal reviewer:
 ## IMPORTANT CONSTRAINTS
 - Never call `cavil_accept_review`, `cavil_reject_review`, `cavil_propose_ignore_snippet` or
   `cavil_propose_license_pattern`.
-- Never create lawyer-only notes; `cavil_create_note` creates public AI-assisted notes.
+- Never create lawyer-only notes; `cavil_create_note` creates public AI-assisted notes. Notes marked `[lawyer-only]`
+  are private context: never quote, paraphrase or cite them in your note.
 - Never defeat the duplicate guard (Step 6).
 - Be conservative: when the situation is ambiguous, recommend NEEDS HUMAN REVIEW. The note helps a lawyer decide what to
   inspect next; it does not replace the lawyer's judgment.
