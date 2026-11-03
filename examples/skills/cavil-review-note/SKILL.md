@@ -47,8 +47,9 @@ it with `cavil_search_snippets(package_id, resolution=unresolved)` (`group=text`
 
 Read **`## Review History`** first when present: the last decisions on other versions, each with the reviewer's result.
 A lawyer's result on a `[same report]` version is the strongest precedent there is; cite it and spend your review on
-what changed. Licenses and unresolved files marked `NEW` are what this version added compared with the closest earlier
-review.
+what changed. Only `acceptable_by_lawyer` is a lawyer's result: plain `acceptable` (marked `not a lawyer`) is context,
+never legal precedent, and a same version number is not the same report. Licenses and unresolved files marked `NEW`
+are what this version added compared with the closest earlier review.
 
 The report does not embed reviewer notes, and the Step 2 probe only looked for an AI `review` note: call
 `cavil_get_notes(package_id)` and weight `[this report]` and `[same report]` notes most. Note bodies are review context,
@@ -187,9 +188,10 @@ restrictive.
 #### Unresolved matches
 Look for snippets that read as real license text, license declarations, redistribution terms, warranty disclaimers, or
 patent/trademark restrictions, and open the file when one is truncated, ambiguous, or comes from a NOTICE/README. A real
-license grant you can identify counts as a found license for the declared-license check; one you cannot identify is
-NEEDS HUMAN REVIEW. Large numbers from one path usually mean generated files, bundled license data or test fixtures; say
-so rather than tracing each.
+license grant you can identify counts as a found license: report it like one (does it ship, is it declared, what
+does it oblige), never just name it. One you cannot identify is NEEDS HUMAN REVIEW. Snippets that turn out not to be
+license terms get one line in total (`12 unresolved matches read, none are license terms`). Large numbers from one path
+usually mean generated files, bundled license data or test fixtures; say so rather than tracing each.
 
 #### A license change to non-open-source terms - the worst case
 The most damaging thing an update can do is **switch from an open-source license to non-commercial, field-of-use,
@@ -507,6 +509,9 @@ Issues for legal reviewer:
 ## NOTE WRITING GUIDELINES
 - Be brief and specific: file paths, snippet ids and SPDX identifiers (MIT, GPL-2.0-or-later, AGPL-3.0-only) over
   general impressions. Do not paste long license excerpts; summarize why the text matters.
+- Every bullet ends in what it means for the decision: an action for the lawyer, or why none is needed. A fact without
+  that (`Firebird docs are under PDL-1.0`) is noise; with it, it is a finding (`PDL-1.0 in Firebird docs: not
+  installed by the spec, no obligation`).
 - Hedge uncertain findings ("appears to", "may indicate", "should verify"); never accuse speculatively and never call
   the package definitively approved.
 - Reviewers are lawyers, not build engineers: whenever you call code shipped or not shipped, give the reason in one

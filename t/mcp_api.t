@@ -699,6 +699,11 @@ subtest 'MCP' => sub {
         unlike $text, qr/EMBARGOED DETAILS/,                                     'embargoed sibling left out';
         like $text,   qr/\* Apache-2\.0: \d+ files? NEW\n/,                      'new license marked';
 
+        $db->update('bot_packages', {state => 'acceptable'}, {id => 2});
+        like $client->call_tool('cavil_get_report', {package_id => 1})->{content}[0]{text},
+          qr/\* 2: acceptable by history_lawyer \(not a lawyer\) on \S+ \[same report\]\n/,
+          'non-lawyer acceptance is not mistaken for a legal decision';
+
         $db->update('bot_packages', {state => 'new', result => undef, reviewing_user => undef}, {id => 2});
         $db->update('bot_packages', {diff_report => undef}, {id => 1});
         $db->update('bot_packages', {obsolete    => 1},     {id => $secret});
