@@ -160,13 +160,22 @@
       :href="`#note-${aiRecommendation.id}`"
       @click="seekSameNote"
     >
-      <svg class="ai-recommendation-avatar" viewBox="0 0 32 32" aria-hidden="true">
-        <line x1="16" y1="4" x2="16" y2="9" />
-        <circle class="ai-recommendation-antenna" cx="16" cy="4" r="2" />
+      <svg
+        class="ai-recommendation-avatar"
+        :class="robotQuirk && `ai-recommendation-${robotQuirk}`"
+        viewBox="0 0 32 32"
+        aria-hidden="true"
+      >
+        <path class="ai-recommendation-wave" d="M14 0.54 A4 4 0 0 0 12 4 M18 0.54 A4 4 0 0 1 20 4" />
+        <path class="ai-recommendation-wave" d="M12.75 -1.63 A6.5 6.5 0 0 0 9.5 4 M19.25 -1.63 A6.5 6.5 0 0 1 22.5 4" />
+        <g class="ai-recommendation-stalk">
+          <line x1="16" y1="4" x2="16" y2="9" />
+          <circle class="ai-recommendation-antenna" cx="16" cy="4" r="2" />
+        </g>
         <rect class="ai-recommendation-ear" x="3" y="15" width="3" height="6" rx="1.5" />
         <rect class="ai-recommendation-ear" x="26" y="15" width="3" height="6" rx="1.5" />
         <rect class="ai-recommendation-head" x="6" y="9" width="20" height="17" rx="5" />
-        <g class="ai-recommendation-eyes">
+        <g class="ai-recommendation-eyes" @animationiteration="pickRobotQuirk">
           <circle cx="12.5" cy="16" r="2" />
           <circle cx="19.5" cy="16" r="2" />
         </g>
@@ -486,6 +495,7 @@ export default {
       externalLink: null,
       relatedReviews: 0,
       aiRecommendation: null,
+      robotQuirk: null,
       checkoutUrl: null,
       copiedFiles: {'%doc': null, '%license': null},
       created: null,
@@ -698,6 +708,10 @@ export default {
     // The browser fires no hashchange for the hash it is already on, so a second click would do nothing
     seekSameNote(event) {
       if (event.currentTarget.hash === window.location.hash) window.dispatchEvent(new HashChangeEvent('hashchange'));
+    },
+    pickRobotQuirk() {
+      const quirks = ['waves', 'wobble', 'double-blink'];
+      this.robotQuirk = Math.random() < 1 / 4 ? quirks[Math.floor(Math.random() * quirks.length)] : null;
     },
     insertTemplate(template) {
       this.$refs.commentEditor?.insertTemplate(template.body);
@@ -1342,6 +1356,7 @@ export default {
 .ai-recommendation-avatar {
   flex: none;
   height: 40px;
+  overflow: visible;
   width: 40px;
 }
 .ai-recommendation-avatar line,
@@ -1373,6 +1388,76 @@ export default {
   100% {
     transform: scaleY(1);
   }
+  97% {
+    transform: scaleY(0.1);
+  }
+}
+.ai-recommendation-wave {
+  fill: none;
+  opacity: 0;
+  stroke: var(--cavil-attention-strong);
+  stroke-linecap: round;
+  stroke-width: 1.2;
+}
+.ai-recommendation-waves .ai-recommendation-wave {
+  animation: ai-recommendation-waves 6s infinite;
+}
+.ai-recommendation-waves .ai-recommendation-wave + .ai-recommendation-wave {
+  animation-delay: 0.3s;
+}
+@keyframes ai-recommendation-waves {
+  0%,
+  20%,
+  40%,
+  100% {
+    opacity: 0;
+  }
+  8%,
+  28% {
+    opacity: 1;
+  }
+}
+.ai-recommendation-stalk {
+  transform-box: view-box;
+  transform-origin: 16px 9px;
+}
+.ai-recommendation-wobble .ai-recommendation-stalk {
+  animation: ai-recommendation-wobble 6s infinite;
+}
+@keyframes ai-recommendation-wobble {
+  0%,
+  30%,
+  100% {
+    transform: rotate(0);
+  }
+  5% {
+    transform: rotate(14deg);
+  }
+  10% {
+    transform: rotate(-10deg);
+  }
+  15% {
+    transform: rotate(7deg);
+  }
+  20% {
+    transform: rotate(-4deg);
+  }
+  25% {
+    transform: rotate(2deg);
+  }
+}
+.ai-recommendation-double-blink .ai-recommendation-eyes {
+  animation-name: ai-recommendation-double-blink;
+}
+@keyframes ai-recommendation-double-blink {
+  0%,
+  88%,
+  91%,
+  94%,
+  100% {
+    transform: scaleY(1);
+  }
+  89.5%,
   97% {
     transform: scaleY(0.1);
   }
