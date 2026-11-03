@@ -10,12 +10,16 @@ use Mojo::JSON             qw(encode_json);
 # The only place defaults exist, the table holds overrides. A stored value is checked again on every read, because
 # falling back to the default could be looser than what an admin chose.
 my %SETTINGS = (
+  auto_accept         => {default => 1,                                                      check => \&_bool},
   acceptable_risk     => {default => 4,                                                      check => \&_risk},
   auto_accept_risk    => {default => 2,                                                      check => \&_risk},
   acceptable_packages => {default => [qw(000product 000release-packages 000package-groups)], check => \&_names},
   sbom_creator_name   => {default => '',                                                     check => \&_line},
   sbom_creator_email  => {default => '',                                                     check => \&_email},
-  sbom_creator_url    => {default => '',                                                     check => \&_url}
+  sbom_creator_url    => {default => '',                                                     check => \&_url},
+  days_to_keep_orphaned_packages           => {default => 60, check => _count(1, 3650)},
+  days_to_keep_orphaned_duplicate_packages => {default => 7,  check => _count(1, 3650)},
+  hours_to_keep_ephemeral_packages         => {default => 24, check => _count(1, 8760)}
 );
 
 has 'pg';
@@ -57,6 +61,8 @@ sub update ($self, $login, $values, $reset = []) {
   $new{$_} = _default($_) for @$reset;
   $errors{auto_accept_risk} = 'Cannot be higher than the risk for packages reviewed before'
     if !%errors && $new{auto_accept_risk} > $new{acceptable_risk};
+  $errors{days_to_keep_orphaned_duplicate_packages} = 'Cannot be longer than finished reviews are kept'
+    if !%errors && $new{days_to_keep_orphaned_duplicate_packages} > $new{days_to_keep_orphaned_packages};
   return {errors => \%errors} if %errors;
 
   $db->query('INSERT INTO settings (name, value) VALUES (?, ?) ON CONFLICT (name) DO UPDATE SET value = EXCLUDED.value',
@@ -86,10 +92,26 @@ sub value ($self, $key) {
   return $row ? _checked($key, $row->{value}) : _default($key);
 }
 
+sub _bool ($value) {
+  $value = 0 + $value if ref $value eq 'JSON::PP::Boolean';
+  return defined $value && !ref $value && $value =~ /^[01]$/ ? 0 + $value : (undef, 'Must be on or off');
+}
+
 sub _checked ($key, $value) {
   my ($checked, $error) = $SETTINGS{$key}{check}->($value);
   die "Stored setting $key is invalid: $error\n" if defined $error;
   return $checked;
+}
+
+sub _count ($min, $max) {
+  return sub ($value) {
+    return
+         defined $value
+      && !ref $value
+      && $value =~ /^[0-9]{1,9}$/
+      && $value >= $min
+      && $value <= $max ? 0 + $value : (undef, "Must be a whole number from $min to $max");
+  };
 }
 
 sub _default ($key) {

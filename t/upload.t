@@ -216,6 +216,10 @@ subtest 'Ephemeral upload is flagged and runs a band below normal incoming' => s
   ok $t->tx->res->json('/ephemeral'), 'metadata marks the report ephemeral';
   my $meta = $t->tx->res->json;
   is $meta->{ephemeral_delete}, $meta->{created} + 24 * 3600, 'deletion time is created plus the configured window';
+
+  $t->app->settings->update('tester', {hours_to_keep_ephemeral_packages => 48});
+  $t->get_ok("/reviews/meta/$id")->status_is(200)->json_is('/ephemeral_delete', $meta->{created} + 48 * 3600);
+  $t->app->settings->update('tester', {}, ['hours_to_keep_ephemeral_packages']);
 };
 
 subtest 'Ephemeral reviews are listed together in every state' => sub {
@@ -246,6 +250,12 @@ subtest 'Ephemeral reviews are listed together in every state' => sub {
   ok !$by_id{3},          'a normal (non-ephemeral) package is not listed';
   ok $by_id{$id1}{login}, 'uploader login is present';
   is $by_id{$id1}{ephemeral_delete}, $by_id{$id1}{created_epoch} + 24 * 3600, 'row carries the scheduled deletion time';
+
+  $t->app->settings->update('tester', {hours_to_keep_ephemeral_packages => 2});
+  $t->get_ok('/pagination/reviews/ephemeral')->status_is(200);
+  my ($row) = grep { $_->{id} == $id1 } @{$t->tx->res->json('/page')};
+  is $row->{ephemeral_delete}, $row->{created_epoch} + 2 * 3600, 'and follows the retention setting';
+  $t->app->settings->update('tester', {}, ['hours_to_keep_ephemeral_packages']);
 };
 
 subtest 'Uploader role can only make ephemeral uploads' => sub {

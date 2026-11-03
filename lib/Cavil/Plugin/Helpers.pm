@@ -417,8 +417,6 @@ sub _package_summary ($c, $id) {
   # Recompute package-wide state for concurrent pattern and rebuild changes.
   my $state = $c->reindex_state($pkg);
 
-  my $config = $c->app->config;
-
   my (%docs, %lics, @declarations, @legal_review_notices);
   for my $d (@{$declarations->{declarations}}) {
     my $license = $d->{license};
@@ -449,7 +447,7 @@ sub _package_summary ($c, $id) {
     can_view_audit   => $c->current_user_can('curate') ? \1   : \0,
     ephemeral        => $pkg->{ephemeral}              ? true : false,
     ephemeral_delete => $pkg->{ephemeral}
-    ? $pkg->{created_epoch} + ($config->{hours_to_keep_ephemeral_packages} // 24) * 3600
+    ? $pkg->{created_epoch} + $c->settings->value('hours_to_keep_ephemeral_packages') * 3600
     : undef,
     ai_assisted          => $pkg->{ai_assisted} ? true : false,
     ai_recommendation    => $c->notes->ai_recommendation($pkg->{name}, $id, $pkg->{checksum}),

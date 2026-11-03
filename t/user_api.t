@@ -541,7 +541,13 @@ subtest 'Upload API' => sub {
     my $dir = $pkgs->pkg_checkout_dir($eid);
     ok -d $dir, 'ephemeral checkout exists before purge';
     my $src_id = $t->app->pg->db->select('bot_packages', 'source', {id => $eid})->hash->{source};
-    $t->app->config->{hours_to_keep_ephemeral_packages} = 0;
+    $t->app->settings->update('test_bot', {hours_to_keep_ephemeral_packages => 2});
+    $t->app->pg->db->query(q{UPDATE bot_packages SET created = NOW() - INTERVAL '1 hour' WHERE id = ?}, $eid);
+    $t->app->minion->enqueue('cleanup_ephemeral');
+    $t->app->minion->perform_jobs;
+    ok defined($pkgs->find($eid)), 'ephemeral package is kept within the retention window';
+
+    $t->app->pg->db->query(q{UPDATE bot_packages SET created = NOW() - INTERVAL '3 hours' WHERE id = ?}, $eid);
     $t->app->minion->enqueue('cleanup_ephemeral');
     $t->app->minion->perform_jobs;
 

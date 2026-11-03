@@ -255,13 +255,15 @@ sub analyze ($self, $id, $priority = 100, $parents = [], $generation = 0) {
 sub analyze_held ($self, $old, $new) {
   my %old_names = map  { $_ => 1 } @{$old->{acceptable_packages}};
   my @names     = grep { !$old_names{$_} } @{$new->{acceptable_packages}};
-  my @ranges = map { [$old->{$_}, $new->{$_}] } grep { $new->{$_} > $old->{$_} } qw(auto_accept_risk acceptable_risk);
-  return 0 unless @names || @ranges;
+  my @ranges  = map { [$old->{$_}, $new->{$_}] } grep { $new->{$_} > $old->{$_} } qw(auto_accept_risk acceptable_risk);
+  my $resumed = $new->{auto_accept} && !$old->{auto_accept} ? 1 : 0;
+  return 0 unless @names || @ranges || $resumed;
 
   my $risk = q{substring(checksum from '-(\d):[^:]+$')::int};
   my $ids  = $self->pg->db->query(
     "SELECT id FROM bot_packages WHERE state = 'new' AND NOT obsolete AND indexed IS NOT NULL
-       AND (name = ANY(?) @{[map {qq{OR ($risk > ? AND $risk <= ?)}} @ranges]})", \@names, map {@$_} @ranges
+       AND (?::bool OR name = ANY(?) @{[map {qq{OR ($risk > ? AND $risk <= ?)}} @ranges]})", $resumed, \@names,
+    map {@$_} @ranges
   )->arrays->flatten->to_array;
   $self->_enqueue('analyzed', $_, PRIORITY_UPKEEP) for @$ids;
   return scalar @$ids;

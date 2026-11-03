@@ -132,15 +132,22 @@ const changes = data =>
       })
   );
 const settingLabels = {
+  auto_accept: 'Accept reviews automatically',
   auto_accept_risk: 'Accept low-risk packages nobody has reviewed yet',
   acceptable_risk: 'Accept packages a person has reviewed before',
   acceptable_packages: 'Always accept these packages',
   sbom_creator_name: 'SBOM organisation',
   sbom_creator_email: 'SBOM email address',
-  sbom_creator_url: 'SBOM web address'
+  sbom_creator_url: 'SBOM web address',
+  days_to_keep_orphaned_packages: 'Keep finished reviews',
+  days_to_keep_orphaned_duplicate_packages: 'Keep older versions of finished reviews',
+  hours_to_keep_ephemeral_packages: 'Keep one-off reviews'
 };
 const settingValue = (field, value) => {
   if (Array.isArray(value)) return value.length ? value.join(', ') : '(none)';
+  if (field === 'auto_accept') return value ? 'on' : 'off';
+  if (field.startsWith('days_to_keep_')) return `${value} days`;
+  if (field.startsWith('hours_to_keep_')) return `${value} hours`;
   if (field === 'auto_accept_risk' && value === 0) return 'off';
   if (value === '') return '(none)';
   return typeof value === 'number' ? `${value} - ${riskName(value)}` : String(value);

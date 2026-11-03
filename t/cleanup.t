@@ -125,6 +125,14 @@ is $t->app->packages->find($three_id)->{state}, 'acceptable_by_lawyer', 'right s
 is $t->app->packages->find($three_id)->{result}, 'Accepted because reviewed by lawyer under the same license (2)',
   'right result';
 
+my %keep = (days_to_keep_orphaned_packages => 3650, days_to_keep_orphaned_duplicate_packages => 3650);
+$t->app->settings->update('test_bot', \%keep);
+$t->app->minion->enqueue('obsolete');
+$t->app->minion->perform_jobs;
+ok !$t->app->packages->find($one_id)->{obsolete}, 'not obsolete within the retention settings';
+$t->app->settings->update('test_bot',
+  {days_to_keep_orphaned_packages => 7, days_to_keep_orphaned_duplicate_packages => 1});
+
 my $obsolete_id = $t->app->minion->enqueue('obsolete');
 $t->app->minion->perform_jobs;
 

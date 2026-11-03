@@ -226,13 +226,14 @@ sub startup ($self) {
   $logged_in->get('/settings')->to('Settings#first');
   $logged_in->get('/settings/api-keys')->to('Settings#show', section => 'api-keys');
   $can_curate->get('/settings/comment-templates')->to('Settings#show', section => 'comment-templates');
-  $can_infra->get('/settings/:section' => [section => [qw(auto-accept excluded-files bot-tokens sbom status)]])
+  $can_infra->get(
+    '/settings/:section' => [section => [qw(auto-accept excluded-files bot-tokens retention sbom status)]])
     ->to('Settings#show')
     ->name('settings');
-  $can_infra->get('/settings/<section>.json' => [section => [qw(auto-accept sbom)]])
+  $can_infra->get('/settings/<section>.json' => [section => [qw(auto-accept retention sbom)]])
     ->to('Settings#section')
     ->name('settings_section');
-  $can_infra->put('/settings/<section>.json' => [section => [qw(auto-accept sbom)]])
+  $can_infra->put('/settings/<section>.json' => [section => [qw(auto-accept retention sbom)]])
     ->to('Settings#update_section')
     ->name('update_settings_section');
   $can_infra->get('/settings/bot-tokens.json')->to('Settings#list_bot_tokens')->name('settings_bot_tokens');

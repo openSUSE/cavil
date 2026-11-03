@@ -31,23 +31,21 @@ sub checkout_dir ($self) { $self->{checkout_dir} }
 
 sub default_config ($self) {
   return {
-    secrets                                  => ['just_a_test'],
-    checkout_dir                             => $self->checkout_dir,
-    cache_dir                                => $self->cache_dir,
-    matcher                                  => $ENV{CAVIL_MATCHER} || 'cavil',
-    pg                                       => $self->postgres_url,
-    index_bucket_average                     => 100,
-    cleanup_bucket_average                   => 50,
-    days_to_keep_orphaned_packages           => 7,
-    days_to_keep_orphaned_duplicate_packages => 1,
-    min_files_short_report                   => 20,
-    max_email_url_size                       => 26,
-    max_task_memory                          => 5_000_000_000,
-    max_worker_rss                           => 100000,
-    max_expanded_files                       => 100,
-    max_file_browser_size                    => 1_000_000,
-    spdx         => {namespace => 'https://cavil.example.com/spdx/', license_ref_namespace => 'cavil'},
-    snippet_fold => {
+    secrets                => ['just_a_test'],
+    checkout_dir           => $self->checkout_dir,
+    cache_dir              => $self->cache_dir,
+    matcher                => $ENV{CAVIL_MATCHER} || 'cavil',
+    pg                     => $self->postgres_url,
+    index_bucket_average   => 100,
+    cleanup_bucket_average => 50,
+    min_files_short_report => 20,
+    max_email_url_size     => 26,
+    max_task_memory        => 5_000_000_000,
+    max_worker_rss         => 100000,
+    max_expanded_files     => 100,
+    max_file_browser_size  => 1_000_000,
+    spdx                   => {namespace => 'https://cavil.example.com/spdx/', license_ref_namespace => 'cavil'},
+    snippet_fold           => {
       enabled         => 0,
       threshold       => 0.95,
       min_margin      => 0.15,
@@ -244,7 +242,12 @@ sub multiarchive_fixtures ($self, $app) {
 # constructor are in place before any fixture is analyzed.
 sub migrate ($self, $app) {
   $app->pg->migrations->migrate;
-  my %settings = (auto_accept_risk => 0, %{$self->{options}{settings} // {}});
+  my %settings = (
+    auto_accept_risk                         => 0,
+    days_to_keep_orphaned_packages           => 7,
+    days_to_keep_orphaned_duplicate_packages => 1,
+    %{$self->{options}{settings} // {}}
+  );
   $app->pg->db->query('INSERT INTO settings (name, value) VALUES (?, ?) ON CONFLICT DO NOTHING',
     $_, {json => $settings{$_}})
     for keys %settings;

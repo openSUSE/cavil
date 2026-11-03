@@ -96,6 +96,10 @@ both. A changed cron expression is kept too.
 The `reindex_all` and `obsolete` tasks are exactly what the manual commands below enqueue, so scheduling them is the
 recommended way to run reindexing and cleanup.
 
+How long reviewed packages that are not part of a product, and ephemeral one-off reviews, are kept before cleanup is
+set on the **Data retention** section of the Settings page (60 days, 7 days for older duplicates, and 24 hours for
+ephemeral reviews by default). A changed value takes effect with the next scheduled cleanup.
+
 ### Applying shipped license patterns
 
 New Cavil versions can ship new license patterns. `setup` loads them only into an empty instance, and afterwards just

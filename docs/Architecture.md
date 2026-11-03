@@ -214,8 +214,8 @@ provider, not by Cavil.
 The Settings page groups its sections into personal settings, the ones that shape reviews for everybody, the
 integrations with the outside world, and the instance itself, and each section asks for its own capability, so people
 only see the sections they may use. Anyone who is logged in can manage their own API keys, comment templates need
-`curate`, and automatic acceptance, excluded files, bot tokens, the SBOM creator and the instance status are limited to
-admins for now. The page
+`curate`, and automatic acceptance, excluded files, bot tokens, the SBOM creator, data retention and the instance
+status are limited to admins for now. The page
 is written for people who are not technical, so opening a section to lawyers later is only a change of who may reach
 it.
 
@@ -247,6 +247,12 @@ condition it governs, risk levels are shown with their names, and every change i
 nobody has changed follows the default that ships with Cavil, which is marked as such on the page. Saving a looser
 setting checks the open reviews it could now accept again right away, rather than leaving them to the next weekly
 reindex. A stricter setting never takes back a decision that was already made.
+
+Admins can also pause automatic acceptance as a whole, for example while a bad pattern import is being cleaned up.
+While it is paused every review that would have been accepted waits for a person instead, with a notice saying why it
+would otherwise have been accepted, and no accepted review is upgraded to `acceptable_by_lawyer` either. The **Status**
+section warns as long as the pause lasts, and turning it back on checks every open review again. Accepted reviews
+whose upgrade was skipped during the pause get it with their next analysis, usually the weekly reindex.
 
 The rest of the decision sequence is not a preference and has no setting: the overrides below, the refusal to accept a
 report whose highest risk is 0 (it looks too clean to trust), and the refusal to accept a package whose sibling with
@@ -291,8 +297,8 @@ decisions that shape reports are also written to an audit log. What goes in is a
   every license pattern created, edited (only the fields that changed) or removed (with the full pattern, since the
   row is gone), every bulk edit of a license as one event, every ignored match and ignored file glob added or removed,
   and every snippet marked as not legal text everywhere, each with who did it and, for accepted proposals, who
-  proposed it. Changes on the Settings page are recorded as well: every change to automatic acceptance and the SBOM
-  creator, with the old and new value of each setting, every excluded file added or removed, with its reason, and every
+  proposed it. Changes on the Settings page are recorded as well: every change to automatic acceptance, data
+  retention and the SBOM creator, with the old and new value of each setting, every excluded file added or removed, with its reason, and every
   bot token added or removed, with its description but never the token itself.
 * **Not recorded:** reindexing, notices and diffs, checksum or risk changes, priorities, tags, documents and ordinary
   notes, which are regenerated from the source on every rebuild (see the invariants above) or kept elsewhere, and a

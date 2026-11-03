@@ -111,6 +111,34 @@ t.test('Cavil UI - settings', skipUnlessOnline, async t => {
       t.match(await page.innerText('body'), /Always accept these packages: .* → .*my-placeholder/, 'readable change');
     });
 
+    await t.test('Pause automatic acceptance', async t => {
+      await page.goto(`${url}/settings/auto-accept`);
+      await page.waitForSelector('#auto-accept-enabled');
+      t.equal(await page.isChecked('#auto-accept-enabled'), true, 'on by default');
+      await page.uncheck('#auto-accept-enabled');
+      t.equal(await page.isEnabled('#acceptable-risk'), true, 'rules stay editable while paused');
+      await save();
+      await page.reload();
+      await page.waitForSelector('#auto-accept-enabled');
+      t.equal(await page.isChecked('#auto-accept-enabled'), false, 'saved');
+
+      await page.click('.cavil-settings-last-change a');
+      await page.waitForSelector('text=Accept reviews automatically: on → off');
+      t.pass('readable in the audit log');
+
+      await page.goto(`${url}/settings/status`);
+      await page.waitForSelector('#status td.cavil-status-warning >> text=Automatic acceptance');
+      t.pass('status warns while paused');
+
+      await page.goto(`${url}/settings/auto-accept`);
+      await page.waitForSelector('#auto-accept-enabled');
+      await page.check('#auto-accept-enabled');
+      await save();
+      await page.goto(`${url}/settings/status`);
+      await page.waitForSelector('#status td.cavil-status-ok >> text=Automatic acceptance');
+      t.pass('and stops warning once resumed');
+    });
+
     await t.test('Excluded files', async t => {
       await page.goto(`${url}/settings/excluded-files`);
       await page.waitForSelector('text=No excluded files.');
@@ -174,6 +202,29 @@ t.test('Cavil UI - settings', skipUnlessOnline, async t => {
       await page.waitForSelector('[data-default="sbom_creator_name"]');
       t.equal(await page.inputValue('#sbom-creator-name'), '', 'back to the fallback');
       t.equal(await page.inputValue('#sbom-creator-email'), 'sbom@acme.example', 'other field kept');
+    });
+
+    await t.test('Data retention', async t => {
+      await page.click('.cavil-settings-nav-item >> text=Data retention');
+      await page.waitForSelector('#hours-to-keep-ephemeral-packages');
+      t.equal(await page.inputValue('#hours-to-keep-ephemeral-packages'), '24', 'default');
+      t.equal(await page.inputValue('#days-to-keep-orphaned-packages'), '7', 'value the tests run with');
+
+      await page.fill('#hours-to-keep-ephemeral-packages', '9000');
+      await page.click('#settings-save');
+      await page.waitForSelector('.cavil-settings-error >> text=Must be a whole number from 1 to 8760');
+      t.pass('out of range refused');
+
+      await page.fill('#hours-to-keep-ephemeral-packages', '48');
+      await save();
+      await page.reload();
+      await page.waitForSelector('#hours-to-keep-ephemeral-packages');
+      t.equal(await page.inputValue('#hours-to-keep-ephemeral-packages'), '48', 'saved');
+      t.match(await page.innerText('.cavil-settings-last-change'), /Last changed by tester/, 'who changed it');
+
+      await page.click('[data-reset="hours_to_keep_ephemeral_packages"]');
+      await page.waitForSelector('[data-default="hours_to_keep_ephemeral_packages"]');
+      t.equal(await page.inputValue('#hours-to-keep-ephemeral-packages'), '24', 'back to the default');
     });
 
     await t.test('Status', async t => {

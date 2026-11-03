@@ -159,6 +159,14 @@ sub checks ($self) {
     }
   );
 
+  $try->(
+    'Automatic acceptance' => sub {
+      return $check->('Automatic acceptance', 'ok', 'New reviews are accepted automatically where the rules allow')
+        if $app->settings->value('auto_accept');
+      $check->('Automatic acceptance', 'warning', 'Paused on the Automatic acceptance settings page');
+    }
+  );
+
   if (my $openid = $config->{openid}) {
     $try->(
       'Login' => sub {

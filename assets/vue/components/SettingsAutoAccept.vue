@@ -10,6 +10,25 @@
     <form v-else @submit.prevent="save()">
       <div class="cavil-settings-rule cavil-settings-rule-checkbox">
         <div class="form-check">
+          <input
+            id="auto-accept-enabled"
+            v-model="form.auto_accept"
+            class="form-check-input"
+            type="checkbox"
+            :true-value="1"
+            :false-value="0"
+          />
+          <label for="auto-accept-enabled" class="form-check-label">Accept reviews automatically</label>
+          <SettingsDefaultLabel :name="'auto_accept'" :custom="custom" @reset="reset" />
+        </div>
+        <p class="cavil-settings-help">
+          While this is off, every review waits for a person, for example while a problem with the license patterns is
+          being fixed. The rules below can still be changed meanwhile, turning it back on checks open reviews again.
+        </p>
+      </div>
+
+      <div class="cavil-settings-rule cavil-settings-rule-checkbox">
+        <div class="form-check">
           <input id="low-risk-enabled" v-model="lowRiskEnabled" class="form-check-input" type="checkbox" />
           <label for="low-risk-enabled" class="form-check-label"
             >Accept low-risk packages nobody has reviewed yet</label

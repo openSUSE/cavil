@@ -23,6 +23,7 @@
         <SettingsCommentTemplates v-else-if="section === 'comment-templates'" />
         <SettingsBotTokens v-else-if="section === 'bot-tokens'" />
         <SettingsSbom v-else-if="section === 'sbom'" />
+        <SettingsRetention v-else-if="section === 'retention'" />
         <SettingsStatus v-else-if="section === 'status'" />
       </div>
     </div>
@@ -35,6 +36,7 @@ import SettingsAutoAccept from './components/SettingsAutoAccept.vue';
 import SettingsBotTokens from './components/SettingsBotTokens.vue';
 import SettingsCommentTemplates from './components/SettingsCommentTemplates.vue';
 import SettingsExcludedFiles from './components/SettingsExcludedFiles.vue';
+import SettingsRetention from './components/SettingsRetention.vue';
 import SettingsSbom from './components/SettingsSbom.vue';
 import SettingsStatus from './components/SettingsStatus.vue';
 
@@ -57,6 +59,7 @@ const SECTIONS = [
   },
   {id: 'bot-tokens', label: 'Bot tokens', icon: 'fa-solid fa-robot', group: 'Integrations', cap: 'infra'},
   {id: 'sbom', label: 'SBOM', icon: 'fa-solid fa-file-shield', group: 'Integrations', cap: 'infra'},
+  {id: 'retention', label: 'Data retention', icon: 'fa-solid fa-clock-rotate-left', group: 'Instance', cap: 'infra'},
   {id: 'status', label: 'Status', icon: 'fa-solid fa-heart-pulse', group: 'Instance', cap: 'infra'}
 ];
 
@@ -68,6 +71,7 @@ export default {
     SettingsBotTokens,
     SettingsCommentTemplates,
     SettingsExcludedFiles,
+    SettingsRetention,
     SettingsSbom,
     SettingsStatus
   },

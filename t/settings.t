@@ -43,6 +43,9 @@ subtest 'Permission errors' => sub {
     $t->get_ok('/settings/auto-accept.json')->status_is(403);
     $t->get_ok('/settings/status')->status_is(403);
     $t->get_ok('/settings/status.json')->status_is(403);
+    $t->get_ok('/settings/retention')->status_is(403);
+    $t->get_ok('/settings/retention.json')->status_is(403);
+    $t->put_ok('/settings/retention.json' => json => {values => {}})->status_is(403);
     $t->delete_ok('/settings/excluded-files/1')->status_is(403);
     $t->get_ok('/settings')->status_is(302)->header_is(Location => '/settings/api-keys');
     $t->get_ok('/settings/api-keys')->status_is(200);
@@ -65,6 +68,7 @@ subtest 'Pages' => sub {
   $t->get_ok('/settings/excluded-files')
     ->status_is(200)
     ->content_like(qr/setupSettings\('excluded-files', true, true\)/);
+  $t->get_ok('/settings/retention')->status_is(200)->content_like(qr/setupSettings\('retention', true, true\)/);
   $t->get_ok('/settings/nothing')->status_is(404);
 };
 
@@ -73,12 +77,16 @@ subtest 'Registry' => sub {
   my $defaults = $settings->defaults;
   is_deeply $defaults,
     {
-    acceptable_risk     => 4,
-    auto_accept_risk    => 2,
-    acceptable_packages => [qw(000product 000release-packages 000package-groups)],
-    sbom_creator_name   => '',
-    sbom_creator_email  => '',
-    sbom_creator_url    => ''
+    auto_accept                              => 1,
+    acceptable_risk                          => 4,
+    auto_accept_risk                         => 2,
+    acceptable_packages                      => [qw(000product 000release-packages 000package-groups)],
+    sbom_creator_name                        => '',
+    sbom_creator_email                       => '',
+    sbom_creator_url                         => '',
+    days_to_keep_orphaned_packages           => 60,
+    days_to_keep_orphaned_duplicate_packages => 7,
+    hours_to_keep_ephemeral_packages         => 24
     },
     'defaults match the old configuration';
   is $settings->value('auto_accept_risk'), 0, 'test harness override';
@@ -182,6 +190,122 @@ subtest 'Looser settings check open reviews again' => sub {
   is $app->packages->find(2)->{result}, 'Accepted because of package name (perl-Mojolicious)', 'accepted by name';
 };
 
+subtest 'Pause automatic acceptance' => sub {
+  $db->update('bot_packages', {state => 'new', result => undef}, {id => [1, 2]});
+
+  $t->put_ok('/settings/auto-accept.json' => json => {values => {auto_accept => 2}})
+    ->status_is(400)
+    ->json_is('/errors/auto_accept', 'Must be on or off');
+  $t->put_ok('/settings/auto-accept.json' => json => {values => {auto_accept => 'yes'}})
+    ->status_is(400)
+    ->json_is('/errors/auto_accept', 'Must be on or off');
+  $t->put_ok('/settings/sbom.json' => json => {values => {auto_accept => 0}})
+    ->status_is(400)
+    ->json_is('/errors/auto_accept', 'Not part of this section');
+
+  $t->put_ok('/settings/auto-accept.json' => json => {values => {auto_accept => Mojo::JSON::false}})
+    ->status_is(200)
+    ->json_is('/values/auto_accept', 0, 'JSON booleans are stored as numbers')
+    ->json_is('/rechecked',          0, 'pausing checks nothing again');
+  is_deeply $events->('settings.changed')->last->{data}, {changes => {auto_accept => [1, 0]}}, 'pause recorded';
+
+  $app->minion->enqueue(analyzed => [$_]) for 1, 2;
+  $app->minion->perform_jobs;
+  for my $id (1, 2) {
+    my $pkg = $app->packages->find($id);
+    is $pkg->{state},  'new', "package $id waits for a person";
+    is $pkg->{result}, undef, 'without a result';
+    like $pkg->{notice}, qr/^Automatic acceptance is paused\n\nOtherwise accepted package name/,
+      'notice says why it would have been accepted';
+  }
+
+  $t->put_ok('/settings/auto-accept.json' => json => {values => {acceptable_risk => 9, auto_accept_risk => 9}})
+    ->status_is(200)
+    ->json_is('/rechecked', 2, 'looser rules check open reviews again while paused');
+  $app->minion->perform_jobs;
+  is $app->packages->find($_)->{state}, 'new', "package $_ still waits" for 1, 2;
+  $t->put_ok('/settings/auto-accept.json' => json => {values => {acceptable_risk => 4, auto_accept_risk => 0}})
+    ->status_is(200);
+
+  $t->put_ok('/settings/auto-accept.json' => json => {values => {auto_accept => Mojo::JSON::true}})
+    ->status_is(200)
+    ->json_is('/values/auto_accept', 1)
+    ->json_is('/rechecked', 2, 'resuming checks every open review again');
+  $app->minion->perform_jobs;
+  for my $id (1, 2) {
+    my $pkg = $app->packages->find($id);
+    is $pkg->{state},  'acceptable',                                          "package $id accepted";
+    is $pkg->{result}, 'Accepted because of package name (perl-Mojolicious)', 'by the rule that was paused';
+  }
+
+  $t->put_ok('/settings/auto-accept.json' => json => {values => {auto_accept => 0}})->status_is(200);
+  $t->put_ok('/settings/auto-accept.json' => json => {reset  => ['auto_accept']})
+    ->status_is(200)
+    ->json_is('/values/auto_accept', 1)
+    ->json_is('/rechecked', 0, 'nothing waiting')
+    ->json_is('/custom',    [qw(acceptable_packages acceptable_risk auto_accept_risk)]);
+  is $app->packages->find(1)->{state}, 'acceptable', 'pausing never revokes a decision';
+};
+
+subtest 'Data retention' => sub {
+  $t->get_ok('/settings/retention.json')
+    ->status_is(200)
+    ->json_is(
+    '/values',
+    {
+      days_to_keep_orphaned_packages           => 7,
+      days_to_keep_orphaned_duplicate_packages => 1,
+      hours_to_keep_ephemeral_packages         => 24
+    }
+    )
+    ->json_is('/defaults/days_to_keep_orphaned_packages', 60)
+    ->json_is('/custom', [qw(days_to_keep_orphaned_duplicate_packages days_to_keep_orphaned_packages)], 'test harness')
+    ->json_is('/last_change', undef, 'other sections are not counted')
+    ->json_hasnt('/values/auto_accept');
+
+  for my $bad (0, 3651, '1.5', '٣', -1, [], undef) {
+    $t->put_ok('/settings/retention.json' => json => {values => {days_to_keep_orphaned_packages => $bad}})
+      ->status_is(400)
+      ->json_is('/errors/days_to_keep_orphaned_packages', 'Must be a whole number from 1 to 3650');
+  }
+  $t->put_ok('/settings/retention.json' => json => {values => {hours_to_keep_ephemeral_packages => 8761}})
+    ->status_is(400)
+    ->json_is('/errors/hours_to_keep_ephemeral_packages', 'Must be a whole number from 1 to 8760');
+  $t->put_ok('/settings/retention.json' => json => {values => {auto_accept => 0}})
+    ->status_is(400)
+    ->json_is('/errors/auto_accept', 'Not part of this section');
+
+  $t->put_ok('/settings/retention.json' => json => {values => {days_to_keep_orphaned_duplicate_packages => 8}})
+    ->status_is(400)
+    ->json_is('/errors/days_to_keep_orphaned_duplicate_packages', 'Cannot be longer than finished reviews are kept');
+  $t->put_ok('/settings/retention.json' => json =>
+      {values => {days_to_keep_orphaned_packages => 30, days_to_keep_orphaned_duplicate_packages => 8}})
+    ->status_is(200)
+    ->json_is('/values/days_to_keep_orphaned_duplicate_packages', 8, 'fine when saved together');
+  $t->put_ok('/settings/retention.json' => json => {values => {days_to_keep_orphaned_packages => 7}})
+    ->status_is(400)
+    ->json_is(
+    '/errors/days_to_keep_orphaned_duplicate_packages',
+    'Cannot be longer than finished reviews are kept',
+    'also when shortening finished reviews'
+    );
+  $t->put_ok('/settings/retention.json' => json =>
+      {values => {days_to_keep_orphaned_packages => 7, days_to_keep_orphaned_duplicate_packages => 1}})->status_is(200);
+
+  $t->put_ok('/settings/retention.json' => json => {values => {hours_to_keep_ephemeral_packages => '48'}})
+    ->status_is(200)
+    ->json_is('/values/hours_to_keep_ephemeral_packages', 48)
+    ->json_is('/rechecked',                               0)
+    ->json_is('/last_change/login',                       'tester');
+  is_deeply $events->('settings.changed')->last->{data}, {changes => {hours_to_keep_ephemeral_packages => [24, 48]}},
+    'recorded';
+
+  $t->put_ok('/settings/retention.json' => json => {reset => ['hours_to_keep_ephemeral_packages']})
+    ->status_is(200)
+    ->json_is('/values/hours_to_keep_ephemeral_packages', 24)
+    ->json_is('/custom', [qw(days_to_keep_orphaned_duplicate_packages days_to_keep_orphaned_packages)]);
+};
+
 subtest 'Excluded files' => sub {
   $t->get_ok('/pagination/settings/excluded-files')
     ->status_is(200)
@@ -235,7 +359,7 @@ subtest 'Excluded files' => sub {
     ['unpack_exclusion.removed', 'r.zip']
     ],
     'audited';
-  $t->get_ok('/pagination/audit?category=settings')->status_is(200)->json_is('/total', 10);
+  $t->get_ok('/pagination/audit?category=settings')->status_is(200)->json_is('/total', 20);
 };
 
 subtest 'SBOM creator' => sub {
@@ -336,10 +460,17 @@ subtest 'Status' => sub {
   my $c = $checks->();
   is_deeply [sort keys %$c],
     [
-    sort 'Database', 'License patterns', 'Workers', 'Maintenance', 'Classifier', 'Unpack tools',
-    'Storage',       'Secrets',          'SBOM',    'Login'
+    sort 'Database', 'License patterns', 'Workers', 'Maintenance',
+    'Classifier',    'Unpack tools',     'Storage', 'Secrets',
+    'SBOM',          'Login',            'Automatic acceptance'
     ],
     'all checks';
+  is $c->{'Automatic acceptance'}{level}, 'ok', 'automatic acceptance is on';
+  $app->settings->update('tester', {auto_accept => 0});
+  is_deeply $checks->()->{'Automatic acceptance'},
+    {name => 'Automatic acceptance', level => 'warning', message => 'Paused on the Automatic acceptance settings page'},
+    'a forgotten pause shows up';
+  $app->settings->update('tester', {}, ['auto_accept']);
   is $c->{Database}{level}, 'ok', 'schema is current';
   like $c->{'License patterns'}{message}, qr/^\d+ patterns, \d+ shipped patterns are not part of this instance/,
     'patterns counted';

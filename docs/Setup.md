@@ -291,7 +291,7 @@ The **Status** section of the Settings page (admins only) checks the things a ne
 wrong, and marks each one green, amber or red: the database schema, the license patterns, running workers and
 failed jobs, the maintenance schedules, whether the classifier answers and how many snippets are waiting for it, the
 tools needed to unpack archives, writable directories and free space for `checkout_dir`, the `secrets`, the SBOM
-configuration and the login. The same checks run on the command line, which helps before the web application is
+configuration, the login and whether automatic acceptance is paused. The same checks run on the command line, which helps before the web application is
 reachable, and the command fails when any check found an error:
 
 ```sh

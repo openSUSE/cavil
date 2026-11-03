@@ -260,6 +260,8 @@ sub _auto_review ($app, $id) {
   }
 
   my $limitations = $app->notes->limitations($pkg->{name});
+  my $paused      = !$settings->{auto_accept};
+  my $hold        = @$limitations || $paused;
 
   # Already accepted: the auto-accept machinery below is for 'new' packages only.
   # Refresh the notice/diff so a reindex with new patterns cannot leave a stale
@@ -271,7 +273,7 @@ sub _auto_review ($app, $id) {
     # An "unacceptable" sibling with the same report vetoes the upgrade, exactly
     # as it did for these packages at the (former) unacceptable-history guard.
     # Limitations veto it too, an inherited lawyer sign-off is an auto-accept.
-    unless (@$limitations || grep { $_->{state} eq 'unacceptable' } @$siblings) {
+    unless (@$limitations || $paused || grep { $_->{state} eq 'unacceptable' } @$siblings) {
       my $lawyer;
       for my $p (@$siblings) {
         next               if $p->{obsolete};
@@ -290,7 +292,7 @@ sub _auto_review ($app, $id) {
   # Fast-track packages that are configured to always be acceptable
   my $name = $pkg->{name};
   if (grep { $name eq $_ } @{$settings->{acceptable_packages}}) {
-    return _hold($app, $pkg, $limitations, 'Otherwise accepted package name') if @$limitations;
+    return _hold($app, $pkg, $limitations, 'Otherwise accepted package name', paused => $paused) if $hold;
     return _accept($app, $pkg, 'acceptable', "Accepted because of package name ($name)");
   }
 
@@ -300,7 +302,7 @@ sub _auto_review ($app, $id) {
     my $auto_accept_risk = $settings->{auto_accept_risk};
     my $risk             = $reports->risk_is_acceptable($pkg_shortname, $settings->{acceptable_risk});
     if (defined($risk) && $risk > 0 && $auto_accept_risk && $risk <= $auto_accept_risk) {
-      return _hold($app, $pkg, $limitations, "Otherwise accepted low risk ($risk)") if @$limitations;
+      return _hold($app, $pkg, $limitations, "Otherwise accepted low risk ($risk)", paused => $paused) if $hold;
       return _accept($app, $pkg, 'acceptable',
         "Accepted because of low risk ($risk) and auto-accept risk threshold ($auto_accept_risk)");
     }
@@ -329,7 +331,7 @@ sub _auto_review ($app, $id) {
 
   # Previously reviewed and accepted
   if (my $f_id = $found_acceptable_by_lawyer || $found_acceptable) {
-    return _hold($app, $pkg, $limitations, "Otherwise accepted same license as $f_id") if @$limitations;
+    return _hold($app, $pkg, $limitations, "Otherwise accepted same license as $f_id", paused => $paused) if $hold;
     return _accept(
       $app, $pkg, $found_acceptable_by_lawyer ? 'acceptable_by_lawyer' : 'acceptable',
       "Accepted because previously reviewed under the same license ($f_id)",
@@ -339,9 +341,13 @@ sub _auto_review ($app, $id) {
   }
 
   # Risk 0 is never accepted, and without a risk only no significant difference would have been
-  if (@$limitations) {
+  if ($hold) {
     my $risk = $reports->risk_is_acceptable($pkg_shortname, $settings->{acceptable_risk});
-    return _hold($app, $pkg, $limitations, $risk ? "Otherwise accepted low risk ($risk)" : undef, !defined $risk);
+    return _hold(
+      $app, $pkg, $limitations, $risk ? "Otherwise accepted low risk ($risk)" : undef,
+      no_diff_accepts => !defined $risk,
+      paused          => $paused
+    );
   }
 
   # Acceptable risk
@@ -438,18 +444,19 @@ sub _delta_notice ($app, $pkg) {
 }
 
 # The id phrases here are linkified by the report UI, keep them in sync
-sub _hold ($app, $pkg, $limitations, $reason, $no_diff_accepts = 0) {
+sub _hold ($app, $pkg, $limitations, $reason, %options) {
   my ($notice, $diff_report, $no_diff_id) = _delta_notice($app, $pkg);
   $reason //= "Otherwise accepted no significant difference against $no_diff_id"
-    if $no_diff_accepts && defined $no_diff_id;
+    if $options{no_diff_accepts} && defined $no_diff_id;
 
   my @blocks;
   for my $limitation (@$limitations) {
     push @blocks, $limitation->{package} ? "Limitation noted in $limitation->{package}" : 'Limitation noted';
     push @blocks, join("\n", map { length ? "  $_" : '' } split /\r?\n/, $limitation->{body});
   }
-  push @blocks, $reason if defined $reason;
-  push @blocks, $notice if defined $notice && !(defined $no_diff_id && defined $reason);
+  push @blocks, 'Automatic acceptance is paused' if $options{paused} && defined $reason;
+  push @blocks, $reason                          if defined $reason;
+  push @blocks, $notice                          if defined $notice && !(defined $no_diff_id && defined $reason);
   _write($app, $pkg, notice => join("\n\n", @blocks), diff_report => $diff_report, result => undef);
   return;
 }

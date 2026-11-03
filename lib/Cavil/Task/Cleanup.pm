@@ -45,7 +45,7 @@ sub _cleanup_ephemeral ($job) {
   my $app  = $job->app;
   my $pkgs = $app->packages;
 
-  my $ids     = $pkgs->need_ephemeral_cleanup($app->config->{hours_to_keep_ephemeral_packages} // 24);
+  my $ids     = $pkgs->need_ephemeral_cleanup($app->settings->value('hours_to_keep_ephemeral_packages'));
   my $buckets = Cavil::Util::buckets($ids, $app->config->{cleanup_bucket_average});
 
   my $minion = $app->minion;
@@ -94,10 +94,10 @@ sub _sweep_builds ($app) {
 }
 
 sub _obsolete ($job) {
-  my $app    = $job->app;
-  my $config = $app->config;
-  $app->packages->obsolete_old_packages($config->{days_to_keep_orphaned_packages},
-    $config->{days_to_keep_orphaned_duplicate_packages});
+  my $app      = $job->app;
+  my $settings = $app->settings->get;
+  $app->packages->obsolete_old_packages($settings->{days_to_keep_orphaned_packages},
+    $settings->{days_to_keep_orphaned_duplicate_packages});
   $app->minion->enqueue('cleanup' => [] => {parents => [$job->id]});
 }
 

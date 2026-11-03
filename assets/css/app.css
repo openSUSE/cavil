@@ -1379,7 +1379,8 @@ table td.fit {
 .cavil-settings-nested .form-label {
   font-size: 13px;
 }
-.cavil-settings-nested .form-select {
+.cavil-settings-nested .form-select,
+.cavil-settings-number {
   max-width: 280px;
 }
 .cavil-secret .real {

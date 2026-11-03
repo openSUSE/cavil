@@ -210,6 +210,32 @@ subtest 'Removing the last limitation lifts the block' => sub {
   $db->update('bot_users', {roles => ['admin']}, {login => 'tester'});
 };
 
+subtest 'Paused automatic acceptance holds the same way' => sub {
+  my $paused = 'Automatic acceptance is paused';
+  $app->settings->update('tester', {auto_accept => 0});
+
+  my $held = $copy->();
+  my $pkg  = $analyze->($held);
+  is $pkg->{state},  'new',                      'not accepted';
+  is $pkg->{result}, undef,                      'no result';
+  is $pkg->{notice}, "$paused\n\n$same_license", 'names the paused auto-accept';
+
+  my $no_diff = $copy->('new', 'perl-Mojolicious-9:paused');
+  like $analyze->($no_diff)->{notice}, qr/^\Q$paused\E\n\nOtherwise accepted no significant difference against \d+$/,
+    'linkified closest match';
+
+  my $accepted = $copy->('acceptable');
+  is $analyze->($accepted)->{state}, 'acceptable', 'accepted versions are not upgraded while paused';
+
+  $t->put_ok('/settings/auto-accept.json' => json => {values => {auto_accept => 1}})->status_is(200);
+  cmp_ok $t->tx->res->json('/rechecked'), '>=', 2, 'resuming checks the held versions again';
+  $app->minion->perform_jobs;
+  is $pkgs->find($held)->{state},    'acceptable_by_lawyer', 'same license accepted';
+  is $pkgs->find($no_diff)->{state}, 'acceptable',           'no significant difference accepted';
+  is $analyze->($accepted)->{state}, 'acceptable_by_lawyer', 'upgraded with the next analysis';
+  $same_license = "Otherwise accepted same license as $accepted";
+};
+
 subtest 'Waiting versions follow added and edited limitations' => sub {
   my $waiting = $copy->();
   $note_id = $limit->(1, 'Only with approval');
