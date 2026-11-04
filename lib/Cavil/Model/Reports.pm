@@ -12,7 +12,7 @@ use Cavil::Checkout;
 use Cavil::Declarations;
 use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(estimated_risk license_compatibility license_document_candidates unexplained_lines);
-use Cavil::Util       qw(checkout_path fs_bytes line_tag to_json_fast @LICENSE_FLAGS);
+use Cavil::Util       qw(checkout_path fs_bytes line_tag family_match to_json_fast @LICENSE_FLAGS);
 
 has [qw(checkout_dir pg snippet_fold)];
 
@@ -35,9 +35,10 @@ sub dig_report {
   my ($self, $id, $limit_to_file, $generation, $scope) = @_;
   $generation //= 0;
 
-  my $db            = $self->pg->db;
-  my $pkg           = $db->query('SELECT * FROM bot_packages WHERE id = ?',               $id)->hash;
-  my $ignored       = $db->query('SELECT id, hash FROM ignored_lines WHERE packname = ?', $pkg->{name});
+  my $db  = $self->pg->db;
+  my $pkg = $db->query('SELECT * FROM bot_packages WHERE id = ?', $id)->hash;
+  my ($family, @binds) = family_match('packname', $pkg->{name});
+  my $ignored       = $db->query("SELECT id, hash FROM ignored_lines WHERE $family", @binds);
   my %ignored_lines = map { $_->{hash} => $_->{id} } $ignored->hashes->each;
 
   my $report = $self->_dig_report($db, {}, $pkg, \%ignored_lines, $limit_to_file, $generation, $scope);

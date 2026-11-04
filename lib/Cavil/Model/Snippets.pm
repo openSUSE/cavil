@@ -6,7 +6,7 @@ use Mojo::Base -base, -signatures;
 
 use Mojo::File             qw(path);
 use Cavil::Model::AuditLog qw(audit_event);
-use Cavil::Util            qw(checkout_path file_and_checksum in_package_tree read_lines);
+use Cavil::Util            qw(checkout_path file_and_checksum in_package_tree family_match read_lines);
 use Cavil::ReportUtil
   qw(is_license_filename overlapping_licenses should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear);
 
@@ -32,7 +32,9 @@ sub resolve_snippets ($self, $package_id, $generation = 0) {
 
   # Leave ignored snippets unresolved so consumers need no separate ignore rule.
   my $packname = $db->select('bot_packages', 'name', {id => $package_id})->hash->{name};
-  my %ignored  = map { $_->{hash} => 1 } $db->select('ignored_lines', 'hash', {packname => $packname})->hashes->each;
+  my ($family, @binds) = family_match('packname', $packname);
+  my %ignored
+    = map { $_->{hash} => 1 } $db->query("SELECT hash FROM ignored_lines WHERE $family", @binds)->hashes->each;
 
 # Catch-all markers cannot establish coverage; treating them as concrete can hide novel terms.
   my $cover_scope = ($cfg && $cfg->{enabled}) ? ($cfg->{cover_scope} // 'off') : 'off';

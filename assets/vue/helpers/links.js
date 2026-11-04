@@ -58,7 +58,7 @@ export function licenseLink(license) {
 
 export function packageLink(review) {
   const name = review.name;
-  return `<a href='/search?q=${name}'>${name}</a>`;
+  return `<a href='/search?q=${encodeURIComponent(name)}'>${name}</a>`;
 }
 
 // In-page navigation by default (the product listing); the report metadata opens a new tab so a reviewer

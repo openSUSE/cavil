@@ -6,7 +6,7 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::ReportUtil qw(new_license_names new_unresolved_files report_checksum report_shortname summary_delta),
   qw(summary_delta_risk summary_delta_score);
-use Cavil::Util 'to_json_fast';
+use Cavil::Util qw(family_of package_family to_json_fast FAMILY_OF);
 
 sub register ($self, $app, $config) {
   $app->minion->add_task(analyze  => \&_analyze);
@@ -134,8 +134,16 @@ sub _analyze ($job, $id, $generation = 0) {
     if ($pkg->{state} ne 'new') {
 
       # New patterns may unblock matching packages still marked new.
-      $new_candidates = $db->select('bot_packages', 'id',
-        {name => $pkg->{name}, indexed => {'!=' => undef}, id => {'!=' => $pkg->{id}}, state => 'new'})->hashes;
+      $new_candidates = $db->select(
+        'bot_packages',
+        'id',
+        {
+          family  => \['= ' . FAMILY_OF, family_of($pkg->{name})],
+          indexed => {'!=' => undef},
+          id      => {'!=' => $pkg->{id}},
+          state   => 'new'
+        }
+      )->hashes;
     }
 
     $tx->commit;
@@ -274,14 +282,9 @@ sub _auto_review ($app, $id) {
     # as it did for these packages at the (former) unacceptable-history guard.
     # Limitations veto it too, an inherited lawyer sign-off is an auto-accept.
     unless (@$limitations || $paused || grep { $_->{state} eq 'unacceptable' } @$siblings) {
-      my $lawyer;
-      for my $p (@$siblings) {
-        next               if $p->{obsolete};
-        $lawyer = $p->{id} if $p->{state} eq 'acceptable_by_lawyer';
-        last               if $lawyer;
-      }
+      my ($lawyer) = grep { !$_->{obsolete} && $_->{state} eq 'acceptable_by_lawyer' } @$siblings;
       _accept($app, $pkg, 'acceptable_by_lawyer',
-        "Accepted because reviewed by lawyer under the same license ($lawyer)")
+        "Accepted because reviewed by lawyer under the same license@{[_in($pkg, $lawyer)]} ($lawyer->{id})")
         if $lawyer;
     }
 
@@ -290,10 +293,13 @@ sub _auto_review ($app, $id) {
   }
 
   # Fast-track packages that are configured to always be acceptable
-  my $name = $pkg->{name};
-  if (grep { $name eq $_ } @{$settings->{acceptable_packages}}) {
+  my $name     = $pkg->{name};
+  my %separate = map { $_ => 1 } @{$settings->{separate_packages}};
+  if (my ($listed)
+    = grep { ($pkg->{family} // '') eq package_family($_, \%separate) } @{$settings->{acceptable_packages}})
+  {
     return _hold($app, $pkg, $limitations, 'Otherwise accepted package name', paused => $paused) if $hold;
-    return _accept($app, $pkg, 'acceptable', "Accepted because of package name ($name)");
+    return _accept($app, $pkg, 'acceptable', "Accepted because of package name ($listed)");
   }
 
   # Every package above threshold needs a human review before future versions can be auto-accepted
@@ -316,25 +322,30 @@ sub _auto_review ($app, $id) {
   my $packages = $pkgs->history($name, $pkg_shortname, $id);
   if (my ($rejected) = grep { $_->{state} eq 'unacceptable' } @$packages) {
     return _hold($app, $pkg, $limitations,
-      "Manual review is required because it was rejected before with the same license as $rejected->{id}");
+      "Manual review is required because it was rejected before with the same license as $rejected->{id}"
+        . _in($pkg, $rejected));
   }
 
   my ($found_acceptable_by_lawyer, $found_acceptable);
   for my $p (@$packages) {
 
     # ignore obsolete reviews - possibly harmful as we don't reindex those
-    next                                   if $p->{obsolete};
-    $found_acceptable_by_lawyer = $p->{id} if $p->{state} eq 'acceptable_by_lawyer';
-    last                                   if $found_acceptable_by_lawyer;
-    $found_acceptable = $p->{id}           if $p->{state} eq 'acceptable';
+    next                             if $p->{obsolete};
+    $found_acceptable_by_lawyer = $p if $p->{state} eq 'acceptable_by_lawyer';
+    last                             if $found_acceptable_by_lawyer;
+    $found_acceptable = $p           if $p->{state} eq 'acceptable';
   }
 
   # Previously reviewed and accepted
-  if (my $f_id = $found_acceptable_by_lawyer || $found_acceptable) {
-    return _hold($app, $pkg, $limitations, "Otherwise accepted same license as $f_id", paused => $paused) if $hold;
+  if (my $found = $found_acceptable_by_lawyer || $found_acceptable) {
+    return _hold(
+      $app, $pkg, $limitations,
+      "Otherwise accepted same license as $found->{id}" . _in($pkg, $found),
+      paused => $paused
+    ) if $hold;
     return _accept(
       $app, $pkg, $found_acceptable_by_lawyer ? 'acceptable_by_lawyer' : 'acceptable',
-      "Accepted because previously reviewed under the same license ($f_id)",
+      "Accepted because previously reviewed under the same license@{[_in($pkg, $found)]} ($found->{id})",
       notice      => undef,
       diff_report => undef
     );
@@ -367,10 +378,10 @@ sub _auto_review ($app, $id) {
 }
 
 sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_manual_review, $incomplete_checkout) {
-  my ($matched_id, $best, $summary) = _smallest_delta($app, $pkg);
+  my ($matched, $best, $summary) = _smallest_delta($app, $pkg);
 
-  if (defined $matched_id && !$best) {
-    my $notice = "Not found any significant difference against $matched_id";
+  if ($matched) {
+    my $notice = "Not found any significant difference against $matched->{id}" . _in($pkg, $matched);
     if ($incomplete_checkout) {
       $notice .= ', manual review is required because the checkout might be incomplete';
     }
@@ -379,7 +390,8 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_manual_review, $in
     }
 
     return _accept(
-      $app, $pkg, 'acceptable', "Accepted because of no significant difference ($matched_id)",
+      $app, $pkg, 'acceptable',
+      "Accepted because of no significant difference@{[_in($pkg, $matched)]} ($matched->{id})",
       notice      => $notice,
       diff_report => undef
     ) if $allow_accept;
@@ -395,8 +407,8 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_manual_review, $in
 
   my %delta = (notice => summary_delta($best, $summary), diff_report => _diff_report($best, $summary));
   if ($allow_accept && defined(my $risk = _acceptable_delta_risk($app, $pkg, $best, $summary))) {
-    return _accept($app, $pkg, 'acceptable', "Accepted because of low risk changes ($risk) compared to $best->{id}",
-      %delta);
+    return _accept($app, $pkg, 'acceptable',
+      "Accepted because of low risk changes ($risk) compared to $best->{id}" . _in($pkg, $best), %delta);
   }
   _write($app, $pkg, result => undef, %delta);
 }
@@ -440,12 +452,14 @@ sub _refresh_notice ($app, $pkg) {
   $app->packages->update({id => $pkg->{id}, notice => $notice, diff_report => $diff_report});
 }
 
-# Returns (notice, diff_report, no_diff_id, delta_risk), no_diff_id only set when there was no significant difference
-# and delta_risk only when the differences are low risk enough to be accepted
+# Returns (notice, diff_report, no_diff, delta_risk), no_diff (the citation) only set when there was no significant
+# difference and delta_risk only when the differences are low risk enough to be accepted
 sub _delta_notice ($app, $pkg) {
-  my ($matched_id, $best, $summary) = _smallest_delta($app, $pkg);
-  return ("Not found any significant difference against $matched_id", undef, $matched_id)
-    if defined $matched_id && !$best;
+  my ($matched, $best, $summary) = _smallest_delta($app, $pkg);
+  if ($matched) {
+    my $ref = $matched->{id} . _in($pkg, $matched);
+    return ("Not found any significant difference against $ref", undef, $ref);
+  }
   return (undef, undef, undef) unless $best;
 
   my $notice = summary_delta($best, $summary);
@@ -458,20 +472,24 @@ sub _delta_notice ($app, $pkg) {
 
 # The id phrases here are linkified by the report UI, keep them in sync
 sub _hold ($app, $pkg, $limitations, $reason, %options) {
-  my ($notice, $diff_report, $no_diff_id, $delta_risk) = _delta_notice($app, $pkg);
+  my ($notice, $diff_report, $no_diff, $delta_risk) = _delta_notice($app, $pkg);
   if ($options{no_diff_accepts}) {
-    $reason //= "Otherwise accepted no significant difference against $no_diff_id" if defined $no_diff_id;
-    $reason //= "Otherwise accepted low risk changes ($delta_risk)"                if defined $delta_risk;
+    $reason //= "Otherwise accepted no significant difference against $no_diff" if defined $no_diff;
+    $reason //= "Otherwise accepted low risk changes ($delta_risk)"             if defined $delta_risk;
   }
 
   my @blocks;
   for my $limitation (@$limitations) {
-    push @blocks, $limitation->{package} ? "Limitation noted in $limitation->{package}" : 'Limitation noted';
+    my $other = $limitation->{package_name} eq $pkg->{name} ? undef : $limitation->{package_name};
+    push @blocks,
+        $limitation->{package} ? "Limitation noted in $limitation->{package}" . ($other ? " of $other" : '')
+      : $other                 ? "Limitation noted for $other"
+      :                          'Limitation noted';
     push @blocks, join("\n", map { length ? "  $_" : '' } split /\r?\n/, $limitation->{body});
   }
   push @blocks, 'Automatic acceptance is paused' if $options{paused} && defined $reason;
   push @blocks, $reason                          if defined $reason;
-  push @blocks, $notice                          if defined $notice && !(defined $no_diff_id && defined $reason);
+  push @blocks, $notice                          if defined $notice && !(defined $no_diff && defined $reason);
   _write($app, $pkg, notice => join("\n\n", @blocks), diff_report => $diff_report, result => undef);
   return;
 }
@@ -493,31 +511,31 @@ sub _diff_report ($best, $summary) {
   return to_json_fast({version => 1, closest => $best->{id}, new_unresolved => $files, new_licenses => $licenses});
 }
 
-# Find the closest matching older review. Returns (matched_id, best_summary,
-# new_summary). If a zero-delta match is found, best_summary is undef and
-# matched_id is the zero-delta review id. Otherwise best_summary is the
-# closest non-zero match (or undef when no older reviews exist).
+# Find the closest matching older review in the family. Returns (matched, best_summary, new_summary). If a zero-delta
+# match is found, matched is its row and best_summary undef. Otherwise best_summary is the closest non-zero match (or
+# undef when no older reviews exist). Summaries carry the package name, so a delta can say which name it was against.
 sub _smallest_delta ($app, $pkg) {
   my $reports       = $app->reports;
   my $older_reviews = $app->packages->old_reviews($pkg);
-  my $new_summary   = $reports->summary($pkg->{id});
+  my $new_summary   = {%{$reports->summary($pkg->{id})}, name => $pkg->{name}};
 
   my ($best, $best_score);
   my %checked;
   for my $old (@$older_reviews) {
     next if $checked{$old->{checksum}};
-    my $old_summary = $reports->summary($old->{id});
+    my $old_summary = {%{$reports->summary($old->{id})}, name => $old->{name}};
     my $score       = summary_delta_score($old_summary, $new_summary);
-    return ($old->{id}, undef, $new_summary) unless $score;
+    return ($old, undef, $new_summary) unless $score;
 
     $checked{$old->{checksum}} = 1;
     if (!$best || $score < $best_score) {
-      $best       = $old_summary;
-      $best_score = $score;
+      ($best, $best_score) = ($old_summary, $score);
     }
   }
 
   return (undef, $best, $new_summary);
 }
+
+sub _in ($pkg, $sibling) { $sibling->{name} eq $pkg->{name} ? '' : " in $sibling->{name}" }
 
 1;

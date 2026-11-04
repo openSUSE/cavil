@@ -6,7 +6,7 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 # A section can only read and change its own keys
 my %SECTION_KEYS = (
-  'auto-accept' => [qw(acceptable_packages acceptable_risk auto_accept auto_accept_risk)],
+  'auto-accept' => [qw(acceptable_packages acceptable_risk auto_accept auto_accept_risk separate_packages)],
   retention     =>
     [qw(days_to_keep_orphaned_duplicate_packages days_to_keep_orphaned_packages hours_to_keep_ephemeral_packages)],
   sbom => [qw(sbom_creator_email sbom_creator_name sbom_creator_url)]
@@ -91,7 +91,11 @@ sub update_section ($self) {
   my $result = $self->settings->update($self->current_user, $values, $reset);
   return $self->render(json => {errors => $result->{errors}}, status => 400) if $result->{errors};
 
-  my $rechecked = $self->packages->analyze_held($result->{old}, $result->{new});
+  my ($old, $new) = @{$result}{qw(old new)};
+  my $packages  = $self->packages;
+  my $rechecked = $packages->analyze_held($old, $new);
+  $rechecked += $packages->reindex_families($packages->sync_families)
+    if "@{$old->{separate_packages}}" ne "@{$new->{separate_packages}}";
   $self->render(json => {%{$self->_section_summary($self->stash('section'))}, rechecked => $rechecked});
 }
 

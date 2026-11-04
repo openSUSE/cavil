@@ -36,7 +36,7 @@ $pkgs->update(
     review_timestamp => 1
   }
 );
-$t->app->pg->db->update('bot_packages', {name => 'perl'}, {id => 2});
+$t->app->pg->db->update('bot_packages', {name => 'perl', family => 'perl'}, {id => 2});
 my $file_id = $t->app->pg->db->insert(
   'matched_files',
   {package   => 2, filename => 'foo.txt', mimetype => 'text/plain'},
@@ -121,6 +121,32 @@ subtest 'Ignore pattern search' => sub {
     ->json_is('/page/0/package'  => 'perl');
 
   $t->get_ok('/pagination/search/?ignore=2')->status_is(200)->json_is('/total' => 0);
+};
+
+subtest 'Search covers the package family' => sub {
+  my $id = $t->app->packages->add(
+    name            => 'perl-Mojolicious.12345',
+    checkout_dir    => 'f1e4c4a3e9b2d1e6c4a3e9b2d1e6c4a3',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => 1,
+    project         => 'SUSE:Maintenance:12345',
+    package         => 'perl-Mojolicious',
+    srcmd5          => 'f1e4c4a3e9b2d1e6c4a3e9b2d1e6c4a3',
+    priority        => 5
+  );
+  $t->get_ok('/pagination/search/perl-Mojolicious')
+    ->status_is(200)
+    ->json_is('/total'          => 2)
+    ->json_is('/page/0/id'      => $id)
+    ->json_is('/page/0/package' => 'perl-Mojolicious.12345')
+    ->json_is('/page/0/family'  => 'perl-Mojolicious')
+    ->json_is('/page/1/package' => 'perl-Mojolicious');
+  $t->get_ok('/pagination/search/perl-Mojolicious.12345')->status_is(200)->json_is('/total' => 2);
+  $t->get_ok('/pagination/search/perl')->status_is(200)->json_is('/total' => 1)->json_hasnt('/family');
+  $t->get_ok('/pagination/search/perl-Mojolicious?limit=1')
+    ->status_is(200)
+    ->json_is('/page/0/package' => 'perl-Mojolicious.12345')
+    ->json_is('/family'         => 'perl-Mojolicious', 'family spans more names than this page shows');
 };
 
 done_testing();

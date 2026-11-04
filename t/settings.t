@@ -81,6 +81,7 @@ subtest 'Registry' => sub {
     acceptable_risk                          => 4,
     auto_accept_risk                         => 2,
     acceptable_packages                      => [qw(000product 000release-packages 000package-groups)],
+    separate_packages                        => [],
     sbom_creator_name                        => '',
     sbom_creator_email                       => '',
     sbom_creator_url                         => '',
@@ -188,6 +189,62 @@ subtest 'Looser settings check open reviews again' => sub {
     ->json_is('/rechecked', 1, 'added package name');
   $app->minion->perform_jobs;
   is $app->packages->find(2)->{result}, 'Accepted because of package name (perl-Mojolicious)', 'accepted by name';
+};
+
+subtest 'Never group these packages' => sub {
+  my $pkgs = $app->packages;
+  my $add  = sub ($name) {
+    $pkgs->add(
+      name            => $name,
+      checkout_dir    => 'aaaa' . length $name,
+      api_url         => 'https://api.opensuse.org',
+      requesting_user => 1,
+      project         => 'devel:languages:perl',
+      package         => $name,
+      srcmd5          => 'bbbb' . length $name,
+      priority        => 5
+    );
+  };
+  $db->update('bot_packages', {reviewing_user => 1}, {id => 1});
+  my $versioned = $add->('perl-Mojolicious-9.41');
+  is $pkgs->find($versioned)->{family}, 'perl-Mojolicious', 'grouped by the rules';
+  $pkgs->ignore_line({package => 'perl-Mojolicious-9.41', hash => 'separate-hash', owner => 1});
+  ok $app->patterns->ignore_pattern_exists('perl-Mojolicious', 'separate-hash'), 'ignored for the whole family';
+  my $reindexed = sub { $app->minion->jobs({tasks => ['index_later']})->total };
+  my $before    = $reindexed->();
+
+  $t->put_ok('/settings/auto-accept.json' => json => {values => {separate_packages => ['perl-Mojolicious-9.41']}})
+    ->status_is(200)
+    ->json_is('/values/separate_packages', ['perl-Mojolicious-9.41']);
+  is $pkgs->find($versioned)->{family}, 'perl-Mojolicious-9.41', 'separated right away';
+  is $pkgs->find(1)->{family},          'perl-Mojolicious',      'the rest of the family stays';
+  ok !$app->patterns->ignore_pattern_exists('perl-Mojolicious', 'separate-hash'), 'its ignored matches went with it';
+  is $reindexed->() - $before, 2, 'the former family is reindexed';
+  is $pkgs->find($add->('perl-Mojolicious-9.41.12345'))->{family}, 'perl-Mojolicious-9.41',
+    'a build service copy of a listed name stays with it';
+  ok !$pkgs->has_manual_review('perl-Mojolicious-9.41'), 'no precedent from the former family';
+  ok $pkgs->has_manual_review('perl-Mojolicious'),       'which keeps its own';
+
+  my $copy = $add->('perl-Mojolicious.SUSE_SLE-15-SP7_Update');
+  $app->notes->add(1, 'perl-Mojolicious', 1, 'Only on the base package', 0);
+  is $app->notes->counts('perl-Mojolicious.SUSE_SLE-15-SP7_Update')->{total}, 1, 'notes of the family';
+  $t->put_ok(
+    '/settings/auto-accept.json' => json => {
+      values => {
+        separate_packages =>
+          ['perl-Mojolicious-9.41', 'perl-Mojolicious.SUSE_SLE-15-SP7_Update', 'perl-Mojolicious-9.99']
+      }
+    }
+  )->status_is(200);
+  is $pkgs->find($copy)->{family}, 'perl-Mojolicious.SUSE_SLE-15-SP7_Update',    'listed build service name separated';
+  is $app->notes->counts('perl-Mojolicious.SUSE_SLE-15-SP7_Update')->{total}, 0, 'no notes of the family any more';
+  is $app->notes->counts('perl-Mojolicious')->{total},                        1, 'which keeps them';
+  $t->get_ok('/pagination/search/perl-Mojolicious-9.99')
+    ->status_is(200)
+    ->json_is('/total', 0, 'a listed name not imported yet finds nothing');
+
+  $t->put_ok('/settings/auto-accept.json' => json => {reset => ['separate_packages']})->status_is(200);
+  is $pkgs->find($versioned)->{family}, 'perl-Mojolicious', 'grouped again';
 };
 
 subtest 'Pause automatic acceptance' => sub {
@@ -359,7 +416,7 @@ subtest 'Excluded files' => sub {
     ['unpack_exclusion.removed', 'r.zip']
     ],
     'audited';
-  $t->get_ok('/pagination/audit?category=settings')->status_is(200)->json_is('/total', 20);
+  $t->get_ok('/pagination/audit?category=settings')->status_is(200)->json_is('/total', 23);
 };
 
 subtest 'SBOM creator' => sub {

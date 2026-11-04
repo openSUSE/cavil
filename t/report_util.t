@@ -1410,6 +1410,12 @@ subtest 'summary_delta' => sub {
       {id => 2, declared => 'GPL-2.0+', missed_snippets => {}, licenses => {}}
       ),
       "Diff to closest match 1\n\n  Declared license  MIT -> GPL-2.0+\n", 'different declared license';
+    is summary_delta(
+      {id => 1, name => 'python314', declared => 'MIT',      missed_snippets => {}, licenses => {}},
+      {id => 2, name => 'python315', declared => 'GPL-2.0+', missed_snippets => {}, licenses => {}}
+      ),
+      "Diff to closest match 1 in python314\n\n  Declared license  MIT -> GPL-2.0+\n",
+      'names a closest match of another name';
 
     my $delta = sub {
       my ($old, $new) = @_;

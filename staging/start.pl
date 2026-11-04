@@ -194,6 +194,26 @@ unless ($clean) {
   $pkgs->update($mojo);
   $pkgs->unpack($pkg_id);
 
+  # The same sources under their own Open Build Service name, part of the "perl-Mojolicious" package family
+  my $update_name = 'perl-Mojolicious.SUSE_SLE-15-SP7_Update';
+  my $update      = $checkouts->child($update_name, 'c7cfdab0e71b0bebfdf8b2dc3bad5678')->make_path;
+  $_->copy_to($update->child($_->basename)) for $test->list->each;
+  $pkg_id = $pkgs->add(
+    name            => $update_name,
+    checkout_dir    => 'c7cfdab0e71b0bebfdf8b2dc3bad5678',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $user_id,
+    project         => 'SUSE:Maintenance:12345',
+    package         => $update_name,
+    srcmd5          => 'bd91c36647a5d3dd883d490da2145678',
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+  $mojo = $pkgs->find($pkg_id);
+  $mojo->{external_link} = 'ibs#331002';
+  $pkgs->update($mojo);
+  $pkgs->unpack($pkg_id);
+
   my $notes = $app->notes;
   $notes->add($mojo_id,  'perl-Mojolicious', $user_id, "Just a note $_", 0) for 1 .. 25;
   $notes->add($mojo3_id, 'perl-Mojolicious', $user_id, 'Another test',   0);

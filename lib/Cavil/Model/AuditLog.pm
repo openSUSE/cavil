@@ -4,7 +4,7 @@
 package Cavil::Model::AuditLog;
 use Mojo::Base -base, -signatures;
 
-use Cavil::Util qw(paginate);
+use Cavil::Util qw(family_of paginate FAMILY_OF);
 use Exporter 'import';
 
 our @EXPORT_OK = qw(audit_event CATEGORIES);
@@ -35,7 +35,7 @@ sub last_event ($self, $types, $keys = undef) {
   )->hash;
 }
 
-# Exact matches only, a substring would mix in every package sharing a prefix (gcc, gcc13, cross-gcc...)
+# Family matches, not substrings, which would mix in every package sharing a prefix (cross-gcc with gcc)
 sub paginate_events ($self, $options) {
   my $search = $options->{search} // '';
   my (@where, @bind);
@@ -43,7 +43,11 @@ sub paginate_events ($self, $options) {
     push @where, '(e.package = ? OR e.package_name = ?)';
     push @bind, $search, $search;
   }
-  elsif (length $search) { push @where, 'e.package_name = ?'; push @bind, $search }
+  elsif (length $search) {
+    push @where,
+      '(e.package_name = ? OR e.package_name IN (SELECT name FROM bot_packages WHERE family = ' . FAMILY_OF . '))';
+    push @bind, $search, family_of($search);
+  }
   push @where, 'e.actor IS NOT NULL' if $options->{by_user};
   if (my $types = CATEGORIES->{$options->{category} // ''}) { push @where, 'e.type LIKE ANY(?)'; push @bind, $types }
   my $where = @where ? 'WHERE ' . join(' AND ', @where) : '';

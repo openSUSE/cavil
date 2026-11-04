@@ -18,7 +18,7 @@ use Cavil::Util (
   qw(normalize_license_expr obs_ssh_auth original_filename),
   qw(parse_lookup),
   qw(parse_list_filter parse_service_file normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
-  qw(safe_string),
+  qw(family_match package_family safe_string),
   qw(external_link_data incoming_priority request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles),
   qw(validate_tags PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_WAITING),
   qw(decode_json_fast encode_json_fast to_json_fast)
@@ -891,5 +891,79 @@ subtest 'safe_string' => sub {
   ok !safe_string("tab\there"),        'tab';
   ok !safe_string("nul\x00"),          'NUL byte';
 };
+
+subtest 'package_family: Open Build Service suffixes' => sub {
+  is package_family('curl.17566'),                              'curl',       'incident';
+  is package_family('cups.imported_3576'),                      'cups',       'imported incident';
+  is package_family('python311.SUSE_SLE-15-SP4_Update'),        'python',     'update project';
+  is package_family('abseil-cpp.SUSE_SLE-12-SP5_Update.24419'), 'abseil-cpp', 'update project and incident';
+  is package_family('kgraft-patch-SLE12_Update_10.SUSE_Maintenance_1772'), 'kgraft-patch-SLE12_Update_10',
+    'maintenance';
+  is package_family('opera.openSUSE_Leap_15.6_NonFree.18351'),                 'opera', 'project with a dot';
+  is package_family('000package-groups.home_kukuk_branches_openSUSE_Factory'), '000package-groups', 'home project';
+  is package_family('dbus-1.15466'),              'dbus',                      'incident after version';
+  is package_family('python-zope.testbrowser'),   'python-zope.testbrowser',   'dotted name kept';
+  is package_family('openoffice.org-dict-cs_CZ'), 'openoffice.org-dict-cs_CZ', 'locale after a dash is no project';
+  is package_family('openoffice.org-dict-cs_CZ.12345'),     'openoffice.org-dict-cs_CZ', 'and its incident copy';
+  is package_family('python-backports.ssl_match_hostname'), 'python-backports.ssl_match_hostname', 'lower case kept';
+  is package_family('keybinder-3.0'),                       'keybinder', 'short dotted number is a version';
+};
+
+subtest 'package_family: versioned names' => sub {
+  is package_family($_),                   'python',        $_ for qw(python python3.12 python310 python314 python315);
+  is package_family($_),                   'nodejs',        $_ for qw(nodejs nodejs-22 nodejs22 nodejs18);
+  is package_family('java-21-openjdk'),    'java-openjdk',  'version token';
+  is package_family('java-1_8_0-openjdk'), 'java-openjdk',  'underscore version token';
+  is package_family('kubectl-1.31-image'), 'kubectl-image', 'dotted version token';
+  is package_family('rubygem-rails-5_1'),  'rubygem-rails', 'trailing version token';
+  is package_family('go1.22-openssl'),     'go-openssl',    'dotted attached version';
+  is package_family('llvm3_8'),            'llvm',          'underscore attached version';
+  is package_family('mozjs128'),           'mozjs',         'three digits';
+  is package_family('python311-pip'),      'python-pip',    'versioned prefix';
+  is package_family('libsoup24'),          'libsoup',       'library';
+};
+
+subtest 'package_family: different projects stay apart' => sub {
+  isnt package_family('bzip2'),            package_family('bzip3'),            'single digit';
+  isnt package_family('csync'),            package_family('csync2'),           'single digit';
+  isnt package_family('rke'),              package_family('rke2'),             'single digit';
+  isnt package_family('dump'),             package_family('dump1090'),         'four digits';
+  isnt package_family('libraw'),           package_family('libraw1394'),       'four digits';
+  isnt package_family('rt2860'),           package_family('rt3090'),           'model numbers';
+  isnt package_family('gnome'),            package_family('gnome-2048'),       'four digit token';
+  isnt package_family('libx11'),           package_family('libx86'),           'one letter after lib';
+  isnt package_family('lib3270'),          package_family('lib'),              'nothing after lib';
+  isnt package_family('x264'),             package_family('x265'),             'one letter stem';
+  isnt package_family('perl-MIME-Base32'), package_family('perl-MIME-Base64'), 'not the first token';
+  isnt package_family('python-h2'),        package_family('python-h11'),       'not the first token';
+  isnt package_family('SDL2_ttf'),         package_family('SDL3_ttf'),         'digits inside a token';
+  is package_family('389-ds'),             '389-ds',                           'leading number kept';
+  is package_family(''),                   '',                                 'empty';
+};
+
+subtest 'package_family: never group these packages' => sub {
+  my $separate = {openh323 => 1};
+  is package_family('openh323',       $separate),           'openh323',   'listed name';
+  is package_family('openh323.12345', $separate),           'openh323',   'build service copy of a listed name';
+  is package_family('openh264',       $separate),           'openh',      'other names keep the rules';
+  is package_family('curl.17566',     {'curl.17566' => 1}), 'curl.17566', 'listed build service name';
+  is package_family('curl',           {'curl.17566' => 1}), 'curl',       'leaves the rest of the family alone';
+  is package_family('gst123',         {gst => 1}), 'gst123', 'names that would fold into a listed name keep their own';
+  is package_family('gst123.555',     {gst => 1}), 'gst123', 'with their build service copies';
+  is package_family('gst.555',        {gst => 1}), 'gst',    'copies of the listed name stay with it';
+};
+
+subtest 'family_match' => sub {
+  is_deeply [family_match('packname', 'python315')],
+    [
+    '(packname = ? OR packname IN (SELECT name FROM bot_packages WHERE family = '
+      . 'COALESCE((SELECT family FROM bot_packages WHERE name = ? LIMIT 1), ?)))',
+    'python315',
+    'python315',
+    'python'
+    ],
+    'exact name and stored family';
+};
+
 
 done_testing;

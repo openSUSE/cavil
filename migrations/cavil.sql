@@ -525,3 +525,9 @@ CREATE TABLE bot_tokens (
 
 -- 77 down
 DROP TABLE IF EXISTS bot_tokens;
+
+-- 78 up
+ALTER TABLE bot_packages ADD COLUMN IF NOT EXISTS family text;
+CREATE INDEX IF NOT EXISTS bot_packages_family_idx ON bot_packages (family);
+ALTER TABLE package_notes ADD COLUMN IF NOT EXISTS family text;
+CREATE INDEX IF NOT EXISTS package_notes_family_idx ON package_notes (family, id DESC);

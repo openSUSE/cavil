@@ -4,7 +4,7 @@
     <div class="row">
       <div class="col-10 mt-3">
         <h2 class="report-metadata-name">
-          <a :href="searchUrl" target="_blank">{{ pkgName }}</a>
+          <a :href="searchUrl" target="_blank"><PackageName :name="pkgName" :family="pkgFamily" /></a>
           <span v-if="formatIcon !== null" class="cavil-package-format-icon"
             >&nbsp;
             <i :class="formatIcon"></i>
@@ -424,6 +424,7 @@ import ExternalLink from './ExternalLink.vue';
 import FilePath from './FilePath.vue';
 import LegalLoading from './LegalLoading.vue';
 import ListMoreToggle from './ListMoreToggle.vue';
+import PackageName from './PackageName.vue';
 import ReportDocuments from './ReportDocuments.vue';
 import TagInput from './TagInput.vue';
 import TemplatePicker from './TemplatePicker.vue';
@@ -483,6 +484,7 @@ export default {
     FilePath,
     LegalLoading,
     ListMoreToggle,
+    PackageName,
     ReportDocuments,
     TagInput,
     TemplatePicker,
@@ -521,6 +523,7 @@ export default {
       canViewAudit: false,
       ephemeralDelete: '',
       incompleteCheckout: [],
+      pkgFamily: null,
       pkgName: null,
       pkgPriority: null,
       pkgRisk: null,
@@ -608,14 +611,23 @@ export default {
       }
       if (!this.withLimitation) {
         const what = count === 1 ? 'the limitation' : count === 2 ? 'both limitations' : `all ${count} limitations`;
-        return {before: `Accepting removes ${what}. Future versions can be accepted automatically.`, removing: true};
+        const others = [...new Set(this.limitations.map(l => l.package_name).filter(name => name !== this.pkgName))];
+        const noted = others.length > 0 ? `, noted for ${others.join(' and ')}` : '';
+        return {
+          before: `Accepting removes ${what}${noted}. Future versions can be accepted automatically.`,
+          removing: true
+        };
       }
 
       const origins = [];
-      for (const id of new Set(this.limitations.map(limitation => limitation.package))) {
-        if (id === null) origins.push({text: 'a deleted review'});
+      const seen = new Set();
+      for (const {package: id, package_name: name} of this.limitations) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const of = name === this.pkgName ? '' : ` of ${name}`;
+        if (id === null) origins.push({text: `a deleted review${of}`});
         else if (id === Number(this.pkgId)) origins.push({text: 'this review'});
-        else origins.push({text: `review #${id}`, url: `/reviews/details/${id}`});
+        else origins.push({text: `review #${id}${of}`, url: `/reviews/details/${id}`});
       }
       return {before: 'Noted in ', origins, after: '.'};
     },
@@ -911,6 +923,7 @@ export default {
         service => `Remote service in _service file: ${service.name} (mode: ${service.mode})`
       );
 
+      this.pkgFamily = data.package_family;
       this.pkgName = data.package_name;
       this.pkgPriority = data.package_priority;
       this.pkgRisk = data.package_risk;
@@ -945,7 +958,7 @@ export default {
 
       if (data.reviewed !== null) this.reviewed = moment(data.reviewed * 1000).fromNow();
       this.reviewingUser = data.reviewing_user;
-      this.searchUrl = `/search?q=${this.pkgName}`;
+      this.searchUrl = `/search?q=${encodeURIComponent(this.pkgName)}`;
 
       // Make sure not to reset the comment field in the middle of a review (unless someone else changed the state)
       if (data.state !== this.state) this.result = data.result ?? '';

@@ -76,7 +76,7 @@
                 data-note-edited
                 >· edited {{ formatRelative(c.edited_epoch) }}</span
               >
-              <span v-if="showPackageName && c.package_name">
+              <span v-if="showNoteName(c)">
                 for
                 <template v-if="c.original_package && c.original_package.id !== null">
                   <a
@@ -303,6 +303,7 @@ export default {
   data() {
     return {
       notes: [],
+      packageName: null,
       pinnedNotes: [],
       hasMore: false,
       initialLoading: true,
@@ -366,6 +367,11 @@ export default {
     }
   },
   methods: {
+    // Notes are shared across the package family, one written for another name says so
+    showNoteName(c) {
+      if (!c.package_name) return false;
+      return this.showPackageName || (this.packageName !== null && c.package_name !== this.packageName);
+    },
     formatRelative(epoch) {
       return moment(epoch * 1000).fromNow();
     },
@@ -476,6 +482,7 @@ export default {
         }
         const data = await res.json();
         this.notes.push(...data.notes);
+        if (data.package_name !== undefined) this.packageName = data.package_name;
         // Only the first page carries the pinned block.
         if (Array.isArray(data.pinned)) this.pinnedNotes = data.pinned;
         if (data.can_pin !== undefined) this.canPin = !!data.can_pin;

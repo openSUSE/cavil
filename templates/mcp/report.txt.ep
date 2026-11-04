@@ -48,12 +48,12 @@ Created: <%== Mojo::Date->new($summary->{created})->to_datetime %>
 % if (@$history) {
 ## Review History
 
-Decisions on other versions of this package, newest first. Only `acceptable_by_lawyer` is a lawyer's decision; a
-lawyer's result on the same report is the strongest precedent.
+Decisions on other versions of this package and its package family, newest first. Only `acceptable_by_lawyer` is a
+lawyer's decision; a lawyer's result on the same report is the strongest precedent.
 
 %   for my $h (@$history) {
 %     my $who = ($h->{login} ? " by $h->{login}" : '') . ($h->{state} eq 'acceptable' ? ' (not a lawyer)' : '');
-* <%= $h->{id} %><%== $h->{version} ? " (version $h->{version})" : '' %>: <%= $h->{state} %><%== $who %> on <%= Mojo::Date->new($h->{reviewed_epoch})->to_datetime %><%== $h->{same} ? ' [same report]' : '' %>
+* <%= $h->{id} %><%== $h->{name} ne $summary->{package_name} ? " ($h->{name})" : '' %><%== $h->{version} ? " (version $h->{version})" : '' %>: <%= $h->{state} %><%== $who %> on <%= Mojo::Date->new($h->{reviewed_epoch})->to_datetime %><%== $h->{same} ? ' [same report]' : '' %>
 %     if (length(my $result = $h->{result} // '')) {
 %       $result =~ s/\s+/ /g;
   Result: <%== length $result > 1000 ? substr($result, 0, 1000) . '...' : $result %>

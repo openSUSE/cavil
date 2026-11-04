@@ -340,6 +340,7 @@ sub _notes ($c, $pkg) {
     relevant_only      => 0,
     current_package_id => $pkg->{id},
     current_checksum   => $pkg->{checksum},
+    current_name       => $pkg->{name},
     body_limit         => 0
   );
 }

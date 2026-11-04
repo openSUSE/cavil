@@ -67,10 +67,11 @@ sub register ($self, $app, $config) {
   $mcp->tool(
     name        => 'cavil_search_packages',
     description =>
-      'Search all packages regardless of review state, by exact name, by any cited id or by a vendored component they'
-      . ' ship. "id" takes an id as people cite it (a Cavil package id, a request like "SR#1234567", "ibs#331002" or'
-      . ' "pool/foo!12", or a request or report URL) and lists every package it may refer to, including obsolete'
-      . ' ones, with all their request links (closed ones marked). Unlike'
+      'Search all packages regardless of review state, by name, by any cited id or by a vendored component they'
+      . ' ship. A name finds its whole package family, other versions of the same software (python314 for python315,'
+      . ' curl.12345 for curl) included. "id" takes an id as people cite it (a Cavil package id, a request like'
+      . ' "SR#1234567", "ibs#331002" or "pool/foo!12", or a request or report URL) and lists every package it may'
+      . ' refer to, including obsolete ones, with all their request links (closed ones marked). Unlike'
       . ' cavil_get_open_reviews (which only returns the open review queue), this searches the whole package set,'
       . ' including already reviewed packages. Use "component" for security and supply-chain triage, e.g. to find'
       . ' every package that bundles a vulnerable dependency; it is a case-insensitive substring matched against a'
@@ -80,7 +81,7 @@ sub register ($self, $app, $config) {
     input_schema => {
       type       => 'object',
       properties => {
-        name      => {type => 'string',  description => 'Exact package name'},
+        name      => {type => 'string',  description => 'Package name, matches its package family'},
         id        => {type => 'string',  description => 'Any cited id or URL of a package review or request'},
         component => {type => 'string',  description => 'Vendored component name or purl (case-insensitive substring)'},
         limit     => {type => 'integer', minimum     => 1, maximum => 100, default => 25},
@@ -769,7 +770,8 @@ sub tool_cavil_get_notes ($tool, $args) {
     tags               => $tags,
     relevant_only      => $relevant_only,
     current_package_id => $id,
-    current_checksum   => $pkg->{checksum}
+    current_checksum   => $pkg->{checksum},
+    current_name       => $pkg->{name}
   );
 }
 

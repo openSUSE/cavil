@@ -14,7 +14,9 @@ legal decision.
   report. `without_review_note=true` returns only the `no` entries.
 - `cavil_get_notes(package_id, tags?, relevant_only?, limit?, offset?)` - Existing notes, optionally filtered by tag.
   Each is marked `[this report]`, `[same report]` (another review with an identical license report), or
-  `[other report]`. `relevant_only=true` returns only the first two.
+  `[other report]`. `relevant_only=true` returns only the first two. A note written for another name of the same
+  software (another version like `python314` for `python315`, or a build service copy like `curl.12345` for `curl`)
+  also carries `[for <name>]`.
 - `cavil_get_report(package_id, components_limit?)` - The legal report. Unresolved matches appear only as a
   top-by-impact rollup.
 - `cavil_search_snippets(package_id, resolution, group, search?, limit)` - All unresolved snippets. `group=none` lists
@@ -30,7 +32,7 @@ legal decision.
 If no package_id was provided, use `cavil_get_open_reviews` to find it, and ask the user to choose if it is ambiguous.
 Working through the backlog? `cavil_get_open_reviews(without_review_note=true)` returns only reviews that still need a
 note. There is no need to process them one at a time: the write in Step 6 is server-guarded against duplicates, even
-across same-name siblings or parallel runs.
+across other versions of the package or parallel runs.
 
 ### Step 2 - Check whether this report was already reviewed
 Skip this step if the listing you came from already said `Review-Note: no`. Otherwise call
@@ -46,6 +48,8 @@ Call `cavil_get_report(package_id)`. When the unresolved-matches rollup shows so
 it with `cavil_search_snippets(package_id, resolution=unresolved)` (`group=text` for scale, `group=none` for detail).
 
 Read **`## Review History`** first when present: the last decisions on other versions, each with the reviewer's result.
+Other versions include other names of the same software (`python314` for `python315`, `curl.12345` for `curl`); such
+an entry shows that name in parentheses after its id.
 A lawyer's result on a `[same report]` version is the strongest precedent there is; cite it and spend your review on
 what changed. Only `acceptable_by_lawyer` is a lawyer's result: plain `acceptable` (marked `not a lawyer`) is context,
 never legal precedent, and a same version number is not the same report. Licenses and unresolved files marked `NEW`

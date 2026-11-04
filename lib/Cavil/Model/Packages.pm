@@ -6,9 +6,10 @@ use Mojo::Base -base, -signatures;
 
 use Cavil::Model::AuditLog qw(audit_event);
 use Cavil::Model::Notes    qw(relevance_predicate);
+use Cavil::Model::Settings;
 use Cavil::Util qw(checkout_path external_link_data file_glob incoming_priority lookup_tokens md5_file paginate),
-  qw(parse_list_filter parse_lookup), qw(PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP),
-  qw(PRIORITY_WAITING @LICENSE_FLAGS);
+  qw(family_of package_family parse_list_filter parse_lookup FAMILY_OF),
+  qw(PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP), qw(PRIORITY_WAITING @LICENSE_FLAGS);
 use IO::Uncompress::Gunzip;
 use List::Util qw(max);
 use Mojo::File qw(path);
@@ -88,12 +89,12 @@ sub dossier_stamp ($self, $pkg, $memo = {}) {
   my $rows = $self->pg->db->query(
     "SELECT md5(concat_ws('|',
        (SELECT (to_jsonb(p) - 'processing_job' - 'index_stage' - 'reindex_requested' - 'reindex_priority' - 'cleaned'
-          - 'sbom_version')::text FROM bot_packages p WHERE id = \$1),
+          - 'sbom_version' - 'family')::text FROM bot_packages p WHERE id = \$1),
        COALESCE((SELECT string_agg(to_jsonb(r)::text, ',' ORDER BY r.id) FROM bot_requests r WHERE package = \$1), ''),
        COALESCE((SELECT string_agg(to_jsonb(pp)::text, ',' ORDER BY pp.product) FROM bot_package_products pp
           WHERE package = \$1), ''),
-       COALESCE((SELECT string_agg(to_jsonb(n)::text, ',' ORDER BY n.id) FROM package_notes n WHERE package_name = \$2),
-          '')))", $pkg->{id}, $pkg->{name}
+       COALESCE((SELECT string_agg(to_jsonb(n)::text, ',' ORDER BY n.id) FROM package_notes n
+          WHERE n.family = (SELECT family FROM bot_packages WHERE id = \$1)), '')))", $pkg->{id}
   )->array->[0];
   return md5_sum(encode('UTF-8', to_json([$rows, $self->review_history($pkg), $self->report_stamp($pkg, $memo)])));
 }
@@ -156,6 +157,7 @@ sub add ($self, %args) {
 
   my $pkg = {
     name            => $args{name},
+    family          => package_family($args{name}, Cavil::Model::Settings::separate_in($db)),
     checkout_dir    => $args{checkout_dir},
     created         => $args{created} || scalar localtime,
     source          => $source_id,
@@ -264,11 +266,12 @@ sub analyze_held ($self, $old, $new) {
   my $resumed = $new->{auto_accept} && !$old->{auto_accept} ? 1 : 0;
   return 0 unless @names || @ranges || $resumed;
 
-  my $risk = q{substring(checksum from '-(\d):[^:]+$')::int};
-  my $ids  = $self->pg->db->query(
+  my %separate = map { $_ => 1 } @{$new->{separate_packages}};
+  my $risk     = q{substring(checksum from '-(\d):[^:]+$')::int};
+  my $ids      = $self->pg->db->query(
     "SELECT id FROM bot_packages WHERE state = 'new' AND NOT obsolete AND indexed IS NOT NULL
-       AND (?::bool OR name = ANY(?) @{[map {qq{OR ($risk > ? AND $risk <= ?)}} @ranges]})", $resumed, \@names,
-    map {@$_} @ranges
+       AND (?::bool OR family = ANY(?) @{[map {qq{OR ($risk > ? AND $risk <= ?)}} @ranges]})", $resumed,
+    [map { package_family($_, \%separate) } @names], map {@$_} @ranges
   )->arrays->flatten->to_array;
   $self->_enqueue('analyzed', $_, PRIORITY_UPKEEP) for @$ids;
   return scalar @$ids;
@@ -277,8 +280,9 @@ sub analyze_held ($self, $old, $new) {
 # A changed limitation only reaches the versions waiting for review through their next auto review
 sub analyze_waiting ($self, $name) {
   $self->_enqueue('analyzed', $_->{id})
-    for $self->pg->db->query("SELECT id FROM bot_packages WHERE name = ? AND state = 'new' AND NOT obsolete", $name)
-    ->hashes->each;
+    for $self->pg->db->query(
+    "SELECT id FROM bot_packages WHERE family = ${\FAMILY_OF} AND state = 'new' AND NOT obsolete",
+    family_of($name))->hashes->each;
 }
 
 # A Minion job id provides exclusive ownership without expiring during long builds.
@@ -561,6 +565,33 @@ sub generate_document ($self, $id, $key) {
   $self->minion->enqueue('documents' => [$id, $key] => {priority => PRIORITY_WAITING, notes => {"pkg_$id" => 1}});
 }
 
+# The rule lives in Perl, so setup and migrate bring the stored keys up to date and a changed rule needs no migration.
+# One transaction, so a review never sees packages moved without their notes. Returns the families that gained or lost
+# a name, old and new, a first family for a record from before families existed regroups nothing.
+sub sync_families ($self) {
+  my $db       = $self->pg->db;
+  my $tx       = $db->begin;
+  my $separate = Cavil::Model::Settings::separate_in($db);
+  my %touched;
+  for my $pair ([bot_packages => 'name'], [package_notes => 'package_name']) {
+    my ($table, $column) = @$pair;
+    my (@names, @families);
+    for my $row ($db->query("SELECT DISTINCT $column AS name, family FROM $table")->hashes->each) {
+      my $family = package_family($row->{name}, $separate);
+      next if defined $row->{family} && $row->{family} eq $family;
+      push @names,    $row->{name};
+      push @families, $family;
+      $touched{$_} = 1 for defined $row->{family} ? ($family, $row->{family}) : ();
+    }
+    $db->query(
+      "UPDATE $table AS t SET family = u.family FROM unnest(?::text[], ?::text[]) AS u(name, family)
+       WHERE t.$column = u.name AND t.family IS DISTINCT FROM u.family", \@names, \@families
+    ) if @names;
+  }
+  $tx->commit;
+  return [sort keys %touched];
+}
+
 sub has_file_stats ($self, $id) {
   return defined($self->pg->db->select('bot_packages', 'unpacked_files', {id => $id})->hash->{unpacked_files});
 }
@@ -569,23 +600,25 @@ sub has_file_stats ($self, $id) {
 # normal package's auto-review, and since they are fully purged their deletion must not change any decision.
 sub has_manual_review ($self, $name) {
   return !!$self->pg->db->query(
-    'SELECT COUNT(*) FROM bot_packages WHERE name = ? AND reviewing_user IS NOT NULL AND ephemeral = FALSE', $name)
-    ->array->[0];
+    'SELECT COUNT(*) FROM bot_packages
+     WHERE family = ' . FAMILY_OF . ' AND reviewing_user IS NOT NULL AND ephemeral = FALSE', family_of($name)
+  )->array->[0];
 }
 
 sub rejected_since ($self, $name, $id) {
   return !!$self->pg->db->query(
-    "SELECT COUNT(*) FROM bot_packages WHERE name = ? AND id > ? AND state = 'unacceptable' AND ephemeral = FALSE",
-    $name, $id)->array->[0];
+    "SELECT COUNT(*) FROM bot_packages
+     WHERE family = ${\FAMILY_OF} AND id > ? AND state = 'unacceptable' AND ephemeral = FALSE", family_of($name), $id
+  )->array->[0];
 }
 
 sub history ($self, $name, $checksum, $id) {
   return $self->pg->db->query(
-    "select p.id, external_link, result, state, login,
+    "select p.id, p.name, external_link, result, state, login,
        extract(epoch from created) as created_epoch, obsolete
      from bot_packages p left join bot_users u on p.reviewing_user = u.id
-     where name = ? and checksum = ? and p.id != ? and state != 'new' and ephemeral = false
-     order by p.id desc", $name, $checksum, $id
+     where family = ${\FAMILY_OF} and checksum = ? and p.id != ? and state != 'new' and ephemeral = false
+     order by p.id desc", family_of($name), $checksum, $id
   )->hashes->to_array;
 }
 
@@ -593,14 +626,14 @@ sub history ($self, $name, $checksum, $id) {
 # handed to AI. The version comes from the stored declarations only, building them would need the checkout.
 sub review_history ($self, $pkg, $limit = 5) {
   return $self->pg->db->query(
-    "SELECT p.id, p.state, p.result, p.checksum, p.external_link, u.login,
+    "SELECT p.id, p.name, p.state, p.result, p.checksum, p.external_link, u.login,
        EXTRACT(EPOCH FROM COALESCE(p.reviewed, p.created)) AS reviewed_epoch,
        r.declarations::jsonb #>> '{declarations,0,version}' AS version
      FROM bot_packages p
        LEFT JOIN bot_users u ON u.id = p.reviewing_user
        LEFT JOIN bot_reports r ON r.package = p.id
-     WHERE p.name = ? AND p.id != ? AND p.state != 'new' AND p.ephemeral = false AND p.embargoed = false
-     ORDER BY p.id DESC LIMIT ?", $pkg->{name}, $pkg->{id}, $limit
+     WHERE p.family = ${\FAMILY_OF} AND p.id != ? AND p.state != 'new' AND p.ephemeral = false AND p.embargoed = false
+     ORDER BY p.id DESC LIMIT ?", family_of($pkg->{name}), $pkg->{id}, $limit
   )->hashes->to_array;
 }
 
@@ -626,11 +659,13 @@ sub ignore_line ($self, $options) {
   }
   $tx->commit;
 
-  # Suppression is applied at index time (see Cavil::FileIndexer), so every package sharing this name must
+  # Suppression is applied at index time (see Cavil::FileIndexer), so every package in this family must
   # be reindexed. The ids are returned rather than reindexed here so a batch of decisions reindexes each
   # package once, at the priority the reviewer's own report deserves (Cavil::Controller::Snippet).
-  return $db->select('bot_packages', 'id', {name => $options->{package}, obsolete => 0, indexed => {'!=' => undef}})
-    ->arrays->flatten->to_array;
+  return $db->query(
+    'SELECT id FROM bot_packages
+     WHERE family = ' . FAMILY_OF . ' AND NOT obsolete AND indexed IS NOT NULL', family_of($options->{package})
+  )->arrays->flatten->to_array;
 }
 
 sub remove_ignored_line ($self, $id, $user) {
@@ -651,7 +686,9 @@ sub remove_ignored_line ($self, $id, $user) {
   return undef unless $hash;
   $self->log->info(qq{User "$user" removed ignored match "$hash->{hash}"});
 
-  $self->reindex_packages($hash->{packname});
+  $self->reindex($_, PRIORITY_UPKEEP)
+    for $self->pg->db->query('SELECT id FROM bot_packages WHERE family = ' . FAMILY_OF, family_of($hash->{packname}))
+    ->arrays->flatten->each;
 
   return 1;
 }
@@ -697,18 +734,11 @@ sub next_sbom_version ($self, $id) {
 }
 
 sub old_reviews ($self, $pkg) {
-  return $self->pg->db->select(
-    'bot_packages',
-    'id,checksum',
-    {
-      name      => $pkg->{name},
-      state     => [qw(acceptable acceptable_by_lawyer)],
-      id        => {'!=' => $pkg->{id}},
-      obsolete  => 0,
-      ephemeral => 0,
-      indexed   => {'!=' => undef}
-    },
-    {-desc => 'id'}
+  return $self->pg->db->query(
+    "SELECT id, name, checksum FROM bot_packages
+     WHERE family = ${\FAMILY_OF} AND state IN ('acceptable', 'acceptable_by_lawyer') AND id != ?
+       AND NOT obsolete AND NOT ephemeral AND indexed IS NOT NULL
+     ORDER BY id DESC", family_of($pkg->{name}), $pkg->{id}
   )->hashes->to_array;
 }
 
@@ -727,7 +757,7 @@ sub _annotated_filter ($db, $options) {
   my $lawyer = $options->{include_lawyer_only} ? ''                                     : 'AND c.lawyer_only = false';
 
   return "AND id $not IN (SELECT p.id FROM bot_packages p
-                            JOIN package_notes c ON c.package_name = p.name
+                            JOIN package_notes c ON c.family = p.family
                             LEFT JOIN bot_packages np ON c.package = np.id
                            WHERE "
     . relevance_predicate('p') . " $lawyer" . ($tag ? " AND c.tags @> ARRAY[$tag]::text[]" : '') . ')';
@@ -947,6 +977,9 @@ sub paginate_ephemeral_reviews ($self, $options) {
 sub paginate_review_search ($self, $name, $options) {
   my $db = $self->pg->db;
 
+  # A name not imported yet still has to respect "Never group these packages"
+  my $fallback = $name ? package_family($name, Cavil::Model::Settings::separate_in($db)) : undef;
+
   # Generation 0 only: a reindex building alongside the live report is not yet what anybody is searching
   my $packages;
   if ($options->{pattern}) {
@@ -1001,19 +1034,31 @@ sub paginate_review_search ($self, $name, $options) {
 
   my $results = $db->query(
     qq{
-      SELECT p.id AS id, name AS package, state, obsolete, checksum, p.result AS comment,
+      SELECT p.id AS id, name AS package, family, state, obsolete, checksum, p.result AS comment,
         EXTRACT(EPOCH FROM p.created) AS created_epoch, EXTRACT(EPOCH FROM p.imported) AS imported_epoch,
         EXTRACT(EPOCH FROM p.unpacked) AS unpacked_epoch, EXTRACT(EPOCH FROM p.indexed) AS indexed_epoch,
         u.login AS user,  unresolved_matches, COUNT(*) OVER() AS total
       FROM bot_packages p LEFT JOIN bot_users u ON p.reviewing_user = u.id
-      WHERE (name = \$1 OR \$1 IS NULL) AND (p.id = ANY (\$2) OR \$2 IS NULL) AND p.ephemeral = FALSE
+      WHERE (\$1::text IS NULL OR family = COALESCE((SELECT f.family FROM bot_packages f WHERE f.name = \$1 LIMIT 1), \$5))
+        AND (p.id = ANY (\$2) OR \$2 IS NULL) AND p.ephemeral = FALSE
         $search $obsolete $embargoed
       ORDER BY $order
       LIMIT \$3 OFFSET \$4
-    }, $name || undef, $packages, $options->{limit}, $options->{offset}
+    }, $name || undef, $packages, $options->{limit}, $options->{offset}, $fallback
   )->hashes->to_array;
 
-  return paginate($results, $options);
+  # The page alone cannot tell, sibling names may only show up on later pages
+  my $page = paginate($results, $options);
+  if ($name) {
+    my $family = $db->query(
+          'SELECT f.family, COUNT(DISTINCT p.name) AS names FROM (SELECT '
+        . FAMILY_OF
+        . ' AS family) f
+         JOIN bot_packages p ON p.family = f.family AND NOT p.ephemeral GROUP BY f.family', $name, $fallback
+    )->hash;
+    $page->{family} = $family->{family} if $family && $family->{names} > 1;
+  }
+  return $page;
 }
 
 # For a set of package ids, return the vendored components matching a name/purl substring, grouped by
@@ -1336,9 +1381,16 @@ sub reindex_matched_packages ($self, $pid, $priority = PRIORITY_UPKEEP) {
   $self->reindex_package_ids([map { $_->{package} } $packages->hashes->each], $priority);
 }
 
-sub reindex_packages ($self, $name) {
-  my $ids = $self->pg->db->select('bot_packages', 'id', {name => $name})->arrays->flatten->to_array;
-  $self->reindex($_, PRIORITY_UPKEEP) for @$ids;
+# Ignored lines are applied while indexing, so families that gained or lost a name need fresh reports, and the
+# automatic review that follows checks their waiting reviews again
+sub reindex_families ($self, $families) {
+  my $rows
+    = $self->pg->db->query(
+    'SELECT id, state FROM bot_packages WHERE family = ANY(?) AND NOT obsolete AND indexed IS NOT NULL', $families)
+    ->hashes;
+  $self->reindex_package_ids([map { $_->{id} } @$rows]);
+  my @waiting = grep { $_->{state} eq 'new' } @$rows;
+  return scalar @waiting;
 }
 
 # The priority is the one the rebuilds will run at. Turning the list into jobs is left to the queue
@@ -1396,7 +1448,7 @@ sub rereview_limited ($self, $id) {
   $self->_enqueue('analyzed', $id) if $self->pg->db->query(
     q{UPDATE bot_packages p SET state = 'new'
       WHERE id = ? AND state IN ('acceptable', 'acceptable_by_lawyer')
-        AND EXISTS (SELECT 1 FROM package_notes WHERE package_name = p.name AND limitation)}, $id
+        AND EXISTS (SELECT 1 FROM package_notes WHERE family = p.family AND limitation)}, $id
   )->rows;
 }
 

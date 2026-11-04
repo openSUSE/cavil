@@ -477,8 +477,8 @@ Checkout: 4fcfdab0e71b0bebfdf8b5cc3badfec4
 
 `POST /requests`
 
-Create request for package. An accepted package whose name has a limitation note goes back to `new` for a human
-review when a request it has not seen before is added.
+Create request for package. An accepted package whose package family has a limitation note goes back to `new` for a
+human review when a request it has not seen before is added.
 
 **Request parameters:**
 

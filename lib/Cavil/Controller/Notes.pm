@@ -49,10 +49,11 @@ sub list ($self) {
     = $self->notes->relevant_count($pkg->{name}, $id, $pkg->{checksum}, include_lawyer_only => $include_lawyer_only);
 
   my $json = {
-    notes    => [map { $self->_format_note($_, $user_id, $pkg->{checksum}) } @{$page->{notes}}],
-    has_more => $page->{has_more}    ? \1               : \0,
-    total    => $include_lawyer_only ? $counts->{total} : $counts->{total} - $counts->{lawyer_only},
-    relevant => $relevant,
+    notes        => [map { $self->_format_note($_, $user_id, $pkg->{checksum}) } @{$page->{notes}}],
+    package_name => $pkg->{name},
+    has_more     => $page->{has_more}    ? \1               : \0,
+    total        => $include_lawyer_only ? $counts->{total} : $counts->{total} - $counts->{lawyer_only},
+    relevant     => $relevant,
 
     # Hide the lawyer-only count from viewers who can't see those notes,
     # otherwise the tab amber tint leaks their existence.

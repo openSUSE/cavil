@@ -116,7 +116,7 @@ Search all packages (any review state) by name, by any cited id or by a vendored
 packages are always excluded, obsolete ones unless searching by id.
 
 - **Required Roles**: `user` (read-only)
-- `name`: Exact package name. (string, optional)
+- `name`: Package name, finds every package of its [family](Architecture.md#package-families). (string, optional)
 - `id`: Any id as it was cited, like the `q` parameter of [Locate Reports](#locate-reports). Lists every package it may
   refer to, with all its links, closed ones marked. (string, optional)
 - `component`: Case-insensitive substring matched against a vendored component's name and its purl, e.g. `lodash` or
@@ -128,9 +128,9 @@ packages are always excluded, obsolete ones unless searching by id.
 
 Get legal report for a specific package. Unresolved snippets are summarised as a top-by-impact rollup; use
 `cavil_search_snippets` for the full list and per-snippet detail. A **Review History** section lists the last five
-decisions on other versions of the package, with the reviewer's result and whether the report was identical, and
-licenses or unresolved files this version added compared with the closest earlier review are marked `NEW`. Decisions
-on embargoed versions are never listed.
+decisions on other versions of the package and its package family (named when it is another name), with the reviewer's
+result and whether the report was identical, and licenses or unresolved files this version added compared with the
+closest earlier review are marked `NEW`. Decisions on embargoed versions are never listed.
 
 - **Required Roles**: `user` (read-only)
 - `package_id`: ID of package to get report for. (number, required)
@@ -227,7 +227,8 @@ role.
 
 Get a paginated list of notes for a specific package, optionally filtered by tags. Notes a reviewer has pinned are
 marked `[pinned]`, sort first, and are always returned regardless of `relevant_only`. Notes marked `[limitation]` are
-limitations a lawyer set for every version of this package, they sort first as well.
+limitations a lawyer set for every version of this package and its package family, they sort first as well. Notes are
+shared across the package family.
 
 - **Required Roles**: `user` (read-only)
 - `package_id`: ID of package to list notes for. (number, required)
@@ -819,7 +820,7 @@ package that bundles a vulnerable dependency. Embargoed and obsolete packages ar
 
 **Request parameters** (all optional; combine to narrow results, or omit all to page through every package):
 
-* `name`: Exact package name.
+* `name`: Package name, finds every package of its [family](Architecture.md#package-families).
 * `component`: Case-insensitive substring matched against a vendored component's name and its purl.
                `lodash` matches every version, `pkg:npm/lodash@4.17.20` pins one, `pkg:npm/lodash@4.17`
                matches a prefix range.

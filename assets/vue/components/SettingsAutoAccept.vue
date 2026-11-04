@@ -76,8 +76,8 @@
         <label for="acceptable-packages" class="cavil-settings-label">Always accept these packages</label>
         <SettingsDefaultLabel :name="'acceptable_packages'" :custom="custom" @reset="reset" />
         <p class="cavil-settings-help">
-          Packages accepted by name alone, such as placeholder packages without real source code. Press Enter after each
-          name.
+          Packages accepted by name alone, such as placeholder packages without real source code. Each name covers its
+          package family, other versions of the same software included. Press Enter after each name.
         </p>
         <div class="cavil-settings-nested" id="acceptable-packages">
           <TagInput
@@ -88,6 +88,25 @@
             data-key="acceptable-packages"
           />
           <div v-if="errors.acceptable_packages" class="cavil-settings-error">{{ errors.acceptable_packages }}</div>
+        </div>
+      </div>
+
+      <div class="cavil-settings-rule">
+        <label for="separate-packages" class="cavil-settings-label">Never group these packages</label>
+        <SettingsDefaultLabel :name="'separate_packages'" :custom="custom" @reset="reset" />
+        <p class="cavil-settings-help">
+          Packages that never share decisions, notes and ignored matches with other versions, for different projects
+          whose names only look like versions of each other. Press Enter after each name.
+        </p>
+        <div class="cavil-settings-nested" id="separate-packages">
+          <TagInput
+            v-model="form.separate_packages"
+            :max-length="255"
+            :max-tags="1000"
+            placeholder="Add a package name"
+            data-key="separate-packages"
+          />
+          <div v-if="errors.separate_packages" class="cavil-settings-error">{{ errors.separate_packages }}</div>
         </div>
       </div>
 

@@ -223,9 +223,86 @@ Curators and lawyers can also set limitations, with the "With limitation" checkb
 as a note. While a package has one, only they can decide on it: managers cannot fasttrack it, and AI assistants cannot
 accept or reject it.
 
+### Package Families
+
+Distributions often ship the same software under more than one package name. A new major version gets a package of
+its own next to the old one (`python314` and `python315`, `nodejs22`, `java-21-openjdk`), and the Open Build Service
+appends a suffix to a package that is copied into another project to be built there (`curl.17566`, or
+`curl.openSUSE_Leap_15.6_Update` after the project it targets). For a legal review these are the same software, so
+Cavil groups such names into a **package family** and treats every name in it as another version of the same package.
+
+A name joins a family when the only difference is one of these:
+
+* **An Open Build Service suffix** after a dot. That is either a number with at least three digits (`curl.17566`,
+  `cups.imported_3576`) or the name of a project, whose parts are joined by underscores and which contains a capital
+  letter before any dash (`.openSUSE_Leap_15.6_Update`, `.home_alice_branches_Base_System`). A locale after a dash, as
+  in `openoffice.org-dict-cs_CZ`, is part of the name.
+* **A version that stands alone between dashes**, like `21` in `java-21-openjdk`, `1.31` in `kubectl-1.31-image` or
+  `5_1` in `rubygem-rails-5_1`.
+* **A version attached to the end of the first word**: two or three digits, or a version with a dot or an underscore
+  in it, as in `python315`, `gcc14`, `mozjs128`, `go1.22-openssl` or `llvm3_8`.
+
+So `python314`, `python315` and `python3.12` are one family, as are `curl` and all of its Open Build Service copies.
+
+The rules are cautious on purpose. Missing a connection costs a reviewer one extra review. A wrong connection lets a
+decision about one project stand for a different one. Each of these limits keeps apart a pair of different projects
+found among the 46,000 package names of a large production instance:
+
+* **A single attached digit belongs to the name.** `bzip2` and `bzip3`, `csync` and `csync2`, or `rke` and `rke2` are
+  different projects. For the same reason `qt5` and `qt6`, or `php8` and `php7`, stay apart.
+* **A number with more than three digits is not a version.** Such numbers are usually models or standards:
+  `dump1090`, `libraw1394`, `rt2860`, `iwl5000`, or the game in `gnome-2048`.
+* **At least two letters have to remain after a leading `lib`.** Otherwise `libx11` and `libx86` would join, and so
+  would `lib3270` and every other library whose name is mostly a number.
+* **Only the first word loses an attached version.** Numbers further into a name usually tell variants apart:
+  `perl-MIME-Base32` and `perl-MIME-Base64`, or `python-h2` and `python-h11`.
+* **A number after a dot needs at least three digits** to count as a build suffix, so that a short version is not
+  mistaken for one.
+
+With these rules about a third of all names share a family with at least one other name. A few pairs of different
+projects still end up together, because a number in their names looks exactly like a version: standard numbers in
+`openh264` and `openh323`, `gst` and `gst123`, and `tpm-tools` and `tpm2.0-tools`, specification numbers in `jsr-305`
+and `jsr-311`, separate codecs in `broadvoice16` and `broadvoice32`, and numbered bundles that are not versions, like
+`python-comfyui-workflow-templates-media-assets-01` and `-02`. Most acceptance rules still compare the reports
+themselves, so such a pair rarely shares a decision. The exception is that a person's review of one counts as a review
+"of the package" for the other.
+
+When a pair like that turns up, admins put either of the names on the "Never group these packages" list on the Settings
+page. A listed name never shares a family with another name, whether it would be folded into that name or that name into
+it, and only its Open Build Service copies stay with it. Saving the list updates the stored families right away and
+queues rebuilds of the families that gained or lost a name, since ignored matches are applied while indexing. Until
+those rebuilds are done, reports can still reflect the old grouping, so turn "Accept reviews automatically" off before
+editing the list and back on once the rebuilds have finished. Decisions already made stay as they are, because Cavil
+passes its decisions on to other systems and cannot take them back. Like every setting change, the edit is recorded in
+the audit log.
+
+Everything that records a decision or curated knowledge applies to the whole family:
+* the automatic acceptance rules below
+* limitations and other notes
+* ignored matches
+* the "Always accept these packages" list
+* the package filter of the audit log
+* the package search
+
+Reviewers can see when this happens. A decision that relies on a review of another name says so, for example
+"Accepted because previously reviewed under the same license in python314 (563486)". Notes and limitations written for
+another name show that name. The search page says when its results include other names of the family. The web UI
+also dims the part of each name that was folded away, so it is always clear which name a row belongs to.
+
+Some things stay tied to the exact name, because they are about one package rather than about decisions:
+* recognising an upload that was already imported, and where its checkout is stored
+* the spec file Cavil looks for
+* the status a bot asks for about its own package
+* marking older versions of a name obsolete, which would otherwise let a new `python314` update retire `python315`
+
+Cavil stores the family of every package and note. The stored families are recalculated every time the database is set
+up or migrated, so a change to the rules needs no database migration, and reports pick it up with the next weekly
+reindex.
+
 ### Automatic Acceptance
 
-Reports may be automatically accepted by the system under these conditions:
+Reports may be automatically accepted by the system under these conditions. "The package" always means its whole
+package family.
 
 * `Low Risk with Manual Review`: There was a prior manual review of the package by a human expert or lawyer, and no
                                  license or unresolved keyword match in the report is riskier than the level set as
@@ -250,7 +327,7 @@ Reports may be automatically accepted by the system under these conditions:
 * `Package Name`: The package is on the "Always accept these packages" list. By default that is the empty metadata
                   packages the Open Build Service uses, such as `000product`.
 
-The two risk levels and the package list are the parts of this an organisation may reasonably see differently, so
+The two risk levels and the two package lists are the parts of this an organisation may reasonably see differently, so
 admins change them on the Settings page instead of in the configuration file. Each control is labelled with the
 condition it governs, risk levels are shown with their names, and every change is recorded in the audit log. A value
 nobody has changed follows the default that ships with Cavil, which is marked as such on the page. Saving a looser
@@ -275,22 +352,22 @@ incomplete. Acceptance decisions are only ever made against evidence known to be
 exactly the license that matters, so the system declines to rule on it rather than accept on incomplete grounds. (A
 previous result is still surfaced as context, but only as a notice - never as an automatic acceptance.)
 
-A second override covers limitations: **while a package name has a limitation note, no new report for it is
-auto-accepted.** Cavil cannot check whether a request meets the limitations, so a human has to check every new version
-against them. The report stays in `new`, and the "why this needs review" notice quotes each limitation, links the review
-it was written on, and names the automatic acceptance that was blocked. An accepted review also only covers the
-requests it was made for: when a new request arrives for the same sources, it goes back to `new`. The block ends when
-the last limitation note is removed.
+A second override covers limitations: **while any name of a package family has a limitation note, no new report for the
+family is auto-accepted.** Cavil cannot check whether a request meets the limitations, so a human has to check every new
+version against them. The report stays in `new`, and the "why this needs review" notice quotes each limitation, links
+the review it was written on, and names the automatic acceptance that was blocked. An accepted review also only covers
+the requests it was made for: when a new request arrives for the same sources, it goes back to `new`. The block ends
+when the last limitation note is removed.
 
 Limitations are usually set and lifted together with the decision. Lawyers tend to review packages that need one in
 large batches, and a separate step on the Notes tab was easy to forget. Next to the decision buttons sits a "With
 limitation" checkbox. It is checked whenever the package has a limitation, so it reflects the current state. When a
 review is accepted with the box newly checked, the comment becomes a limitation note (a generic text if the comment is
 empty). Accepting with the box unchecked removes every limitation the package has, including any created twice by
-accident. A rejection never touches limitations. Next to the box, a few words say what accepting will add or remove,
-or where the existing limitation was noted. Almost every review has no limitation, so in that case the box is all there
-is. If someone else changed the limitations while the page was open, the removal is refused instead of deleting one
-the reviewer never saw.
+accident and any written for another name of its package family, which the words next to the box then name. A rejection
+never touches limitations. Next to the box, a few words say what accepting will add or remove, or where the existing
+limitation was noted. Almost every review has no limitation, so in that case the box is all there is. If someone else
+changed the limitations while the page was open, the removal is refused instead of deleting one the reviewer never saw.
 
 ### Audit Log
 
@@ -335,10 +412,10 @@ database.
 The log is meant to grow. An event has a type named after its subject (`review.decision`, `limitation.removed`,
 `pattern.created` and the like) and a JSON payload, so a new kind of event needs no schema change. The subject lives
 in the payload rather than in a referencing column: a removed pattern is exactly the one the log has to keep showing.
-Events about a package name rather than one version, such as limitations and ignored matches, carry only the name,
-which is also what the audit log page filters on, next to a category filter that works on the type prefix. Payloads
-only ever gain fields, so older events stay readable, and the page renders types it does not know as their raw payload
-until it is taught a sentence for them.
+Events about a package name rather than one version, such as limitations and ignored matches, carry only the name.
+The audit log page filters on a name's whole package family, next to a category filter that works on the type
+prefix. Payloads only ever gain fields, so older events stay readable, and the page renders types it does not know as
+their raw payload until it is taught a sentence for them.
 
 ### Standard Risk Levels
 
@@ -1075,15 +1152,15 @@ accounts): any API key with write access can post an AI note, and a recommendati
 from an account trusted for it. A note whose
 first line is not the skill's fixed recommendation line is left in the Notes tab only.
 
-Notes are shared across every review of a package *name*, which makes them the natural home for context that outlives
-a single version - but only if the context survives the churn. A note ages out two ways: newer notes push it below the
-fold, and a note written on a review whose license report has since changed is de-emphasized as not relevant to the
-report in front of you. Both are right for routine commentary and wrong for a standing decision. **Pinning** is the
-reviewer's override for exactly that case: it hoists the note above the chronological list and exempts it from the
-relevance filter everywhere the note is rendered, on the reviewer's own assertion that it applies to every future
-version. It is deliberately mutable curation state, unlike the lawyer-only flag, because the notes worth pinning are
-usually the ones that only turned out to matter later. A per-package limit keeps the pinned block small enough that
-reviewers still read it.
+Notes are shared across every review of a package family (see *Package Families*), which makes them the natural home for
+context that outlives a single version - but only if the context survives the churn. A note ages out two ways: newer
+notes push it below the fold, and a note written on a review whose license report has since changed is de-emphasized as
+not relevant to the report in front of you. Both are right for routine commentary and wrong for a standing decision.
+**Pinning** is the reviewer's override for exactly that case: it hoists the note above the chronological list and
+exempts it from the relevance filter everywhere the note is rendered, on the reviewer's own assertion that it applies to
+every future version. It is deliberately mutable curation state, unlike the lawyer-only flag, because the notes worth
+pinning are usually the ones that only turned out to matter later. A per-package limit keeps the pinned block small
+enough that reviewers still read it.
 
 A **limitation** note goes one step further: it sits above the pinned notes, and while it exists every new version of
 the package needs a human decision (see *Automatic Acceptance*). Listings mark these packages with a red warning icon,
@@ -1096,8 +1173,8 @@ buttons instead. The composer is for adding one without making a decision, and e
 
 Two mechanisms keep known false positives out of reports, at different granularities:
 
-* **Ignored lines** suppress an individual snippet region by content checksum, regardless of which file or package it
-  turns up in. This is the snippet-level "I have seen this before and it is not a license" decision.
+* **Ignored lines** suppress an individual snippet region by content checksum, in whichever file of the package family
+  it turns up. This is the snippet-level "I have seen this before and it is not a license" decision.
 * **Ignored file globs** suppress *whole files* by path pattern, system-wide. A glob such as
   `somepkg-*/testdata/*.log` excludes captured test fixtures and license-detection reference data that should never have
   been indexed in the first place - the `*` in the top-level segment lets one glob cover every version of a package.

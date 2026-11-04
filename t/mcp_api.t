@@ -1538,6 +1538,14 @@ subtest 'MCP' => sub {
           'different-report sibling is marked [other report]';
       };
 
+      subtest 'Notes written for another name of the package family name it' => sub {
+        my $update = $notes->add(2, 'perl-Mojolicious.12345', 2, 'relevance update marker', 0, 1, ['relmark'])->{id};
+        my $text   = $client->call_tool('cavil_get_notes', {package_id => 1, tags => ['relmark']})->{content}[0]{text};
+        like $text,   qr/## Note #${update}\b[^\n]*\[for perl-Mojolicious\.12345\]/, 'other name marked';
+        unlike $text, qr/## Note #${native}\b[^\n]*\[for /,                          'own name not marked';
+        $notes->remove($update);
+      };
+
       $notes->remove($_) for ($native, $sibling);
       $db->update('bot_packages', {checksum => $orig1}, {id => 1});
       $db->update('bot_packages', {checksum => $orig2}, {id => 2});

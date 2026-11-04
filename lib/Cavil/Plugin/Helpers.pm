@@ -459,6 +459,7 @@ sub _package_summary ($c, $id) {
     incomplete_checkout  => $declarations->{incomplete_checkout},
     notice               => $pkg->{notice},
     package_checksum     => $pkg->{checkout_dir},
+    package_family       => $pkg->{family},
     package_name         => $pkg->{name},
     package_priority     => $pkg->{priority},
     package_risk         => $risk,

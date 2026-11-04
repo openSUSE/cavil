@@ -28,7 +28,8 @@ sub new ($class, $app, $package, $db = undef, $generation = 0) {
   $self->{matcher}       = $matcher;
   $self->{ignored_files} = Cavil::Util::load_ignored_files($db);
 
-  my $igls   = $db->select('ignored_lines', ['id', 'hash'], {packname => $packagename});
+  my ($family, @binds) = Cavil::Util::family_match('packname', $packagename);
+  my $igls   = $db->query("SELECT id, hash FROM ignored_lines WHERE $family", @binds);
   my %hashes = map { $_->{hash} => $_->{id} } @{$igls->hashes};
   $self->{ignored_lines} = \%hashes;
 

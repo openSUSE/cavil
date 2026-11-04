@@ -14,6 +14,7 @@ my %SETTINGS = (
   acceptable_risk     => {default => 4,                                                      check => \&_risk},
   auto_accept_risk    => {default => 2,                                                      check => \&_risk},
   acceptable_packages => {default => [qw(000product 000release-packages 000package-groups)], check => \&_names},
+  separate_packages   => {default => [],                                                     check => \&_names},
   sbom_creator_name   => {default => '',                                                     check => \&_line},
   sbom_creator_email  => {default => '',                                                     check => \&_email},
   sbom_creator_url    => {default => '',                                                     check => \&_url},
@@ -29,6 +30,13 @@ sub defaults ($self) {
 }
 
 sub get ($self) { return $self->_effective($self->_stored($self->pg->db)) }
+
+# The "Never group these packages" names as a set, read with the caller's handle
+sub separate_in ($db) {
+  my $row   = $db->select('settings', ['value'], {name => 'separate_packages'})->expand->hash;
+  my $names = $row ? _checked('separate_packages', $row->{value}) : _default('separate_packages');
+  return {map { $_ => 1 } @$names};
+}
 
 sub summary ($self, @keys) {
   my $stored    = $self->_stored($self->pg->db);

@@ -779,7 +779,8 @@ sub summary_delta ($old, $new) {
   # Derived compatibility context must not affect review priority.
 
   return '' unless @blocks;
-  return "Diff to closest match $old->{id}\n\n" . join("\n\n", @blocks) . "\n";
+  my $of = ($old->{name} // '') eq ($new->{name} // '') ? '' : " in $old->{name}";
+  return "Diff to closest match $old->{id}$of\n\n" . join("\n\n", @blocks) . "\n";
 }
 
 sub summary_delta_score ($old, $new) {

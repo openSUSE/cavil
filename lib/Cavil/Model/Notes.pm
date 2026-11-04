@@ -5,7 +5,7 @@ package Cavil::Model::Notes;
 use Mojo::Base -base, -signatures;
 use Cavil::Model::AuditLog qw(audit_event);
 use Cavil::Role            qw(roles_with_capability);
-use Cavil::Util            qw(paginate);
+use Cavil::Util            qw(family_of paginate FAMILY_OF);
 use Exporter 'import';
 
 our @EXPORT_OK = qw(NOTE_BODY_MAX_LENGTH REVIEW_TAG relevance_predicate);
@@ -38,6 +38,7 @@ sub add ($self, $package_id, $name, $author_id, $body, $lawyer_only, $ai_assiste
       {
         package      => $package_id,
         package_name => $name,
+        family       => \[FAMILY_OF, family_of($name)],
         author       => $author_id,
         ai_assisted  => $ai_assisted ? 1 : 0,
         body         => $body,
@@ -74,8 +75,11 @@ sub find ($self, $id) {
 # While a package name has limitations, every new version needs a human review
 sub limitations ($self, $package_name) {
   return $self->pg->db->query(
-    'SELECT id, body, package FROM package_notes WHERE package_name = ? AND limitation ORDER BY id DESC',
-    $package_name)->hashes->to_array;
+        'SELECT id, body, package, package_name FROM package_notes WHERE family = '
+      . FAMILY_OF
+      . ' AND limitation
+     ORDER BY id DESC', family_of($package_name)
+  )->hashes->to_array;
 }
 
 sub list ($self, $package_name, %opts) {
@@ -83,8 +87,8 @@ sub list ($self, $package_name, %opts) {
   $limit = 1   if $limit < 1;
   $limit = 100 if $limit > 100;
 
-  my @sql  = ('AND c.package_name = ?');
-  my @args = ($package_name);
+  my @sql  = ('AND c.family = ' . FAMILY_OF);
+  my @args = (family_of($package_name));
 
   push @sql, 'AND c.lawyer_only = false' unless $opts{include_lawyer_only};
 
@@ -114,8 +118,8 @@ sub list ($self, $package_name, %opts) {
 
 # A separate query prevents pinned rows from crossing keyset cursors.
 sub pinned_for_package ($self, $package_name, %opts) {
-  my @sql  = ('AND c.package_name = ?', 'AND (c.pinned OR c.limitation)');
-  my @args = ($package_name);
+  my @sql  = ('AND c.family = ' . FAMILY_OF, 'AND (c.pinned OR c.limitation)');
+  my @args = (family_of($package_name));
   push @sql, 'AND c.lawyer_only = false' unless $opts{include_lawyer_only};
   return $self->_query(join(' ', @sql), \@args, 'ORDER BY c.limitation DESC, c.id DESC');
 }
@@ -163,8 +167,8 @@ sub paginate_for_package ($self, $package_name, %opts) {
   my $limit  = $opts{limit}  // 20;
   my $offset = $opts{offset} // 0;
 
-  my @sql  = ('AND c.package_name = ?');
-  my @args = ($package_name);
+  my @sql  = ('AND c.family = ' . FAMILY_OF);
+  my @args = (family_of($package_name));
 
   push @sql, 'AND c.lawyer_only = false' unless $opts{include_lawyer_only};
   if (defined $opts{tags} && @{$opts{tags}}) {
@@ -201,7 +205,7 @@ sub counts ($self, $package_name) {
     'SELECT COUNT(*)::int AS total,
             COUNT(*) FILTER (WHERE lawyer_only = true)::int AS lawyer_only,
             COUNT(*) FILTER (WHERE pinned = true)::int AS pinned
-       FROM package_notes WHERE package_name = ?', $package_name
+       FROM package_notes WHERE family = ' . FAMILY_OF, family_of($package_name)
   )->hash;
 }
 
@@ -219,17 +223,15 @@ sub relevant_notes ($self, $rows, %opts) {
   my $lawyer = $opts{include_lawyer_only} ? '' : 'AND c.lawyer_only = false';
   my $sql    = 'SELECT r.id, COUNT(*)::int AS count, bool_or(c.tags @> ?::text[]) AS review,
                        bool_or(c.tags @> ?::text[] AND c.ai_assisted) AS ai, bool_or(c.limitation) AS limitation
-                  FROM unnest(?::bigint[], ?::text[], ?::text[]) AS r(id, name, checksum)
-                  JOIN package_notes c ON c.package_name = r.name
+                  FROM unnest(?::bigint[], ?::text[]) AS r(id, checksum)
+                  JOIN bot_packages rp ON rp.id = r.id
+                  JOIN package_notes c ON c.family = rp.family
                   LEFT JOIN bot_packages np ON c.package = np.id
                  WHERE ' . relevance_predicate('r') . " $lawyer GROUP BY r.id";
 
-  my $results = $self->pg->db->query(
-    $sql, [REVIEW_TAG], [REVIEW_TAG],
-    [map { $_->{id} } @$rows],
-    [map { $_->{name} } @$rows],
-    [map { $_->{checksum} } @$rows]
-  )->hashes;
+  my $results
+    = $self->pg->db->query($sql, [REVIEW_TAG], [REVIEW_TAG], [map { $_->{id} } @$rows], [map { $_->{checksum} } @$rows])
+    ->hashes;
 
   my %relevant;
   for my $row ($results->each) {
@@ -246,8 +248,8 @@ sub relevant_notes ($self, $rows, %opts) {
 # question here is "was this report annotated", and a pinned note from an
 # unrelated report would suppress the annotation that report never got.
 sub relevant_tagged_note ($self, $package_name, $package_id, $checksum, $tag, %opts) {
-  my @sql  = ('c.package_name = ?', 'c.tags @> ?::text[]');
-  my @args = ($package_name, [$tag]);
+  my @sql  = ('c.family = ' . FAMILY_OF, 'c.tags @> ?::text[]');
+  my @args = (family_of($package_name), [$tag]);
   push @sql, 'c.lawyer_only = false' unless $opts{include_lawyer_only};
   if (defined $checksum) {
     push @sql, '(c.package = ? OR p.checksum = ?)';
@@ -272,13 +274,16 @@ sub ai_recommendation ($self, $package_name, $package_id, $checksum) {
       FROM package_notes c
       JOIN bot_users u ON c.author = u.id
       LEFT JOIN bot_packages p ON c.package = p.id
-     WHERE c.package_name = ? AND c.ai_assisted AND NOT c.lawyer_only AND c.tags @> ?::text[] AND u.roles && ?::text[]
-       AND (c.package = ? OR p.checksum = ?) AND c.body ~ ?
+     WHERE c.family = } . FAMILY_OF . q{ AND c.ai_assisted AND NOT c.lawyer_only AND c.tags @> ?::text[]
+       AND u.roles && ?::text[] AND (c.package = ? OR p.checksum = ?) AND c.body ~ ?
      ORDER BY c.id DESC LIMIT 1
   };
   my $verdict = '^\s*AI-assisted review recommendation:\s*(ACCEPT|NEEDS HUMAN REVIEW|REJECT)\s*(\n|$)';
-  return $self->pg->db->query($sql, $verdict, $package_name, [REVIEW_TAG], roles_with_capability('recommend'),
-    $package_id, $checksum, $verdict)->hash;
+  return $self->pg->db->query(
+    $sql,         $verdict, family_of($package_name),
+    [REVIEW_TAG], roles_with_capability('recommend'),
+    $package_id,  $checksum, $verdict
+  )->hash;
 }
 
 sub remove ($self, $id, $actor = undef) {
@@ -319,8 +324,9 @@ sub set_pinned ($self, $id, $pinned) {
 }
 
 sub pinned_count ($self, $package_name) {
-  return $self->pg->db->query('SELECT COUNT(*)::int AS pinned FROM package_notes WHERE package_name = ? AND pinned',
-    $package_name)->hash->{pinned};
+  return $self->pg->db->query(
+    'SELECT COUNT(*)::int AS pinned FROM package_notes WHERE family = ' . FAMILY_OF . ' AND pinned',
+    family_of($package_name))->hash->{pinned};
 }
 
 sub _relevant_only ($sql, $args, $opts) {

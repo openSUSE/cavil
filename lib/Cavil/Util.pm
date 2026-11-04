@@ -26,7 +26,8 @@ our @EXPORT_OK = (
   qw(load_ignored_files),
   qw(line_tag lines_context normalize_license_expr),
   qw(extract_copyrights extract_spdx_identifiers extract_urls_and_emails legal_review_notices),
-  qw(is_internal_name normalize_license_text obs_ssh_auth original_filename paginate parse_list_filter),
+  qw(is_internal_name normalize_license_text obs_ssh_auth original_filename family_match family_of package_family paginate),
+  qw(parse_list_filter FAMILY_OF),
   qw(lookup_tokens parse_lookup),
   qw(in_package_tree parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip pattern_contains_skip),
   qw(read_lines run_cmd safe_string),
@@ -779,6 +780,33 @@ sub in_package_tree ($unpacked, $path) {
   my $real = eval { $path->realpath }     // return undef;
   return 1 if "$real" eq "$top";
   return index("$real", "$top/") == 0 && !is_internal_name($real->to_rel($top)->to_string);
+}
+
+# Every limit here keeps apart a pair of different projects found in a production name list (see "Package families"
+# in docs/Architecture.md), loosening one trades a known collision for recall
+sub package_family ($name, $separate = {}) {
+  return $name if $separate->{$name};
+  $name =~ s/\.(?=[^.-]*[A-Z])(?=[^.-]*_)[A-Za-z].*$//;
+  $name =~ s/(?:\.(?:imported_)?\d{3,})+$//a;
+  return $name if $separate->{$name};
+
+  my ($first, @rest) = split /-/, $name, -1;
+  return $name unless defined $first;
+  if (my ($stem) = $first =~ /^([A-Za-z][A-Za-z_+]*[A-Za-z+])(?:\d{2,3}|\d{1,3}(?:[._]\d{1,3})+)$/a) {
+    $first = $stem if ($stem =~ s/^lib//ir) =~ tr/A-Za-z// >= 2;
+  }
+  my $family = join '-', $first, grep { !/^\d{1,3}(?:[._]\d{1,3})*$/a } @rest;
+  return $separate->{$family} ? $name : $family;
+}
+
+# The stored family is the truth, a name no package carries (yet) falls back to the rule. Bind with family_of.
+use constant FAMILY_OF => 'COALESCE((SELECT family FROM bot_packages WHERE name = ? LIMIT 1), ?)';
+sub family_of ($name) { return ($name, package_family($name)) }
+
+# For records that store a package name rather than a package, such as ignored lines
+sub family_match ($column, $name) {
+  return ("($column = ? OR $column IN (SELECT name FROM bot_packages WHERE family = ${\FAMILY_OF}))",
+    $name, family_of($name));
 }
 
 sub paginate ($results, $options) {

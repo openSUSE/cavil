@@ -18,6 +18,12 @@
     @goto-page="gotoPage"
     @update:filter="filter = $event"
   >
+    <template #page-header>
+      <p v-if="family !== null && !lookup" class="cavil-search-family">
+        Includes other versions from the <strong>{{ family }}</strong> package family, which share decisions and notes.
+      </p>
+    </template>
+
     <template #controls>
       <button
         v-if="!lookup"
@@ -76,7 +82,7 @@
             <div class="cavil-list-comment-body">{{ review.comment }}</div>
           </td>
           <td v-html="review.user"></td>
-          <td class="cavil-list-package" v-html="review.package"></td>
+          <td class="cavil-list-package"><PackageName :name="review.package" :family="review.family" /></td>
           <td class="cavil-list-link">
             <div class="cavil-list-link-inner">
               <span :class="['cavil-list-token', {'is-matched': review.idMatched}]">cavil#{{ review.id }}</span>
@@ -109,6 +115,7 @@ import CavilListLayout from './components/CavilListLayout.vue';
 import EmptyState from './components/EmptyState.vue';
 import ExternalLink from './components/ExternalLink.vue';
 import LegalLoading from './components/LegalLoading.vue';
+import PackageName from './components/PackageName.vue';
 import {reportLink, setupPopoverDelayed} from './helpers/links.js';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
@@ -117,7 +124,7 @@ import moment from 'moment';
 export default {
   name: 'ReviewSearch',
   mixins: [Refresh],
-  components: {CavilListLayout, EmptyState, ExternalLink, LegalLoading},
+  components: {CavilListLayout, EmptyState, ExternalLink, LegalLoading, PackageName},
   data() {
     const params = getParams({
       limit: 10,
@@ -129,6 +136,7 @@ export default {
     return {
       end: 0,
       params,
+      family: null,
       lookup: false,
       reviews: null,
       refreshUrl: `/pagination/search/${encodeURIComponent(this.currentPackage)}`,
@@ -154,6 +162,7 @@ export default {
       this.doApiRefresh();
     },
     refreshData(data) {
+      this.family = data.family ?? null;
       this.start = data.start;
       this.end = data.end;
       this.total = data.total;
@@ -173,6 +182,7 @@ export default {
           obsolete: review.obsolete,
           comment: review.comment,
           imported: review.imported_epoch ? moment(review.imported_epoch * 1000).fromNow() : '',
+          family: review.family,
           package: review.package,
           report: reportLink(review),
           state: review.state,
@@ -204,6 +214,11 @@ export default {
 </script>
 
 <style>
+.cavil-search-family {
+  margin-bottom: 1rem;
+  color: var(--cavil-fg-muted);
+  font-size: 0.8125rem;
+}
 /* Long Gitea links wrap instead of ellipsizing like in the review lists, the number at the end is what was searched */
 .cavil-search-link {
   max-width: 100%;

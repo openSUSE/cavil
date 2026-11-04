@@ -717,11 +717,10 @@ subtest 'Pagination' => sub {
       ->json_is('/page/0/external_link_data/text',  'Multi-Linux Manager')
       ->json_is('/page/0/external_link_data/title', 'SUSE:SLE-15-SP7:Update:Products:MLM51');
     my $name = $packages->find(4)->{name};
-    $t->get_ok("/pagination/search/$name")
-      ->json_is('/page/0/id',             4)
-      ->json_is('/page/0/links/0/text',   'Multi-Linux Manager')
-      ->json_is('/page/0/links/0/title',  'SUSE:SLE-15-SP7:Update:Products:MLM51')
-      ->json_is('/page/0/links/0/active', true);
+    my ($row) = grep { $_->{id} == 4 } @{$t->get_ok("/pagination/search/$name")->tx->res->json('/page')};
+    is $row->{links}[0]{text},   'Multi-Linux Manager',                   'curated product name';
+    is $row->{links}[0]{title},  'SUSE:SLE-15-SP7:Update:Products:MLM51', 'codestream as title';
+    is $row->{links}[0]{active}, true,                                    'active link';
     $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MLM51', '');
     $t->get_ok('/pagination/reviews/open?filter=MLM51')
       ->json_is('/page/0/external_link_data/text', 'SUSE:SLE-15-SP7:Update:Products:MLM51')

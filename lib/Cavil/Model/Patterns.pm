@@ -5,8 +5,8 @@ package Cavil::Model::Patterns;
 use Mojo::Base -base, -signatures;
 
 use Cavil::Model::AuditLog qw(audit_event);
-use Cavil::Util            qw(license_is_catch_all license_link normalize_license_expr paginate pattern_checksum),
-  qw(pattern_contains_skip),
+use Cavil::Util            qw(license_is_catch_all license_link normalize_license_expr family_match paginate),
+  qw(pattern_checksum pattern_contains_skip),
   qw(spdx_link text_shingle_ids SNIPPET_SCORE_VERSION PRIORITY_WAITING @LICENSE_FLAGS @PATTERN_FLAGS);
 use List::Util qw(max min sum);
 use Mojo::File qw(path tempfile);
@@ -997,7 +997,8 @@ sub for_license ($self, $license) {
 }
 
 sub ignore_pattern_exists ($self, $name, $checksum) {
-  my $hash = $self->pg->db->select('ignored_lines', 'id', {packname => $name, hash => $checksum})->hash;
+  my ($family, @binds) = family_match('packname', $name);
+  my $hash = $self->pg->db->query("SELECT id FROM ignored_lines WHERE $family AND hash = ?", @binds, $checksum)->hash;
   return $hash ? $hash->{id} : undef;
 }
 
@@ -1519,6 +1520,9 @@ sub update ($self, $id, %args) {
     data         => {pattern => $id, license => $new_license, changes => \%changes}
   ) if $old && %changes;
   $tx->commit;
+
+  # Not the return value of commit, which depends on whether a notification happened to arrive
+  return {};
 }
 
 # Bulk-edit the shared name/risk/spdx of every pattern of one license at once, atomically. This is the
