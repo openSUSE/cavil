@@ -14,7 +14,8 @@ use Cavil::ReportUtil (
   qw(ranked_incompatibilities),
   qw(report_checksum report_risk report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
-  qw(spdx_edit_snippet summary_delta summary_delta_score unexplained_line_numbers unexplained_lines),
+  qw(spdx_edit_snippet summary_delta summary_delta_risk summary_delta_score unexplained_line_numbers),
+  qw(unexplained_lines),
   qw(is_catalog_entry license_terms_kind)
 );
 
@@ -1151,6 +1152,21 @@ subtest 'report_checksum' => sub {
     );
     is $with, $without, 'the compatibility matrix is not part of the checksum';
   };
+};
+
+subtest 'summary_delta_risk' => sub {
+  my $old
+    = {id => 1, declared => 'MIT', missed_snippets => {'a.c' => ['h1']}, licenses => {'MIT' => 2, 'SSPL-1.0' => 6}};
+  my $new = sub { return {%$old, id => 2, @_} };
+
+  is summary_delta_risk($old, $new->()), 0, 'no changes';
+  is summary_delta_risk($old, $new->(licenses => {'MIT:Patent' => 2})), 0, 'new flags and removed licenses';
+  is summary_delta_risk($old, $new->(licenses => {%{$old->{licenses}}, 'GPL-2.0-only' => 4, 'ISC' => 2})), 4,
+    'riskiest new license';
+  is summary_delta_risk($old, $new->(declared => 'Apache-2.0')), undef, 'declared license changed';
+  is summary_delta_risk($old, $new->(missed_snippets => {'a.c' => ['h1'], 'b.c' => ['h2']})), undef,
+    'new unresolved match';
+  is summary_delta_risk($old, $new->(missed_snippets => {})), 0, 'resolved matches';
 };
 
 subtest 'summary_delta_score' => sub {

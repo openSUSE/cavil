@@ -59,6 +59,7 @@
         <SettingsDefaultLabel :name="'acceptable_risk'" :custom="custom" @reset="reset" />
         <p class="cavil-settings-help">
           When an earlier version was reviewed, a new version is accepted as long as no license is riskier than this.
+          Riskier licenses are also fine if an accepted version already had them and nothing new is riskier.
           Command-line and CI reviews also use it as their pass or fail line.
         </p>
         <div class="cavil-settings-nested">

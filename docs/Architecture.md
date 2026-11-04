@@ -238,6 +238,15 @@ Reports may be automatically accepted by the system under these conditions:
                      same package. In this case the previous result will be inherited.
 * `No Differences`: A previous report exists where the checksum does not match but there are no significant differences
                     between licenses and unique keyword matches.
+* `Low Risk Changes`: There was a prior manual review of the package, and compared with the closest accepted report
+                      the declared license is the same, there are no new unresolved keyword matches, and no new license
+                      is riskier than the level set as "Accept packages a person has reviewed before". Anything riskier
+                      is then already in a report that was accepted, by a person or by one of the rules above. A
+                      package whose accepted versions carry a license above that level, such as an SSPL licensed test
+                      fixture, is otherwise held for every new GPL or MIT file, while a cleaner package is accepted with
+                      them. A version rejected after the closest accepted report blocks this, since the rejection may
+                      have been about exactly what changed. The resulting state can only be `acceptable`, and the diff
+                      stays visible as the notice.
 * `Package Name`: The package is on the "Always accept these packages" list. By default that is the empty metadata
                   packages the Open Build Service uses, such as `000product`.
 

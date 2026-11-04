@@ -782,61 +782,7 @@ sub report_notice_fixtures ($self, $app) {
   );
   $app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', 'Apache-2.0');
 
-  # Build a synthetic package version on disk and run it through the pipeline.
-  # Each numeric marker in @$files becomes one file with one unresolved match;
-  # distinct markers keep every snippet hash unique so they count as "new".
-  # $extra is an optional map of relative filename => literal content for files
-  # that should resolve to a license instead of being unresolved. $name picks
-  # the package the version belongs to; closest-match lookups are per name, so
-  # a second name is an independent history.
-  my $build = sub ($md5, $files, $extra = {}, $name = 'report-notice') {
-    my $dir = $self->checkout_dir->child($name, $md5)->make_path;
-    $dir->child("$name.spec")->spew(<<"SPEC");
-Name:           $name
-Version:        1.0
-Release:        0
-Summary:        Synthetic package for the new unresolved matches notice
-License:        Artistic-2.0
-Group:          Development/Libraries/Perl
-Source0:        $name-1.0.tar.gz
-BuildArch:      noarch
-
-%description
-Synthetic package with unresolved keyword matches for UI testing.
-SPEC
-
-    my $stage = tempdir;
-    my $src   = $stage->child("$name-1.0")->make_path;
-    for my $i (@$files) {
-      my $marker = sprintf 'UNIQUE_FILE_MARKER_%03d', $i;
-      $src->child(sprintf 'file_%03d.txt', $i)->spew(<<"FILE");
-Synthetic file $i for UI testing.
-
-$marker PUDDLE_OF_SYNTHETIC_KEYWORDS appears in this exact spot.
-
-Trailing padding so the snippet has surrounding context to render.
-FILE
-    }
-    $src->child($_)->spew($extra->{$_}) for sort keys %$extra;
-    my $tarball = $dir->child("$name-1.0.tar.gz")->to_string;
-    system('tar', '-czf', $tarball, '-C', $stage->to_string, "$name-1.0") == 0
-      or die "Failed to create synthetic tarball: $?";
-
-    my $pkg_id = $pkgs->add(
-      name            => $name,
-      checkout_dir    => $md5,
-      api_url         => 'https://api.opensuse.org',
-      requesting_user => $usr_id,
-      project         => 'devel:test',
-      package         => $name,
-      srcmd5          => $md5,
-      priority        => 5
-    );
-    $pkgs->imported($pkg_id);
-    $pkgs->unpack($pkg_id);
-    $app->minion->perform_jobs;
-    return $pkg_id;
-  };
+  my $build = sub { $self->synthetic_version($app, $usr_id, @_) };
 
   # Only accepted versions qualify as comparison baselines.
   my $v1   = $build->('a0000000000000000000000000000001', [1, 2]);
@@ -869,6 +815,63 @@ FILE
   $pkg3->{review_timestamp} = 1;
   $pkgs->update($pkg3);
   $build->('d0000000000000000000000000000004', [1], {}, $other);
+}
+
+# Build a synthetic package version on disk and run it through the pipeline.
+# Each numeric marker in @$files becomes one file with one unresolved match;
+# distinct markers keep every snippet hash unique so they count as "new".
+# $extra is an optional map of relative filename => literal content for files
+# that should resolve to a license instead of being unresolved. $name picks
+# the package the version belongs to; closest-match lookups are per name, so
+# a second name is an independent history.
+sub synthetic_version ($self, $app, $usr_id, $md5, $files, $extra = {}, $name = 'report-notice') {
+  my $dir = $self->checkout_dir->child($name, $md5)->make_path;
+  $dir->child("$name.spec")->spew(<<"SPEC");
+Name:           $name
+Version:        1.0
+Release:        0
+Summary:        Synthetic package for the new unresolved matches notice
+License:        Artistic-2.0
+Group:          Development/Libraries/Perl
+Source0:        $name-1.0.tar.gz
+BuildArch:      noarch
+
+%description
+Synthetic package with unresolved keyword matches for UI testing.
+SPEC
+
+  my $stage = tempdir;
+  my $src   = $stage->child("$name-1.0")->make_path;
+  for my $i (@$files) {
+    my $marker = sprintf 'UNIQUE_FILE_MARKER_%03d', $i;
+    $src->child(sprintf 'file_%03d.txt', $i)->spew(<<"FILE");
+Synthetic file $i for UI testing.
+
+$marker PUDDLE_OF_SYNTHETIC_KEYWORDS appears in this exact spot.
+
+Trailing padding so the snippet has surrounding context to render.
+FILE
+  }
+  $src->child($_)->spew($extra->{$_}) for sort keys %$extra;
+  my $tarball = $dir->child("$name-1.0.tar.gz")->to_string;
+  system('tar', '-czf', $tarball, '-C', $stage->to_string, "$name-1.0") == 0
+    or die "Failed to create synthetic tarball: $?";
+
+  my $pkgs   = $app->packages;
+  my $pkg_id = $pkgs->add(
+    name            => $name,
+    checkout_dir    => $md5,
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $usr_id,
+    project         => 'devel:test',
+    package         => $name,
+    srcmd5          => $md5,
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+  $pkgs->unpack($pkg_id);
+  $app->minion->perform_jobs;
+  return $pkg_id;
 }
 
 # A file that exceeds the (test-lowered) max_file_browser_size, so the standalone file browser pages through

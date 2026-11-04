@@ -86,4 +86,68 @@ subtest 'Stale diff on an accepted package is corrected by reindex' => sub {
   is scalar(keys %{$badged_new->(2)}), 8, 'badges reflect the corrected diff';
 };
 
+# Low risk changes compared with the closest accepted version are accepted (a separate name is its own history)
+my %risk = (restrictive => 6, managed => 5, copyleft => 4, weak => 3, permissive => 2);
+$app->patterns->create(pattern => "delta $_ license marker", license => "Delta-\u$_", risk => $risk{$_}) for keys %risk;
+
+my $md5     = 0;
+my $version = sub ($licenses, $unresolved = []) {
+  my %files = map { ("LICENSE-$_.txt" => "delta $_ license marker\n") } 'restrictive', @$licenses;
+  return $cavil_test->synthetic_version($app, 1, sprintf('%032x', ++$md5), $unresolved, \%files, 'delta');
+};
+
+my $reviewed = $version->([]);
+is $pkgs->find($reviewed)->{state}, 'new', 'risk 6 needs a person';
+$t->post_ok("/reviews/review_package/$reviewed" => form => {acceptable => 1, comment => 'Reviewed ok'})->status_is(200);
+
+subtest 'New licenses up to the threshold are accepted' => sub {
+  my $pkg = $pkgs->find($version->(['copyleft', 'permissive']));
+  is $pkg->{state},  'acceptable',                                                     'accepted';
+  is $pkg->{result}, "Accepted because of low risk changes (4) compared to $reviewed", 'names the closest match';
+  like $pkg->{notice}, qr/^Diff to closest match $reviewed\n\n  New licenses \(by risk\)\n    4  Delta-Copyleft\n/,
+    'diff kept for reviewers';
+};
+
+subtest 'Riskier new licenses, unresolved matches and a higher threshold' => sub {
+  my $managed = $version->(['managed']);
+  my $pkg     = $pkgs->find($managed);
+  is $pkg->{state},  'new', 'risk 5 needs a person';
+  is $pkg->{result}, undef, 'no result';
+  like $pkg->{notice}, qr/^Diff to closest match \d+\n\n  New licenses \(by risk\)\n    5  Delta-Managed\n$/, 'diff';
+
+  $pkg = $pkgs->find($version->([], [1]));
+  is $pkg->{state}, 'new', 'unresolved match needs a person';
+  like $pkg->{notice}, qr/New unresolved matches/, 'diff';
+
+  $t->put_ok('/settings/auto-accept.json' => json => {values => {acceptable_risk => 5}})->status_is(200);
+  $app->minion->perform_jobs;
+  is $pkgs->find($managed)->{state}, 'acceptable', 'accepted with the higher threshold';
+  $t->put_ok('/settings/auto-accept.json' => json => {reset => ['acceptable_risk']})->status_is(200);
+};
+
+subtest 'Paused automatic acceptance holds' => sub {
+  $app->settings->update('tester', {auto_accept => 0});
+  my $held = $version->(['managed', 'permissive']);
+  is $pkgs->find($held)->{state}, 'new', 'not accepted';
+  like $pkgs->find($held)->{notice},
+    qr/^Automatic acceptance is paused\n\nOtherwise accepted low risk changes \(2\)\n\nDiff to closest match \d+\n/,
+    'names the blocked auto-accept, followed by the diff';
+
+  $t->put_ok('/settings/auto-accept.json' => json => {values => {auto_accept => 1}})->status_is(200);
+  $app->minion->perform_jobs;
+  is $pkgs->find($held)->{state}, 'acceptable', 'accepted once resumed';
+};
+
+subtest 'A later rejection blocks low risk changes' => sub {
+  my $rejected = $version->(['weak']);
+  is $pkgs->find($rejected)->{state}, 'acceptable', 'accepted';
+  $t->post_ok("/reviews/review_package/$rejected" => form => {unacceptable => 1, comment => 'Not with that'})
+    ->status_is(200);
+
+  my $pkg = $pkgs->find($version->(['weak', 'copyleft']));
+  is $pkg->{state},  'new', 'needs a person';
+  is $pkg->{result}, undef, 'no result';
+  like $pkg->{notice}, qr/^Diff to closest match \d+\n\n  New licenses \(by risk\)\n    3  Delta-Weak\n$/, 'diff';
+};
+
 done_testing;

@@ -5,7 +5,7 @@ package Cavil::ReportUtil;
 use Mojo::Base -strict, -signatures;
 
 use Exporter 'import';
-use List::Util qw(uniq);
+use List::Util qw(max uniq);
 use Mojo::File qw(path);
 use Mojo::JSON qw(decode_json from_json);
 use Mojo::Util;
@@ -19,7 +19,7 @@ our @EXPORT_OK = (
   qw(unexplained_line_numbers),
   qw(new_license_names new_unresolved_files overlapping_licenses ranked_incompatibilities report_checksum report_risk),
   qw(report_shortname should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear),
-  qw(smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score unexplained_lines)
+  qw(smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_risk summary_delta_score unexplained_lines)
 );
 
 use constant PAD_WORDS => 5;
@@ -794,6 +794,13 @@ sub summary_delta_score ($old, $new) {
   $score += 10 * $new_licenses->{$_} for keys %$new_licenses;
 
   return $score;
+}
+
+# Highest risk among the licenses that are new compared with the old report (0 when nothing changed), undef when the
+# change is not a matter of license risk at all (declared license changed or new unresolved matches)
+sub summary_delta_risk ($old, $new) {
+  return undef if $new->{declared} ne $old->{declared} || %{_new_snippets($old, $new)};
+  return max(0, values %{_new_licenses($old, $new)});
 }
 
 # A one-for-one swap reads as a sentence, anything bigger as a column of changed terms like the other blocks.

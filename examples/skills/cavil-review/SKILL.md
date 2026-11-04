@@ -156,9 +156,9 @@ authoritative Cavil risk scale:
 **Risk 1–4 is the acceptable band** - risk 4 (strong copyleft, e.g. GPL) is acceptable for SUSE's
 distribution model, so risk 4 does **not** by itself need escalation. **Escalation begins at risk
 5.** Acceptability is still product-dependent and the review stays advisory until human
-confirmation, so treat these as leans, not verdicts. (Cavil separately auto-accepts only much lower
-risk - ≤2 without a prior review, ≤3 with one - but that stricter automatic mechanism is not the
-reviewer's acceptability ceiling.)
+confirmation, so treat these as leans, not verdicts. (Cavil separately auto-accepts by its own
+configured thresholds - by default ≤2 without a prior review, ≤4 with one - but that automatic
+mechanism is not the reviewer's acceptability ceiling.)
 
 **License flags.** A license line may carry a `[flags: ...]` suffix - curated per-license markers a
 human already attached to the pattern:

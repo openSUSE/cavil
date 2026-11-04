@@ -4,8 +4,8 @@
 package Cavil::Task::Analyze;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
-use Cavil::ReportUtil
-  qw(new_license_names new_unresolved_files report_checksum report_shortname summary_delta summary_delta_score);
+use Cavil::ReportUtil qw(new_license_names new_unresolved_files report_checksum report_shortname summary_delta),
+  qw(summary_delta_risk summary_delta_score);
 use Cavil::Util 'to_json_fast';
 
 sub register ($self, $app, $config) {
@@ -393,12 +393,20 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_manual_review, $in
     diff_report => undef
   ) unless $best;
 
-  _write(
-    $app, $pkg,
-    result      => undef,
-    notice      => summary_delta($best, $summary),
-    diff_report => _diff_report($best, $summary)
-  );
+  my %delta = (notice => summary_delta($best, $summary), diff_report => _diff_report($best, $summary));
+  if ($allow_accept && defined(my $risk = _acceptable_delta_risk($app, $pkg, $best, $summary))) {
+    return _accept($app, $pkg, 'acceptable', "Accepted because of low risk changes ($risk) compared to $best->{id}",
+      %delta);
+  }
+  _write($app, $pkg, result => undef, %delta);
+}
+
+# A later rejection may have been about exactly what changed, and its own report differs, so the same report check
+# does not catch it
+sub _acceptable_delta_risk ($app, $pkg, $best, $summary) {
+  my $risk = summary_delta_risk($best, $summary);
+  return undef unless defined $risk && $risk <= $app->settings->get->{acceptable_risk};
+  return $app->packages->rejected_since($pkg->{name}, $best->{id}) ? undef : $risk;
 }
 
 sub _accept ($app, $pkg, $state, $result, %fields) {
@@ -432,7 +440,8 @@ sub _refresh_notice ($app, $pkg) {
   $app->packages->update({id => $pkg->{id}, notice => $notice, diff_report => $diff_report});
 }
 
-# Returns (notice, diff_report, no_diff_id), the last one only set when there was no significant difference
+# Returns (notice, diff_report, no_diff_id, delta_risk), no_diff_id only set when there was no significant difference
+# and delta_risk only when the differences are low risk enough to be accepted
 sub _delta_notice ($app, $pkg) {
   my ($matched_id, $best, $summary) = _smallest_delta($app, $pkg);
   return ("Not found any significant difference against $matched_id", undef, $matched_id)
@@ -440,14 +449,20 @@ sub _delta_notice ($app, $pkg) {
   return (undef, undef, undef) unless $best;
 
   my $notice = summary_delta($best, $summary);
-  return (length $notice ? $notice : undef, _diff_report($best, $summary), undef);
+  return (
+    length $notice ? $notice : undef,
+    _diff_report($best, $summary),
+    undef, _acceptable_delta_risk($app, $pkg, $best, $summary)
+  );
 }
 
 # The id phrases here are linkified by the report UI, keep them in sync
 sub _hold ($app, $pkg, $limitations, $reason, %options) {
-  my ($notice, $diff_report, $no_diff_id) = _delta_notice($app, $pkg);
-  $reason //= "Otherwise accepted no significant difference against $no_diff_id"
-    if $options{no_diff_accepts} && defined $no_diff_id;
+  my ($notice, $diff_report, $no_diff_id, $delta_risk) = _delta_notice($app, $pkg);
+  if ($options{no_diff_accepts}) {
+    $reason //= "Otherwise accepted no significant difference against $no_diff_id" if defined $no_diff_id;
+    $reason //= "Otherwise accepted low risk changes ($delta_risk)"                if defined $delta_risk;
+  }
 
   my @blocks;
   for my $limitation (@$limitations) {

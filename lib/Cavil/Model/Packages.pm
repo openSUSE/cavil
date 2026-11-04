@@ -255,7 +255,12 @@ sub analyze ($self, $id, $priority = 100, $parents = [], $generation = 0) {
 sub analyze_held ($self, $old, $new) {
   my %old_names = map  { $_ => 1 } @{$old->{acceptable_packages}};
   my @names     = grep { !$old_names{$_} } @{$new->{acceptable_packages}};
-  my @ranges  = map { [$old->{$_}, $new->{$_}] } grep { $new->{$_} > $old->{$_} } qw(auto_accept_risk acceptable_risk);
+  my @ranges;
+  push @ranges, [$old->{auto_accept_risk}, $new->{auto_accept_risk}]
+    if $new->{auto_accept_risk} > $old->{auto_accept_risk};
+
+  # Low risk changes compared to an accepted version make a package of any risk acceptable
+  push @ranges, [$old->{acceptable_risk}, 9] if $new->{acceptable_risk} > $old->{acceptable_risk};
   my $resumed = $new->{auto_accept} && !$old->{auto_accept} ? 1 : 0;
   return 0 unless @names || @ranges || $resumed;
 
@@ -566,6 +571,12 @@ sub has_manual_review ($self, $name) {
   return !!$self->pg->db->query(
     'SELECT COUNT(*) FROM bot_packages WHERE name = ? AND reviewing_user IS NOT NULL AND ephemeral = FALSE', $name)
     ->array->[0];
+}
+
+sub rejected_since ($self, $name, $id) {
+  return !!$self->pg->db->query(
+    "SELECT COUNT(*) FROM bot_packages WHERE name = ? AND id > ? AND state = 'unacceptable' AND ephemeral = FALSE",
+    $name, $id)->array->[0];
 }
 
 sub history ($self, $name, $checksum, $id) {
