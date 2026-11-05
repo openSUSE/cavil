@@ -205,6 +205,16 @@ subtest 'Removing a pattern cleans up and reindexes the affected packages' => su
   is $minion->backend->list_jobs(0, 10, {tasks => ['pattern_stats'], states => ['inactive']})->{total}, 1,
     'a waiting recalculation absorbs further expiries';
 
+  my $stats = $minion->backend->list_jobs(0, 1, {tasks => ['pattern_stats'], states => ['inactive']})->{jobs}[0];
+  my $guard = $minion->guard('pattern_stats', 60);
+  my $other = $minion->worker->register;
+  $other->dequeue(0, {id => $stats->{id}})->perform;
+  is $minion->job($stats->{id})->info->{state}, 'inactive', 'a second recalculation waits for the running one';
+  ok !-f $bag, 'and has not rebuilt the bag';
+  $other->unregister;
+  undef $guard;
+  $minion->job($stats->{id})->retry;
+
   # The queued reindex (and cache rebuild) completes cleanly
   $minion->perform_jobs;
   is $minion->backend->list_jobs(0, 100, {states => ['failed']})->{total}, 0, 'reindex finished without failures';

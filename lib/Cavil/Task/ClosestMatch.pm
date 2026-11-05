@@ -12,6 +12,11 @@ sub register ($self, $app, $config) {
 }
 
 sub _pattern_stats ($job) {
+
+  # Retry instead of finishing: the waiting job must still run after the current rebuild, which may have read
+  # the patterns before the latest change, and while it waits expire_cache queues no further rebuilds
+  return $job->retry({delay => 30}) unless my $guard = $job->minion->guard('pattern_stats', 3600);
+
   my $app = $job->app;
   my $db  = $app->pg->db;
 
