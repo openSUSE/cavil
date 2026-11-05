@@ -14,7 +14,7 @@ use Mojo::File qw(path curfile tempfile);
 use Mojo::JSON qw(decode_json);
 use Cavil::Util (
   qw(buckets expand_spec_macros extract_copyrights file_glob legal_review_notices lines_context license_is_catch_all),
-  qw(license_text),
+  qw(file_and_checksum file_and_checksums license_text),
   qw(normalize_license_expr obs_ssh_auth original_filename),
   qw(parse_lookup),
   qw(parse_list_filter parse_service_file normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
@@ -963,6 +963,21 @@ subtest 'family_match' => sub {
     'python'
     ],
     'exact name and stored family';
+};
+
+subtest 'file_and_checksums' => sub {
+  my $file   = tempfile->spew(join '', map {"line $_\n"} 1 .. 20);
+  my $ranges = [[3, 5], [4, 9], [12, 12], [18, 25], [30, 31]];
+  is_deeply file_and_checksums("$file", $ranges), [map { [file_and_checksum("$file", @$_)] } @$ranges],
+    'same text and hash per range as one range at a time, overlapping and past the end included';
+  is file_and_checksums("$file", [[3, 4]])->[0][0], "line 3\nline 4", 'text without trailing newline';
+
+  my $reads = 0;
+  my $orig  = \&Cavil::PatternEngine::read_lines;
+  no warnings 'redefine';
+  local *Cavil::PatternEngine::read_lines = sub { $reads++; $orig->(@_) };
+  file_and_checksums("$file", $ranges);
+  is $reads, 1, 'all ranges come from a single read of the file';
 };
 
 

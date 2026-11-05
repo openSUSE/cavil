@@ -22,7 +22,7 @@ use Try::Tiny;
 
 our @EXPORT_OK = (
   qw(buckets checkout_path decode_name document_writer encode_name expand_spec_macros file_and_checksum file_glob),
-  qw(fs_bytes md5_file name_spellings slurp_and_decode),
+  qw(file_and_checksums fs_bytes md5_file name_spellings slurp_and_decode),
   qw(load_ignored_files),
   qw(line_tag lines_context normalize_license_expr),
   qw(extract_copyrights extract_spdx_identifiers extract_urls_and_emails legal_review_notices),
@@ -429,26 +429,31 @@ sub md5_file ($file) {
 }
 
 sub file_and_checksum ($path, $first_line, $last_line) {
+  @{file_and_checksums($path, [[$first_line, $last_line]])->[0]};
+}
+
+# Every read starts at the top of the file, so a large file with many ranges must be read once for all of them
+sub file_and_checksums ($path, $ranges) {
   my %lines;
-  for (my $line = $first_line; $line <= $last_line; $line += 1) {
-    $lines{$line} = 1;
+  for my $range (@$ranges) { $lines{$_} = 1 for $range->[0] .. $range->[1] }
+  my %text = map { $_->[0] => $_->[2] } @{Cavil::PatternEngine::read_lines($path, \%lines)};
+
+  my @results;
+  for my $range (@$ranges) {
+    my $ctx  = Cavil::PatternEngine::init_hash(0, 0);
+    my $text = '';
+    for my $n ($range->[0] .. $range->[1]) {
+      next unless defined(my $line = $text{$n});
+      $text .= "$line\n";
+      $ctx->add("$line\n");
+    }
+
+    # note that the hash is accounting with the newline included
+    chop $text;
+    push @results, [$text, $ctx->hex];
   }
 
-  my $ctx = Cavil::PatternEngine::init_hash(0, 0);
-
-  my $text = '';
-  for my $row (@{Cavil::PatternEngine::read_lines($path, \%lines)}) {
-    my $line = $row->[2] . "\n";
-    $text .= $line;
-    $ctx->add($line);
-  }
-
-  # note that the hash is accounting with the newline included
-  chop $text;
-
-  my $hash = $ctx->hex;
-
-  return ($text, $hash);
+  return \@results;
 }
 
 sub pattern_checksum ($text) {

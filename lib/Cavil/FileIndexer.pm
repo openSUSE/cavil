@@ -6,7 +6,7 @@ use Mojo::Base -base, -signatures;
 
 use Cavil::Checkout;
 use Cavil::PatternEngine;
-use Cavil::Util qw(file_and_checksum);
+use Cavil::Util qw(file_and_checksums);
 
 has 'dir';
 
@@ -54,7 +54,10 @@ sub file ($self, $meta, $path, $mime) {
     last;
   }
 
-  my @matches;
+  # A licensed match can be ignored per-package by content hash. Snippets are checked in _snippet, but a
+  # licensed match never seeds a snippet, so it is checked here against the same ignored_lines set.
+  my $check_ignores = !$ignored_file && %{$self->{ignored_lines}};
+  my (@matches, @licensed);
   for my $match (@{$report->{matches}}) {
     my ($mid, $ls, $le) = @$match;
 
@@ -80,21 +83,19 @@ sub file ($self, $meta, $path, $mime) {
       $self->{generation}
     )->array->[0];
 
-    # A licensed match can be ignored per-package by content hash. Snippets are checked in _snippet, but
-    # a licensed match never seeds a snippet, so it is checked here against the same ignored_lines set.
-    # Only pay the per-range hash when this package actually has ignores.
-    if (!$no_license && !$ignored_file && %{$self->{ignored_lines}}) {
-      my $unpacked = $self->dir->child('.unpacked', $path);
-      my (undef, $hash) = file_and_checksum($unpacked, $ls, $le);
-      if (my $ignore_id = $self->{ignored_lines}{$hash}) {
-        $self->{db}->update('pattern_matches', {ignored => 1, ignored_line => $ignore_id}, {id => $pm_id});
-      }
-    }
-
-    push @matches, $no_license ? [@$match, $pm_id] : $match;
+    push @licensed, [$pm_id, $ls, $le] if $check_ignores && !$no_license;
+    push @matches,  $no_license ? [@$match, $pm_id] : $match;
 
     # to mark an ignored file, one pattern is enough
     return if $ignored_file;
+  }
+
+  if (@licensed) {
+    my $sums = file_and_checksums($self->dir->child('.unpacked', $path), [map { [$_->[1], $_->[2]] } @licensed]);
+    for my $i (0 .. $#licensed) {
+      next unless my $ignore_id = $self->{ignored_lines}{$sums->[$i][1]};
+      $self->{db}->update('pattern_matches', {ignored => 1, ignored_line => $ignore_id}, {id => $licensed[$i][0]});
+    }
   }
 
   return unless $keyword_missed;
@@ -145,20 +146,15 @@ sub _check_missing_snippets ($self, $file_id, $path, $matches) {
     last if $now_marked_lines eq $marked_lines;
   }
 
-  $path = $self->dir->child('.unpacked', $path);
-
-  my $prev_line;
-  my $first_snippet_line;
+  my @ranges;
   for my $line (sort { $a <=> $b } keys %needed_lines) {
-    if ($prev_line && $line - $prev_line > 1) {
-      $self->_snippet($file_id, $matches, $path, $first_snippet_line, $prev_line);
-      $first_snippet_line = undef;
-    }
-    $first_snippet_line ||= $line;
-    $prev_line = $line;
+    if (@ranges && $line == $ranges[-1][1] + 1) { $ranges[-1][1] = $line }
+    else                                        { push @ranges, [$line, $line] }
   }
-  return unless $first_snippet_line;
-  $self->_snippet($file_id, $matches, $path, $first_snippet_line, $prev_line);
+  return unless @ranges;
+
+  my $sums = file_and_checksums($self->dir->child('.unpacked', $path), \@ranges);
+  $self->_snippet($file_id, $matches, @{$ranges[$_]}, @{$sums->[$_]}) for 0 .. $#ranges;
 }
 
 sub _has_no_license ($self, $pid) {
@@ -179,8 +175,7 @@ sub _mark_area ($needed_lines, $ls, $le) {
   }
 }
 
-sub _snippet ($self, $file_id, $matches, $path, $first_line, $last_line) {
-  my ($text, $hash) = file_and_checksum($path, $first_line, $last_line);
+sub _snippet ($self, $file_id, $matches, $first_line, $last_line, $text, $hash) {
 
   # ignored lines are easy targets
   if (my $ignore_id = $self->{ignored_lines}->{$hash}) {
