@@ -565,9 +565,9 @@ sub generate_document ($self, $id, $key) {
   $self->minion->enqueue('documents' => [$id, $key] => {priority => PRIORITY_WAITING, notes => {"pkg_$id" => 1}});
 }
 
-# The rule lives in Perl, so setup and migrate bring the stored keys up to date and a changed rule needs no migration.
-# One transaction, so a review never sees packages moved without their notes. Returns the families that gained or lost
-# a name, old and new, a first family for a record from before families existed regroups nothing.
+# The rule lives in Perl, so "script/cavil families" brings the stored keys up to date and a changed rule needs no
+# migration. One transaction, so a review never sees packages moved without their notes. Returns the families that
+# gained or lost a name, old and new.
 sub sync_families ($self) {
   my $db       = $self->pg->db;
   my $tx       = $db->begin;
@@ -581,7 +581,7 @@ sub sync_families ($self) {
       next if defined $row->{family} && $row->{family} eq $family;
       push @names,    $row->{name};
       push @families, $family;
-      $touched{$_} = 1 for defined $row->{family} ? ($family, $row->{family}) : ();
+      $touched{$_} = 1 for grep {defined} $family, $row->{family};
     }
     $db->query(
       "UPDATE $table AS t SET family = u.family FROM unnest(?::text[], ?::text[]) AS u(name, family)

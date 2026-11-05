@@ -29,7 +29,6 @@ EOF
     $migrations->migrate;
     say "Updated database from version $before to $latest";
   }
-  if (my @families = @{$app->packages->sync_families}) { say 'Regrouped ' . @families . ' package families' }
 
   if ($app->pg->db->query('SELECT 1 FROM license_patterns LIMIT 1')->rows) {
     my $unknown = $sync->pending($file);

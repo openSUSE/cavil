@@ -277,9 +277,6 @@ subtest 'Versioned and build service names share the decisions of their package 
   };
 
   subtest 'Stored families are brought up to date' => sub {
-    $db->query('UPDATE bot_packages SET family = NULL WHERE id = ?', $incident->{id});
-    is_deeply $pkgs->sync_families, [], 'a first family regroups nothing';
-    is $pkgs->find($incident->{id})->{family}, 'perl-Mojolicious', 'filled in';
     $db->query("UPDATE bot_packages SET family = 'perl-Mojo' WHERE id = ?", $incident->{id});
     is_deeply $pkgs->sync_families, ['perl-Mojo', 'perl-Mojolicious'], 'both families of a regrouped name';
     is $pkgs->find($incident->{id})->{family}, 'perl-Mojolicious', 'restored';

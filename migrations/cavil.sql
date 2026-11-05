@@ -528,6 +528,8 @@ DROP TABLE IF EXISTS bot_tokens;
 
 -- 78 up
 ALTER TABLE bot_packages ADD COLUMN IF NOT EXISTS family text;
+UPDATE bot_packages SET family = name WHERE family IS NULL;
 CREATE INDEX IF NOT EXISTS bot_packages_family_idx ON bot_packages (family);
 ALTER TABLE package_notes ADD COLUMN IF NOT EXISTS family text;
+UPDATE package_notes SET family = package_name WHERE family IS NULL;
 CREATE INDEX IF NOT EXISTS package_notes_family_idx ON package_notes (family, id DESC);

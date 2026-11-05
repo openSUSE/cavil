@@ -157,6 +157,13 @@ derived from those scores. The scores are built from per-license fingerprints th
 updates automatically as patterns change; only if the way snippets are turned into those fingerprints ever changes do you
 need to rebuild them in bulk with `script/cavil patterns --backfill-shingles` before re-scoring.
 
+### Grouping package families
+
+Package families (see the architecture guide) are stored with every package. After the upgrade that introduces them, and
+after an upgrade that changes the naming rules, run `script/cavil families` once to group the packages. It takes about a
+minute on a large instance and can run while Cavil is up, which is why it is not part of `script/cavil migrate`. Reports
+pick up the new grouping with the weekly reindex.
+
 ### Rolling out a preprocessing change (paced re-unpacking)
 
 A reindex (`script/cavil rindex`) re-runs pattern matching against the *already unpacked* files, so it does **not**

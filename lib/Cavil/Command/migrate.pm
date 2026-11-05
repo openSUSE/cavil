@@ -11,12 +11,17 @@ sub run ($self, @args) {
   my $app        = $self->app;
   my $migrations = $app->pg->migrations;
   my $before     = $migrations->active;
-  if ($before == $migrations->latest) { say "Nothing to do" }
-  else {
-    $migrations->migrate;
-    say "Migrated from $before to " . $migrations->active;
+  if ($before == $migrations->latest) {
+    say "Nothing to do";
+    return;
   }
-  if (my @families = @{$app->packages->sync_families}) { say 'Regrouped ' . @families . ' package families' }
+
+  my $db = $app->pg->db;
+
+  # now the rest
+  $migrations->migrate;
+
+  say "Migrated from $before to " . $migrations->active;
 }
 
 1;

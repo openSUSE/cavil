@@ -295,9 +295,10 @@ Some things stay tied to the exact name, because they are about one package rath
 * the status a bot asks for about its own package
 * marking older versions of a name obsolete, which would otherwise let a new `python314` update retire `python315`
 
-Cavil stores the family of every package and note. The stored families are recalculated every time the database is set
-up or migrated, so a change to the rules needs no database migration, and reports pick it up with the next weekly
-reindex.
+Cavil stores the family of every package and note. The upgrade that introduces families leaves every package in a family
+of its own, so nothing changes until an admin runs `script/cavil families` once. That command groups the packages and is
+also how a later change to the naming rules takes effect, without a database migration. Reports pick up the new grouping
+with the next weekly reindex.
 
 ### Automatic Acceptance
 
