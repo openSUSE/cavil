@@ -403,6 +403,10 @@ subtest 'Backfill SPDX identifier patterns' => sub {
   };
   is $count->('SPDX-License-Identifier: Apache-2.0'), 0, 'identifier pattern does not exist yet';
 
+  # The representative pattern of a license may be package scoped, the identifier pattern must not inherit that
+  my $artistic = $db->query("SELECT * FROM license_patterns WHERE license = 'Artistic-2.0'")->hash;
+  $app->patterns->update($artistic->{id}, %$artistic, packname => 'perl-Mojolicious');
+
   my $buffer = '';
   {
     open my $handle, '>', \$buffer;
@@ -421,6 +425,12 @@ subtest 'Backfill SPDX identifier patterns' => sub {
     is $new->{spdx},      'Apache-2.0', 'inherited SPDX expression';
     is $new->{risk},      5,            'inherited risk';
     is $new->{catch_all}, 0,            'catch_all derived from the license name';
+  };
+
+  subtest 'Identifier pattern is never package scoped' => sub {
+    my $new
+      = $db->query('SELECT * FROM license_patterns WHERE pattern = ?', 'SPDX-License-Identifier: Artistic-2.0')->hash;
+    is $new->{packname}, '', 'global even though the representative pattern is scoped';
   };
 
   subtest 'Identifier pattern is matchable' => sub {

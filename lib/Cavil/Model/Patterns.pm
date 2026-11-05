@@ -524,7 +524,7 @@ sub backfill_spdx_identifiers ($self) {
   my @created;
   for my $row (
     $self->pg->db->query(
-      "SELECT DISTINCT ON (license) license, spdx, packname, patent, trademark, export_restricted, cla, eula,
+      "SELECT DISTINCT ON (license) license, spdx, patent, trademark, export_restricted, cla, eula,
          catch_all, risk
        FROM license_patterns WHERE license != '' AND spdx != '' ORDER BY license, id"
     )->hashes->each
@@ -547,8 +547,11 @@ sub expire_cache ($self) {
   # nothing to invalidate there.
   unlink $_->to_string for $self->_all_cache_files;
 
-  # Rebuild the tf-idf bag
-  $self->minion->enqueue(pattern_stats => [] => {priority => PRIORITY_WAITING});
+  # A waiting rebuild reads the patterns when it runs, so it already covers this change - bulk removals would
+  # otherwise queue one full rebuild per pattern
+  my $minion = $self->minion;
+  return if $minion->jobs({tasks => ['pattern_stats'], states => ['inactive']})->total;
+  $minion->enqueue(pattern_stats => [] => {priority => PRIORITY_WAITING});
 }
 
 # Only ever used as a yes/no, so it stops at the first pattern it finds instead of counting them all -

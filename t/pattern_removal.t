@@ -199,8 +199,11 @@ subtest 'Removing a pattern cleans up and reindexes the affected packages' => su
   my $later = $minion->backend->list_jobs(0, 10, {tasks => ['index_later'], states => ['inactive']});
   is $later->{total}, 1, 'one reindex job enqueued for the affected package';
   is_deeply $later->{jobs}[0]{args}, [1], 'reindex targets the affected package';
-  ok $minion->backend->list_jobs(0, 10, {tasks => ['pattern_stats'], states => ['inactive']})->{total},
+  is $minion->backend->list_jobs(0, 10, {tasks => ['pattern_stats'], states => ['inactive']})->{total}, 1,
     'pattern stats recalculation scheduled';
+  $app->patterns->expire_cache for 1 .. 3;
+  is $minion->backend->list_jobs(0, 10, {tasks => ['pattern_stats'], states => ['inactive']})->{total}, 1,
+    'a waiting recalculation absorbs further expiries';
 
   # The queued reindex (and cache rebuild) completes cleanly
   $minion->perform_jobs;
