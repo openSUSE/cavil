@@ -446,7 +446,6 @@ sub create ($self, %args) {
     {
       pattern      => $args{pattern},
       token_hexsum => $checksum,
-      packname     => $args{packname} // '',
       catch_all    => $props->{catch_all},
       (map { $_ => $args{$_} // 0 } @PATTERN_FLAGS),
       license => $args{license} // '',
@@ -463,10 +462,9 @@ sub create ($self, %args) {
     = $args{contributor} ? $db->select('bot_users', 'login', {id => $args{contributor}})->hash->{login} : undef;
   audit_event(
     $db,
-    type         => 'pattern.created',
-    actor        => $args{owner},
-    package_name => $args{packname} || undef,
-    data         => {
+    type  => 'pattern.created',
+    actor => $args{owner},
+    data  => {
       pattern => $mid,
       %{_audit_snapshot({%args, license => $args{license} // '', risk => 0 + ($args{risk} // 5)})},
       defined $contributor ? (contributor => $contributor) : ()
@@ -556,11 +554,8 @@ sub expire_cache ($self) {
 
 # Only ever used as a yes/no, so it stops at the first pattern it finds instead of counting them all -
 # the report page asks this on every metadata refresh
-sub has_new_patterns ($self, $packname, $when) {
-  return !!$self->pg->db->query(
-    "select 1 from license_patterns
-     where created > ? and (packname = '' or packname = ?) limit 1", $when, $packname
-  )->rows;
+sub has_new_patterns ($self, $when) {
+  return !!$self->pg->db->query('SELECT 1 FROM license_patterns WHERE created > ? LIMIT 1', $when)->rows;
 }
 
 sub is_proposal_owner ($self, $checksum, $login) {
@@ -570,18 +565,8 @@ sub is_proposal_owner ($self, $checksum, $login) {
   )->hash;
 }
 
-sub load_specific ($self, $matcher, $pname) {
-  my $rows = $self->pg->db->select('license_patterns', ['id', 'pattern'], {packname => $pname});
-
-  while (my $l = $rows->array) {
-    my ($id, $pattern) = @$l;
-    $pattern = Cavil::PatternEngine::parse_tokens($pattern);
-    $matcher->add_pattern($id, $pattern);
-  }
-}
-
 # possibly cached
-sub load_unspecific ($self, $matcher) {
+sub load_matcher ($self, $matcher) {
   my $cachefile = $self->matcher_cache_file;
   my $path      = $cachefile->to_string;
   if (-f $path) {
@@ -589,7 +574,8 @@ sub load_unspecific ($self, $matcher) {
     return;
   }
 
-  $self->load_specific($matcher, '');
+  my $rows = $self->pg->db->select('license_patterns', ['id', 'pattern']);
+  while (my $row = $rows->array) { $matcher->add_pattern($row->[0], Cavil::PatternEngine::parse_tokens($row->[1])) }
 
   my $tmp = $cachefile->sibling($cachefile->basename . ".tmp.$$")->to_string;
   $matcher->dump($tmp);
@@ -738,7 +724,7 @@ sub _verdict ($rows) {
 
 sub _contained_in ($self, $text) {
   my $matcher = Cavil::PatternEngine::init_matcher();
-  $self->load_unspecific($matcher);
+  $self->load_matcher($matcher);
   my $file = tempfile->spew("ABC\n$text\nABC\n", 'UTF-8');
 
   # Line 1 is the padding line, so shift spans back to the text's own numbering
@@ -1440,10 +1426,9 @@ sub remove ($self, $id, $actor = undef) {
   if (my $old = $db->delete('license_patterns', {id => $id}, {returning => '*'})->hash) {
     audit_event(
       $db,
-      type         => 'pattern.removed',
-      actor        => $actor,
-      package_name => $old->{packname} || undef,
-      data         => {pattern => $id, unique_id => $old->{unique_id}, %{_audit_snapshot($old)}}
+      type  => 'pattern.removed',
+      actor => $actor,
+      data  => {pattern => $id, unique_id => $old->{unique_id}, %{_audit_snapshot($old)}}
     );
   }
   $tx->commit;
@@ -1487,7 +1472,6 @@ sub update ($self, $id, %args) {
     {
       pattern      => $args{pattern},
       token_hexsum => $checksum,
-      packname     => $args{packname} // '',
       license      => $args{license},
       catch_all    => $catch_all,
       (map { $_ => $args{$_} // 0 } @PATTERN_FLAGS),
@@ -1501,11 +1485,10 @@ sub update ($self, $id, %args) {
   $self->sync_pattern_shingles($db, $id, $args{license}, $args{pattern});
 
   my %new = (
-    pattern  => $args{pattern},
-    license  => $new_license,
-    risk     => 0 + ($args{risk} // 5),
-    packname => $args{packname} // '',
-    spdx     => $spdx,
+    pattern => $args{pattern},
+    license => $new_license,
+    risk    => 0 + ($args{risk} // 5),
+    spdx    => $spdx,
     map { $_ => $args{$_} ? 1 : 0 } @PATTERN_FLAGS
   );
   my %changes;
@@ -1517,10 +1500,9 @@ sub update ($self, $id, %args) {
   }
   audit_event(
     $db,
-    type         => 'pattern.updated',
-    actor        => $args{owner},
-    package_name => $new{packname} || $old->{packname} || undef,
-    data         => {pattern => $id, license => $new_license, changes => \%changes}
+    type  => 'pattern.updated',
+    actor => $args{owner},
+    data  => {pattern => $id, license => $new_license, changes => \%changes}
   ) if $old && %changes;
   $tx->commit;
 

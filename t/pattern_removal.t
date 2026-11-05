@@ -50,7 +50,7 @@ sub inactive_reindex_ids () {
 }
 
 # The bulk license/risk/spdx edit runs before the removal subtests below because those delete pattern id 1
-# (the Apache-2.0 global pattern), which these need intact and matched.
+# (an Apache-2.0 pattern), which these need intact and matched.
 subtest 'Bulk edit renames, sets risk, clears spdx, and reindexes affected packages' => sub {
   my $affected = [
     map { $_->{package} } $db->query(
@@ -175,7 +175,7 @@ is $minion->backend->list_jobs(0, 100, {states => ['failed']})->{total}, 0, 'no 
 
 subtest 'Removing a pattern cleans up and reindexes the affected packages' => sub {
 
-  # Pattern 1 ("You may obtain a copy of the License at") is unspecific and matched the package
+  # Pattern 1 ("You may obtain a copy of the License at") matched the package
   my $pid     = 1;
   my $matches = $db->query('SELECT COUNT(*) AS c FROM pattern_matches WHERE pattern = ?', $pid)->hash->{c};
   ok $matches > 0, 'pattern has matches before removal';
@@ -223,13 +223,12 @@ subtest 'Removing a pattern cleans up and reindexes the affected packages' => su
 
 subtest 'Indexer skips matches for a pattern removed mid-flight (stale cache)' => sub {
 
-  # Pick an unspecific pattern that currently matches the package and is therefore baked into
-  # the on-disk matcher cache
+  # Pick a pattern that currently matches the package and is therefore baked into the on-disk matcher cache
   my $victim = $db->query(
     q{SELECT lp.id FROM license_patterns lp JOIN pattern_matches pm ON pm.pattern = lp.id
-       WHERE lp.packname = '' GROUP BY lp.id ORDER BY lp.id LIMIT 1}
+       GROUP BY lp.id ORDER BY lp.id LIMIT 1}
   )->hash->{id};
-  ok $victim,     'found an unspecific pattern with matches';
+  ok $victim,     'found a pattern with matches';
   ok -f $matcher, 'matcher cache present and still references it';
 
   # Simulate the race: the pattern is deleted from the database (as the cascade would do during a

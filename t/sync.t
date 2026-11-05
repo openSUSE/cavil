@@ -32,23 +32,20 @@ subtest 'Export license patterns' => sub {
   my $licenses = [map { length $_ ? decode_json($_) : () } split "\n", $path->slurp];
 
   my $apache = $patterns->find(1);
-  is $apache->{license},  'Apache-2.0', 'right license';
-  is $apache->{packname}, '',           'no packname';
+  is $apache->{license}, 'Apache-2.0', 'right license';
   ok $apache->{pattern}, 'has pattern';
   ok my $uuid = $apache->{unique_id}, 'has UUID';
   my $hash = $licenses->[0];
   is $hash->{license},   'Apache-2.0', 'right license';
-  is $hash->{packname},  '',           'no packname';
   is $hash->{unique_id}, $uuid,        'same UUID';
+  ok !exists $hash->{packname}, 'package scope is not exported';
 
   $apache = $patterns->find(2);
-  is $apache->{license},  'Apache-2.0',       'right license';
-  is $apache->{packname}, 'perl-Mojolicious', 'right packname';
+  is $apache->{license}, 'Apache-2.0', 'right license';
   ok $uuid = $apache->{unique_id}, 'has UUID';
   $hash = $licenses->[1];
-  is $hash->{license},   'Apache-2.0',       'right license';
-  is $hash->{packname},  'perl-Mojolicious', 'right packname';
-  is $hash->{unique_id}, $uuid,              'same UUID';
+  is $hash->{license},   'Apache-2.0', 'right license';
+  is $hash->{unique_id}, $uuid,        'same UUID';
 
   my $artistic = $patterns->find(3);
   is $artistic->{license}, 'Artistic-2.0', 'right license';
@@ -75,6 +72,36 @@ subtest 'Import license patterns' => sub {
   is $sync->load($path), 2, 'two new patterns imported';
   is $db->select('license_patterns', '*', {unique_id => $apache_uuid})->rows,   1, 'pattern with UUID exists again';
   is $db->select('license_patterns', '*', {unique_id => $artistic_uuid})->rows, 1, 'pattern with UUID exists again';
+};
+
+subtest 'Package scoped patterns from older exports are not imported' => sub {
+  my $old = $tempdir->child('old_patterns.jsonl');
+  $old->spew(
+    join "\n",
+    encode_json(
+      {
+        unique_id => '0b1d0b1d-0000-4000-8000-000000000001',
+        license   => 'MIT',
+        packname  => 'perl-Mojolicious',
+        pattern   => 'Old scoped pattern text',
+        risk      => 2
+      }
+    ),
+    encode_json(
+      {
+        unique_id => '0b1d0b1d-0000-4000-8000-000000000002',
+        license   => 'MIT',
+        packname  => '',
+        pattern   => 'Old global pattern text',
+        risk      => 2
+      }
+    )
+  );
+  is $sync->pending($old), 1, 'only the global pattern is pending';
+  is_deeply [map { $_->{pattern} } @{$sync->update($old)}], ['Old global pattern text'], 'update adds only it';
+  is $sync->load($old), 0, 'load skips the scoped pattern';
+  my $db = $t->app->pg->db;
+  is $db->select('license_patterns', '*', {pattern => 'Old scoped pattern text'})->rows, 0, 'never imported';
 };
 
 subtest 'catch_all round-trips through export/import' => sub {

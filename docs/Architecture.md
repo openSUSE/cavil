@@ -887,10 +887,6 @@ There are two kinds of patterns, and this is the "two phase" matching referred t
   patterns. Keyword matching is deliberately broad and has a false-positive rate of about 80%, which is exactly why AI
   classification is so useful for sifting the snippets.
 
-A pattern can also be either **global**, in which case it applies to every package, or scoped to a **single package**.
-Package-scoped patterns let an expert refine or silence matches for one troublesome package without affecting everyone
-else.
-
 ### The Pattern Language
 
 Patterns are neither regular expressions nor plain substrings. Before any comparison happens, patterns and the files
@@ -937,9 +933,8 @@ scanning heavier for *every* file - something to keep in mind when adding patter
 
 ### Indexing a File
 
-Each `index_batch` job builds its matcher once: it loads all the global patterns (almost always from a cache, described
-below), then adds the handful that are scoped to the package being indexed. Every file in the batch is then scanned, and
-each match is recorded for the report.
+Each `index_batch` job builds its matcher once: it loads all the patterns (almost always from a cache, described
+below). Every file in the batch is then scanned, and each match is recorded for the report.
 
 Matches against named license patterns are finished at that point. A match against a keyword pattern instead kicks off
 **snippet extraction**: Cavil takes the lines immediately around the keyword, merges nearby keyword regions that are only
@@ -953,7 +948,7 @@ Re-reading and re-tokenising every pattern from the database for each of the tho
 too expensive, so two files are kept in Cavil's cache directory. Their names identify the engine that produced them,
 since the two formats are not interchangeable, so switching engines never reads a cache the other one wrote:
 
-* The compiled prefix tree of all global patterns, which is what indexing jobs load instead of rebuilding it. It is
+* The compiled prefix tree of all patterns, which is what indexing jobs load instead of rebuilding it. It is
   written once and then reused. The default engine maps the file into memory read-only, so however many indexing
   workers run on a host, they all share a single physical copy of it; the `spooky` engine instead gives each worker its
   own copy on the heap.
@@ -1188,8 +1183,8 @@ Files that must not even be unpacked are a different matter, handled by *Exclude
 
 For readers who want to trace this through the database, the tables involved are:
 
-* `license_patterns` - the patterns themselves, including their license name, risk, global-vs-package scope, a
-  uniquely-indexed checksum that prevents duplicates from being stored, and a per-license `catch_all` flag marking
+* `license_patterns` - the patterns themselves, including their license name, risk, a uniquely-indexed checksum that
+  prevents duplicates from being stored, and a per-license `catch_all` flag marking
   grab-bag/marker pseudo-licenses (so only concrete licenses count as coverage for the `covered` resolution). The flag
   is derived from the license name and never set by hand: any component of the name that starts with `Any ` or ends in
   `Unspecified` (after a dash or a space) makes the whole license one. A `full_license_text` flag marks the one pattern per license whose text

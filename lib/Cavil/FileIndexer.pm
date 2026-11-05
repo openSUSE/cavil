@@ -23,8 +23,7 @@ sub new ($class, $app, $package, $db = undef, $generation = 0) {
   $db //= $app->pg->db;
   my $packagename = $db->select('bot_packages', 'name', {id => $package})->hash->{name};
 
-  $app->patterns->load_unspecific($matcher);
-  $app->patterns->load_specific($matcher, $packagename);
+  $app->patterns->load_matcher($matcher);
   $self->{matcher}       = $matcher;
   $self->{ignored_files} = Cavil::Util::load_ignored_files($db);
 

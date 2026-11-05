@@ -533,3 +533,18 @@ CREATE INDEX IF NOT EXISTS bot_packages_family_idx ON bot_packages (family);
 ALTER TABLE package_notes ADD COLUMN IF NOT EXISTS family text;
 UPDATE package_notes SET family = package_name WHERE family IS NULL;
 CREATE INDEX IF NOT EXISTS package_notes_family_idx ON package_notes (family, id DESC);
+
+-- 79 up
+DO $$
+DECLARE scoped boolean;
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'license_patterns'::regclass AND attname = 'packname'
+             AND NOT attisdropped) THEN
+    EXECUTE $q$SELECT EXISTS (SELECT 1 FROM license_patterns WHERE packname <> '')$q$ INTO scoped;
+    IF scoped THEN
+      RAISE EXCEPTION 'Package scoped license patterns still exist, delete them or make them global before upgrading';
+    END IF;
+  END IF;
+END
+$$;
+ALTER TABLE license_patterns DROP COLUMN IF EXISTS packname;

@@ -18,7 +18,7 @@ sub details ($self) {
   my $pkgs = $self->packages;
   return $self->render(text => 'Package not found', status => 404) unless my $pkg = $pkgs->find($id);
 
-  my $should_reindex = $self->patterns->has_new_patterns($pkg->{name}, $pkg->{indexed});
+  my $should_reindex = $self->patterns->has_new_patterns($pkg->{indexed});
 
   $self->render(package => $pkg, should_reindex => $should_reindex);
 }

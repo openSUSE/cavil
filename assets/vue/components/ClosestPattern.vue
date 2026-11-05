@@ -10,9 +10,6 @@
     <div class="closest-source">
       <pre>{{ closest.text }}</pre>
     </div>
-    <div class="closest-footer">
-      <span v-if="closest.package !== ''"><b>Package:</b> {{ closest.package }}</span>
-    </div>
   </div>
 </template>
 
@@ -114,12 +111,5 @@ export default {
   white-space: pre-wrap;
   word-wrap: break-word;
   word-break: break-all;
-}
-.closest-footer {
-  background-color: var(--cavil-canvas-subtle);
-  border-top: 1px solid var(--cavil-border);
-  font-size: 13px;
-  line-height: 20px;
-  padding: 10px;
 }
 </style>

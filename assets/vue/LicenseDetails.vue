@@ -78,11 +78,6 @@
           <option value="all">All risks</option>
           <option v-for="risk in risks" :key="risk" :value="String(risk)">Risk {{ risk }}</option>
         </select>
-        <select v-model="scopeFilter" class="form-select license-filter-scope" aria-label="Scope filter">
-          <option value="all">All scopes</option>
-          <option value="global">Global</option>
-          <option value="package">Package-specific</option>
-        </select>
         <div class="license-details-count">{{ filteredPatterns.length }} shown</div>
       </section>
 
@@ -98,10 +93,6 @@
           <div class="license-pattern-heading">
             <span class="license-pattern-id">#{{ pattern.id }}</span>
             <span class="badge" :class="riskClass(pattern.risk)">Risk {{ pattern.risk }}</span>
-            <span v-if="pattern.packname" class="license-chip"
-              ><i class="fa-solid fa-box"></i> {{ pattern.packname }}</span
-            >
-            <span v-else class="license-chip"><i class="fa-solid fa-globe"></i> Global</span>
             <span v-for="flag in flagsFor(pattern)" :key="flag" class="license-chip license-chip-flag">{{ flag }}</span>
           </div>
           <div class="license-pattern-actions">
@@ -204,7 +195,6 @@ export default {
       error: null,
       filter: '',
       riskFilter: 'all',
-      scopeFilter: 'all',
       spdx: '',
       newLicense: '',
       riskChoice: '',
@@ -252,10 +242,8 @@ export default {
       const query = this.filter.trim().toLowerCase();
       return this.patterns.filter(pattern => {
         if (this.riskFilter !== 'all' && String(pattern.risk) !== this.riskFilter) return false;
-        if (this.scopeFilter === 'global' && pattern.packname) return false;
-        if (this.scopeFilter === 'package' && !pattern.packname) return false;
         if (query === '') return true;
-        return [pattern.pattern, pattern.packname, String(pattern.id)].some(value =>
+        return [pattern.pattern, String(pattern.id)].some(value =>
           String(value || '')
             .toLowerCase()
             .includes(query)
@@ -486,7 +474,7 @@ export default {
   align-items: center;
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: minmax(220px, 1fr) minmax(130px, auto) minmax(170px, auto) auto;
+  grid-template-columns: minmax(220px, 1fr) minmax(130px, auto) auto;
   margin-bottom: 1rem;
 }
 .license-filter-search {
@@ -502,8 +490,7 @@ export default {
 .license-filter-search input {
   padding-left: 2.1rem;
 }
-.license-filter-risk,
-.license-filter-scope {
+.license-filter-risk {
   min-width: 130px;
 }
 .license-details-count {

@@ -111,12 +111,6 @@
               </div>
             </div>
 
-            <div class="col mb-3">
-              <label class="form-label" for="packname">Package</label>
-              <input v-model="form.packname" type="text" name="packname" id="packname" class="form-control" />
-              <div id="packageHelp" class="form-text">Leave this field empty to apply pattern to all packages</div>
-            </div>
-
             <div class="col mb-4 pattern-editor-actions">
               <button type="submit" class="btn btn-primary" :disabled="saving">
                 <i v-if="saving" class="fa-solid fa-rotate fa-spin"></i>
@@ -228,7 +222,6 @@ export default {
         license: pattern.license ?? '',
         pattern: pattern.pattern ?? '',
         risk: String(pattern.risk ?? 0),
-        packname: pattern.packname ?? '',
         ...Object.fromEntries(PATTERN_FLAGS.map(flag => [flag.name, !!pattern[flag.name]]))
       };
     },
@@ -236,8 +229,7 @@ export default {
       const form = {
         license: this.form.license,
         pattern: this.form.pattern,
-        risk: this.form.risk,
-        packname: this.form.packname
+        risk: this.form.risk
       };
       for (const flag of PATTERN_FLAGS) if (this.form[flag.name]) form[flag.name] = '1';
       return form;

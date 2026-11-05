@@ -12,7 +12,6 @@ sub create_pattern ($self) {
   my $validation = $self->validation;
   $validation->required('pattern');
   $validation->optional('license');
-  $validation->optional('packname');
   $validation->optional('risk')->num;
   $validation->optional($_) for @PATTERN_FLAGS;
   return $self->reply->json_validation_error if $validation->has_error;
@@ -21,10 +20,9 @@ sub create_pattern ($self) {
 
   my $patterns = $self->patterns;
   my $match    = $patterns->create(
-    license  => $validation->param('license'),
-    packname => $validation->param('packname'),
-    pattern  => $pattern,
-    risk     => $validation->param('risk'),
+    license => $validation->param('license'),
+    pattern => $pattern,
+    risk    => $validation->param('risk'),
     (map { $_ => $validation->param($_) } @PATTERN_FLAGS), owner => $self->users->id_for_login($self->current_user)
   );
 
@@ -98,7 +96,7 @@ sub new_pattern ($self) {
   my $lname = $validation->param('license-name');
   $self->render(
     template => 'license/edit_pattern',
-    match    => {license => $lname, pattern => '', risk => 0, packname => '', (map { $_ => 0 } @PATTERN_FLAGS)}
+    match    => {license => $lname, pattern => '', risk => 0, (map { $_ => 0 } @PATTERN_FLAGS)}
   );
 }
 
@@ -203,7 +201,6 @@ sub update_pattern ($self) {
   my $validation = $self->validation;
   $validation->required('pattern');
   $validation->optional('license');
-  $validation->optional('packname');
   $validation->optional('risk')->num;
   $validation->optional($_) for @PATTERN_FLAGS;
   return $self->reply->json_validation_error if $validation->has_error;
@@ -216,9 +213,8 @@ sub update_pattern ($self) {
   # expire old license pattern
   my $result = $patterns->update(
     $id,
-    packname => $validation->param('packname'),
-    pattern  => $pattern,
-    license  => $validation->param('license'),
+    pattern => $pattern,
+    license => $validation->param('license'),
     (map { $_ => $validation->param($_) } @PATTERN_FLAGS),
     risk  => $validation->param('risk'),
     owner => $owner_id
@@ -241,7 +237,6 @@ sub update_pattern_json ($self) {
   my $validation = $self->validation;
   $validation->required('pattern');
   $validation->optional('license');
-  $validation->optional('packname');
   $validation->optional('risk')->num;
   $validation->optional($_) for @PATTERN_FLAGS;
   return $self->reply->json_validation_error if $validation->has_error;
@@ -253,9 +248,8 @@ sub update_pattern_json ($self) {
 
   my $result = $patterns->update(
     $id,
-    packname => $validation->param('packname'),
-    pattern  => $pattern,
-    license  => $validation->param('license'),
+    pattern => $pattern,
+    license => $validation->param('license'),
     (map { $_ => $validation->param($_) } @PATTERN_FLAGS),
     risk  => $validation->param('risk'),
     owner => $owner_id

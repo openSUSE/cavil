@@ -1172,12 +1172,10 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
         1,
         'inline editor shows the closest-match tab'
       );
-      await page.locator('#license-details .license-inline-editor input[name="packname"]').fill('ui-inline-package');
       await page.locator('#license-details .license-inline-editor select[name="risk"]').selectOption('4');
       await page.locator('#license-details .license-inline-editor button[type="submit"]').click();
       await page.waitForSelector('#license-details .license-inline-editor', {state: 'detached'});
       await page.waitForSelector('#license-details .toast-item.toast-success');
-      t.match(await page.innerText('#license-details'), /ui-inline-package/);
       t.match(await page.innerText('#license-details .license-pattern-card'), /Risk 4/);
     });
 

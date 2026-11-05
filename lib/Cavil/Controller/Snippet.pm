@@ -59,7 +59,6 @@ sub closest ($self) {
         text       => $pattern->{pattern},
         license    => $pattern->{license},
         risk       => $pattern->{risk},
-        package    => $pattern->{packname},
         similarity => $pattern->{similarity}
       }
     }

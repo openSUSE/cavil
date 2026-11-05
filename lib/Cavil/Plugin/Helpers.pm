@@ -474,7 +474,7 @@ sub _package_summary ($c, $id) {
     result               => $pkg->{result},
     reviewed             => $pkg->{reviewed_epoch},
     reviewing_user       => $pkg->{login},
-    should_reindex       => $c->patterns->has_new_patterns($pkg->{name}, $pkg->{indexed}) ? true : false,
+    should_reindex       => $c->patterns->has_new_patterns($pkg->{indexed}) ? true : false,
     state                => $pkg->{state},
     unpacked_files       => $pkg->{unpacked_files},
     unpacked_size        => humanize_bytes($pkg->{unpacked_size} // 0)

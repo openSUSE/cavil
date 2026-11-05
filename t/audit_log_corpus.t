@@ -157,22 +157,6 @@ subtest 'A license merged into another records the patterns it brought into line
     'the existing Apache-2.0 patterns changed too';
 };
 
-subtest 'A pattern no longer limited to a package stays filed under it' => sub {
-  my $n = $count->();
-  $t->post_ok('/licenses/create_pattern' => form =>
-      {pattern => 'Scoped audited text', license => 'MIT', risk => 1, packname => 'perl-Mojolicious'})->status_is(302);
-  my $scoped = $db->select('license_patterns', 'id', {pattern => 'Scoped audited text'})->hash->{id};
-  $t->post_ok(
-    "/licenses/pattern/$scoped.json" => form => {pattern => 'Scoped audited text', license => 'MIT', risk => 1})
-    ->status_is(200);
-  is_deeply [map { [$_->{type}, $_->{package_name}, $_->{data}{changes}] } @{$since->($n)}],
-    [
-    ['pattern.created', 'perl-Mojolicious', undef],
-    ['pattern.updated', 'perl-Mojolicious', {packname => ['perl-Mojolicious', '']}]
-    ],
-    'filed under the package it was limited to';
-};
-
 subtest 'A snippet marked as not legal text everywhere' => sub {
   my $n       = $count->();
   my $snippet = $db->query('SELECT id, hash FROM snippets ORDER BY id DESC LIMIT 1')->hash;

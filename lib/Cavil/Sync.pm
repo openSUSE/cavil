@@ -16,7 +16,7 @@ has silent  => 0;
 
 # Selected and written from one list, so a new column cannot reach one and be dropped by the other. No id or
 # created: those are per-instance, and the import dedupes on unique_id.
-my @EXPORTED = (qw(unique_id license spdx packname pattern risk catch_all), @Cavil::Util::PATTERN_FLAGS);
+my @EXPORTED = (qw(unique_id license spdx pattern risk catch_all), @Cavil::Util::PATTERN_FLAGS);
 
 sub load ($self, $path) {
 
@@ -35,7 +35,8 @@ sub load ($self, $path) {
   $handle->seek(0, 0);
   for my $line (<$handle>) {
     chomp $line;
-    $imported++ if $patterns->insert_pattern(decode_json($line));
+    my $row = _importable(decode_json($line));
+    $imported++ if $row && $patterns->insert_pattern($row);
     $progress->update;
     $all++;
   }
@@ -104,12 +105,15 @@ sub _unknown ($self, $path) {
 
   my @unknown;
   for my $line (split /\n/, $path->slurp) {
-    my $row = decode_json $line;
+    next unless my $row = _importable(decode_json $line);
     next if $ids{$row->{unique_id} // ''};
     next if $sums{$row->{token_hexsum} = Cavil::Util::pattern_checksum($row->{pattern})};
     push @unknown, $row;
   }
   return \@unknown;
 }
+
+# Files exported before package scoped patterns were retired must not bring them back as global patterns
+sub _importable ($row) { length(delete $row->{packname} // '') ? undef : $row }
 
 1;
