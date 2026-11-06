@@ -854,7 +854,7 @@ sub tool_cavil_propose_license_pattern ($tool, $args) {
 
   # A capped or timed-out dry run only gives a lower bound, so it cannot prove the pattern is narrow
   my $reach
-    = $impact->{error}  ? 'could not be measured (dry run timed out)'
+    = $impact->{error}  ? "could not be measured ($impact->{error})"
     : $impact->{capped} ? "is at least $impact->{other_packages} other packages (dry run capped, true reach unknown)"
     : $impact->{other_packages} > BROAD_PATTERN_PACKAGES ? "is $impact->{other_packages} other packages"
     :                                                      undef;

@@ -844,7 +844,7 @@ sub test_pattern ($self, $pattern, %opts) {
   (my $literal = $pattern) =~ s/\$SKIP\d+/ /g;
   my %seen;
   my @words = grep { !$seen{$_}++ } map { $_->[1] } @{Cavil::Matcher::normalize($literal)};
-  @words = sort { length $b <=> length $a || $a cmp $b } grep {/^\w{3,}$/} @words;
+  @words = sort { length $b <=> length $a || $a cmp $b } grep { /^\w[\w.-]*$/ && length >= 3 } @words;
   splice @words, 4 if @words > 4;
   return {error => 'Pattern has no searchable words'} unless @words;
 

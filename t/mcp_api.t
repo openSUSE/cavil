@@ -2136,7 +2136,8 @@ subtest 'MCP' => sub {
         local *Cavil::Model::Patterns::test_pattern = sub { {error => 'Dry run timed out'} };
         $result = $client->call_tool('cavil_propose_license_pattern', {%args, license => 'Any Proprietary', risk => 7});
         ok $result->{isError}, 'is an error';
-        like $result->{content}[0]{text}, qr/reach could not be measured/, 'timeout is not narrow';
+        like $result->{content}[0]{text}, qr/reach could not be measured \(Dry run timed out\)/,
+          'timeout is not narrow';
         $result = $client->call_tool('cavil_propose_license_pattern',
           {%args, license => 'Any Proprietary', risk => 7, broad_ok => true});
         ok !$result->{isError}, 'broad_ok overrides an unmeasured reach';
@@ -2158,6 +2159,9 @@ subtest 'MCP' => sub {
         like $result->{content}[0]{text}, qr/pattern or pattern_id is required/, 'blank pattern';
         $result = $client->call_tool('cavil_test_pattern', {pattern => 'a b'});
         like $result->{content}[0]{text}, qr/Pattern has no searchable words/, 'nothing to prefilter on';
+        $result = $client->call_tool('cavil_test_pattern', {pattern => 'SPDX-License-Identifier: GPL-2.0-only'});
+        ok !$result->{isError}, 'SPDX tag is searchable';
+        like $result->{content}[0]{text}, qr/Prefiltered on: spdx-license-identifier gpl-2\.0-only/, 'hyphenated words';
 
         # The $SKIP report shows what the gap swallowed in each sample
         $result = $client->call_tool('cavil_test_pattern', {pattern => 'terms of the $SKIP3 License version 2.0'});
@@ -2407,6 +2411,12 @@ subtest 'MCP' => sub {
           my $after
             = $db->query('SELECT COUNT(*)::int AS c FROM file_snippets WHERE snippet = ?', $snippet_id)->hash->{c};
           is $after, $before, 'no duplicate file_snippets link row created';
+        };
+
+        subtest 'SPDX-only pattern can be dry-run' => sub {
+          my $dry = $client->call_tool('cavil_test_pattern', {pattern => 'SPDX-License-Identifier: GPL-2.0-only'});
+          ok !$dry->{isError}, 'not an error';
+          like $dry->{content}[0]{text}, qr/Would match 1 snippets .* in 1 packages/, 'matches the new snippet';
         };
 
         subtest 'New snippet can drive a license pattern proposal' => sub {
