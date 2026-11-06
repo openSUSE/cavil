@@ -84,6 +84,9 @@ subtest 'pypi' => sub {
   my $classified = detect('x/Some_Package-3.4.5.egg-info/PKG-INFO', 'pypi/classifier.PKG-INFO');
   is $classified->[0]{purl},    'pkg:pypi/some-package@3.4.5', 'name normalized in the purl';
   is $classified->[0]{license}, 'MIT License',                 'license falls back to the OSI classifier';
+
+  is detect('x/pkg-1.0.dist-info/METADATA', 'pypi/expression.METADATA')->[0]{license}, 'MIT OR Apache-2.0',
+    'PEP 639 License-Expression wins over classifiers';
 };
 
 subtest 'maven' => sub {

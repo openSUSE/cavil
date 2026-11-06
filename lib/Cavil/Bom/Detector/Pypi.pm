@@ -21,7 +21,7 @@ sub parse ($self, $path, $content) {
   return [] unless defined $name && length $name && defined $version && length $version;
 
   # Prefer the License field; fall back to an OSI Approved classifier
-  my $license = $header{license};
+  my $license = $header{'license-expression'} // $header{license};
   undef $license if defined $license && ($license eq '' || uc $license eq 'UNKNOWN');
   unless (defined $license) {
     for my $classifier (@classifiers) {
