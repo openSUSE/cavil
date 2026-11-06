@@ -2162,6 +2162,30 @@ subtest 'MCP' => sub {
         $result = $client->call_tool('cavil_test_pattern', {pattern => 'SPDX-License-Identifier: GPL-2.0-only'});
         ok !$result->{isError}, 'SPDX tag is searchable';
         like $result->{content}[0]{text}, qr/Prefiltered on: spdx-license-identifier gpl-2\.0-only/, 'hyphenated words';
+        $result = $client->call_tool('cavil_test_pattern', {pattern => 'The and the'});
+        like $result->{content}[0]{text}, qr/Pattern has no searchable words/, 'stopwords only';
+
+        # Postgres keeps URLs and paths whole, so their pieces would prefilter away every real match
+        $result = $client->call_tool('cavil_test_pattern',
+          {pattern => 'obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0'});
+        my ($searched) = $result->{content}[0]{text} =~ /Prefiltered on: (.*)/;
+        like $searched,   qr/www\.apache\.org/, 'host is searchable';
+        unlike $searched, qr/license-2\.0/,     'URL path piece is not';
+        $result
+          = $client->call_tool('cavil_test_pattern', {pattern => 'see LICENSES/GPL-2.0-or-later.txt for details'});
+        ($searched) = $result->{content}[0]{text} =~ /Prefiltered on: (.*)/;
+        unlike $searched, qr/gpl-2\.0-or-later\.txt/, 'file path piece is not';
+        $result = $client->call_tool('cavil_test_pattern', {pattern => 'Licensed, see $SKIP3 LICENSE-2.0 for details'});
+        ($searched) = $result->{content}[0]{text} =~ /Prefiltered on: (.*)/;
+        like $searched,   qr/licensed/,     'words away from the $SKIP are searchable';
+        unlike $searched, qr/license-2\.0/, 'a $SKIP may swallow a URL glued to its neighbour';
+
+        # Short distinctive words count too, and stopwords never take a slot
+        $result = $client->call_tool('cavil_test_pattern',
+          {pattern => 'under GNU General Public License version 2 (GPLv2) or (at your option) any later version'});
+        ($searched) = $result->{content}[0]{text} =~ /Prefiltered on: (.*)/;
+        like $searched,   qr/\bgplv2\b/, 'short distinctive word';
+        unlike $searched, qr/\bany\b/,   'no stopwords';
 
         # The $SKIP report shows what the gap swallowed in each sample
         $result = $client->call_tool('cavil_test_pattern', {pattern => 'terms of the $SKIP3 License version 2.0'});

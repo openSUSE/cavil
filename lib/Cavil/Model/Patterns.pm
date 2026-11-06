@@ -837,7 +837,7 @@ sub align ($self, $pattern, $text) {
 }
 
 # Dry run of a pattern against the snippet corpus: how many snippets and packages it would match, samples, and
-# what its $SKIPs swallow there. Candidates are prefiltered by full-text search on the pattern's longest
+# what its $SKIPs swallow there. Candidates are prefiltered by full-text search on up to 16 of the pattern's longest
 # literal words, then confirmed with the real matcher. Embargoed, obsolete and ephemeral packages never show.
 sub test_pattern ($self, $pattern, %opts) {
   Cavil::PatternEngine::init_matcher();
@@ -845,12 +845,23 @@ sub test_pattern ($self, $pattern, %opts) {
   my %seen;
   my @words = grep { !$seen{$_}++ } map { $_->[1] } @{Cavil::Matcher::normalize($literal)};
   @words = sort { length $b <=> length $a || $a cmp $b } grep { /^\w[\w.-]*$/ && length >= 3 } @words;
-  splice @words, 4 if @words > 4;
+
+  # Postgres keeps URLs and paths as one token where the matcher splits at "/" (LICENSE-2.0 in an Apache URL),
+  # so only words full-text search finds in the pattern itself are safe to require; stopwords drop out too.
+  # A $SKIP becomes a path piece because the text it swallows may be a URL that glues onto its neighbours.
+  # The subquery parses the pattern once, a cached generic plan would otherwise parse it again for every word
+  (my $probe = $pattern) =~ s{\s*\$SKIP\d+\s*}{/x/}g;
+  my $db = $self->pg->db;
+  @words = $db->query(
+    q{SELECT w FROM unnest(?::text[]) WITH ORDINALITY AS u(w, i)
+      WHERE CASE WHEN numnode(websearch_to_tsquery('english', w)) > 0
+                 THEN (SELECT to_tsvector('english', ?)) @@ websearch_to_tsquery('english', w) END
+      ORDER BY i LIMIT 16}, \@words, $probe
+  )->arrays->flatten->each;
   return {error => 'Pattern has no searchable words'} unless @words;
 
   # Production has millions of snippets and file_snippets rows, so every query is capped and the whole dry
   # run shares one statement timeout; a timeout is reported, never retried
-  my $db = $self->pg->db;
   my $tx = $db->begin;
   $db->query("SET LOCAL statement_timeout = '@{[TEST_PATTERN_TIMEOUT]}s'");
   my $result = eval { $self->_test_pattern_queries($db, $pattern, \@words, $opts{package_id}) };
