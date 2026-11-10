@@ -119,7 +119,7 @@ subtest 'Low risk and no significant difference blocked' => sub {
 
   $pkg = $analyze->($copy->('new', 'perl-Mojolicious-0:zero'));
   is $pkg->{state}, 'new', 'not accepted';
-  like $pkg->{notice}, qr/^\Q$header\E\n\nNot found any significant difference against \d+$/,
+  is $pkg->{notice}, "$header\n\nManual review is required because no license was found",
     'risk 0 would not have been accepted either';
 };
 

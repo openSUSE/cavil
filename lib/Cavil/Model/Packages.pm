@@ -263,6 +263,10 @@ sub analyze_held ($self, $old, $new) {
 
   # Low risk changes compared to an accepted version make a package of any risk acceptable
   push @ranges, [$old->{acceptable_risk}, 9] if $new->{acceptable_risk} > $old->{acceptable_risk};
+
+  # Only reports without a license can be accepted for their files
+  my %old_files = map { $_ => 1 } @{$old->{acceptable_files}};
+  push @ranges, [-1, 0] if grep { !$old_files{$_} } @{$new->{acceptable_files}};
   my $resumed = $new->{auto_accept} && !$old->{auto_accept} ? 1 : 0;
   return 0 unless @names || @ranges || $resumed;
 

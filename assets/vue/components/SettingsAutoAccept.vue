@@ -92,6 +92,28 @@
       </div>
 
       <div class="cavil-settings-rule">
+        <label for="acceptable-files" class="cavil-settings-label"
+          >Always accept packages made only of these files</label
+        >
+        <SettingsDefaultLabel :name="'acceptable_files'" :custom="custom" @reset="reset" />
+        <p class="cavil-settings-help">
+          Packages that deliberately ship no source code, such as Open Build Service aggregates of binaries built
+          elsewhere. Every file has to be on the list and no license may be found, an empty package is never accepted.
+          Press Enter after each name.
+        </p>
+        <div class="cavil-settings-nested" id="acceptable-files">
+          <TagInput
+            v-model="form.acceptable_files"
+            :max-length="255"
+            :max-tags="1000"
+            placeholder="Add a file name"
+            data-key="acceptable-files"
+          />
+          <div v-if="errors.acceptable_files" class="cavil-settings-error">{{ errors.acceptable_files }}</div>
+        </div>
+      </div>
+
+      <div class="cavil-settings-rule">
         <label for="separate-packages" class="cavil-settings-label">Never group these packages</label>
         <SettingsDefaultLabel :name="'separate_packages'" :custom="custom" @reset="reset" />
         <p class="cavil-settings-help">

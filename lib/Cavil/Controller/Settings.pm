@@ -6,8 +6,9 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 # A section can only read and change its own keys
 my %SECTION_KEYS = (
-  'auto-accept' => [qw(acceptable_packages acceptable_risk auto_accept auto_accept_risk separate_packages)],
-  retention     =>
+  'auto-accept' =>
+    [qw(acceptable_files acceptable_packages acceptable_risk auto_accept auto_accept_risk separate_packages)],
+  retention =>
     [qw(days_to_keep_orphaned_duplicate_packages days_to_keep_orphaned_packages hours_to_keep_ephemeral_packages)],
   sbom => [qw(sbom_creator_email sbom_creator_name sbom_creator_url)]
 );

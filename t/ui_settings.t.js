@@ -98,12 +98,21 @@ t.test('Cavil UI - settings', skipUnlessOnline, async t => {
       await page.keyboard.press('Enter');
       await page.fill('#separate-packages input', 'openh323');
       await page.keyboard.press('Enter');
+      await page.fill('#acceptable-files input', '_channel');
+      await page.keyboard.press('Enter');
       await save();
       await page.reload();
       await page.waitForSelector('#acceptable-packages [data-note-tag-chip="my-placeholder"]');
       t.pass('new name kept');
       await page.waitForSelector('#separate-packages [data-note-tag-chip="openh323"]');
       t.pass('name kept apart');
+      await page.waitForSelector('#acceptable-files [data-note-tag-chip="_channel"]');
+      t.pass('file name kept');
+      t.equal(
+        await page.locator('#acceptable-files [data-note-tag-chip="_aggregate"]').count(),
+        1,
+        'default files too'
+      );
       t.equal(await page.locator('[data-note-tag-chip="000product"]').count(), 1, 'defaults still there');
     });
 
@@ -114,6 +123,7 @@ t.test('Cavil UI - settings', skipUnlessOnline, async t => {
       await page.waitForSelector('text=Settings changed');
       t.match(await page.innerText('body'), /Always accept these packages: .* → .*my-placeholder/, 'readable change');
       t.match(await page.innerText('body'), /Never group these packages: .*openh323/, 'for both lists');
+      t.match(await page.innerText('body'), /Always accept packages made only of these files: .*_channel/, 'and files');
     });
 
     await t.test('Pause automatic acceptance', async t => {

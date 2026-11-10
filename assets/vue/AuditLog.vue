@@ -136,6 +136,7 @@ const settingLabels = {
   auto_accept_risk: 'Accept low-risk packages nobody has reviewed yet',
   acceptable_risk: 'Accept packages a person has reviewed before',
   acceptable_packages: 'Always accept these packages',
+  acceptable_files: 'Always accept packages made only of these files',
   separate_packages: 'Never group these packages',
   sbom_creator_name: 'SBOM organisation',
   sbom_creator_email: 'SBOM email address',

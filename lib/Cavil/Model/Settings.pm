@@ -10,14 +10,15 @@ use Mojo::JSON             qw(encode_json);
 # The only place defaults exist, the table holds overrides. A stored value is checked again on every read, because
 # falling back to the default could be looser than what an admin chose.
 my %SETTINGS = (
-  auto_accept         => {default => 1,                                                      check => \&_bool},
-  acceptable_risk     => {default => 4,                                                      check => \&_risk},
-  auto_accept_risk    => {default => 2,                                                      check => \&_risk},
-  acceptable_packages => {default => [qw(000product 000release-packages 000package-groups)], check => \&_names},
-  separate_packages   => {default => [],                                                     check => \&_names},
-  sbom_creator_name   => {default => '',                                                     check => \&_line},
-  sbom_creator_email  => {default => '',                                                     check => \&_email},
-  sbom_creator_url    => {default => '',                                                     check => \&_url},
+  auto_accept         => {default => 1,                                                           check => \&_bool},
+  acceptable_risk     => {default => 4,                                                           check => \&_risk},
+  auto_accept_risk    => {default => 2,                                                           check => \&_risk},
+  acceptable_packages => {default => [qw(000product 000release-packages 000package-groups)],      check => \&_names},
+  separate_packages   => {default => [],                                                          check => \&_names},
+  acceptable_files    => {default => [qw(_aggregate _scmsync.obsinfo .gitattributes .gitignore)], check => \&_files},
+  sbom_creator_name   => {default => '',                                                          check => \&_line},
+  sbom_creator_email  => {default => '',                                                          check => \&_email},
+  sbom_creator_url    => {default => '',                                                          check => \&_url},
   days_to_keep_orphaned_packages           => {default => 60, check => _count(1, 3650)},
   days_to_keep_orphaned_duplicate_packages => {default => 7,  check => _count(1, 3650)},
   hours_to_keep_ephemeral_packages         => {default => 24, check => _count(1, 8760)}
@@ -143,13 +144,16 @@ sub _line ($value) {
   return $value =~ s/^\s+|\s+$//gr;
 }
 
-sub _names ($value) {
-  return (undef, 'Must be a list of package names') unless ref $value eq 'ARRAY' && !grep { !defined || ref } @$value;
+sub _files ($value) { _list($value, 'file names', qr{[\s/]}, 'File names cannot contain spaces or slashes') }
+
+sub _list ($value, $what, $bad, $error) {
+  return (undef, "Must be a list of $what") unless ref $value eq 'ARRAY' && !grep { !defined || ref } @$value;
   my %seen;
   my @names = grep { length && !$seen{$_}++ } map {s/^\s+|\s+$//gr} @$value;
-  return (undef, 'Package names cannot contain spaces') if grep {/\s/} @names;
-  return \@names;
+  return grep({ $_ =~ $bad } @names) ? (undef, $error) : \@names;
 }
+
+sub _names ($value) { _list($value, 'package names', qr/\s/, 'Package names cannot contain spaces') }
 
 sub _risk ($value) {
   return defined $value && !ref $value && $value =~ /^\d$/ ? 0 + $value : (undef, 'Must be a risk level from 0 to 9');

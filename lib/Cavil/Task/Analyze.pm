@@ -6,7 +6,11 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::ReportUtil qw(new_license_names new_unresolved_files report_checksum report_shortname summary_delta),
   qw(summary_delta_risk summary_delta_score);
+use Cavil::Checkout;
 use Cavil::Util qw(family_of package_family to_json_fast FAMILY_OF);
+
+my $EMPTY      = 'Manual review is required because the checkout is empty';
+my $NO_LICENSE = 'Manual review is required because no license was found';
 
 sub register ($self, $app, $config) {
   $app->minion->add_task(analyze  => \&_analyze);
@@ -267,9 +271,17 @@ sub _auto_review ($app, $id) {
     return;
   }
 
+  # Failed imports have been seen to arrive as empty checkouts
+  if (defined $pkg->{unpacked_files} && !$pkg->{unpacked_files}) {
+    return _refresh_notice($app, $pkg) if $pkg->{state} eq 'acceptable';
+    return _write($app, $pkg, result => undef, notice => $EMPTY, diff_report => undef);
+  }
+
   my $limitations = $app->notes->limitations($pkg->{name});
   my $paused      = !$settings->{auto_accept};
   my $hold        = @$limitations || $paused;
+  my $risk        = $reports->risk_is_acceptable($pkg_shortname, $settings->{acceptable_risk});
+  my $no_license  = defined $risk && !$risk;
 
   # Already accepted: the auto-accept machinery below is for 'new' packages only.
   # Refresh the notice/diff so a reindex with new patterns cannot leave a stale
@@ -281,7 +293,7 @@ sub _auto_review ($app, $id) {
     # An "unacceptable" sibling with the same report vetoes the upgrade, exactly
     # as it did for these packages at the (former) unacceptable-history guard.
     # Limitations veto it too, an inherited lawyer sign-off is an auto-accept.
-    unless (@$limitations || $paused || grep { $_->{state} eq 'unacceptable' } @$siblings) {
+    unless ($no_license || @$limitations || $paused || grep { $_->{state} eq 'unacceptable' } @$siblings) {
       my ($lawyer) = grep { !$_->{obsolete} && $_->{state} eq 'acceptable_by_lawyer' } @$siblings;
       _accept($app, $pkg, 'acceptable_by_lawyer',
         "Accepted because reviewed by lawyer under the same license@{[_in($pkg, $lawyer)]} ($lawyer->{id})")
@@ -302,12 +314,20 @@ sub _auto_review ($app, $id) {
     return _accept($app, $pkg, 'acceptable', "Accepted because of package name ($listed)");
   }
 
+  # Every comparison below only looks for what was added, so a report without any license would match them all
+  if ($no_license) {
+    if (my $files = _acceptable_files($app, $pkg, $settings)) {
+      return _hold($app, $pkg, $limitations, 'Otherwise accepted package files', paused => $paused) if $hold;
+      return _accept($app, $pkg, 'acceptable', "Accepted because of package files ($files)");
+    }
+    return _hold($app, $pkg, $limitations, $NO_LICENSE);
+  }
+
   # Every package above threshold needs a human review before future versions can be auto-accepted
   if (!$pkgs->has_manual_review($pkg->{name})) {
 
     my $auto_accept_risk = $settings->{auto_accept_risk};
-    my $risk             = $reports->risk_is_acceptable($pkg_shortname, $settings->{acceptable_risk});
-    if (defined($risk) && $risk > 0 && $auto_accept_risk && $risk <= $auto_accept_risk) {
+    if (defined($risk) && $auto_accept_risk && $risk <= $auto_accept_risk) {
       return _hold($app, $pkg, $limitations, "Otherwise accepted low risk ($risk)", paused => $paused) if $hold;
       return _accept($app, $pkg, 'acceptable',
         "Accepted because of low risk ($risk) and auto-accept risk threshold ($auto_accept_risk)");
@@ -351,30 +371,24 @@ sub _auto_review ($app, $id) {
     );
   }
 
-  # Risk 0 is never accepted, and without a risk only no significant difference would have been
-  if ($hold) {
-    my $risk = $reports->risk_is_acceptable($pkg_shortname, $settings->{acceptable_risk});
-    return _hold(
-      $app, $pkg, $limitations, $risk ? "Otherwise accepted low risk ($risk)" : undef,
-      no_diff_accepts => !defined $risk,
-      paused          => $paused
-    );
-  }
+  # Without a risk only no significant difference would have been
+  return _hold(
+    $app, $pkg, $limitations, defined $risk ? "Otherwise accepted low risk ($risk)" : undef,
+    no_diff_accepts => !defined $risk,
+    paused          => $paused
+  ) if $hold;
 
-  # Acceptable risk
-  if (defined(my $risk = $reports->risk_is_acceptable($pkg_shortname, $settings->{acceptable_risk}))) {
-
-    # risk 0 is spooky
-    return _write(
-      $app, $pkg,
-      result      => undef,
-      notice      => 'Manual review is required because of unusually low risk (0)',
-      diff_report => undef
-    ) unless $risk;
-    _accept($app, $pkg, 'acceptable', "Accepted because of low risk ($risk)");
-  }
+  _accept($app, $pkg, 'acceptable', "Accepted because of low risk ($risk)") if defined $risk;
 
   _look_for_smallest_delta($app, $pkg, 1, 1, 0) if $pkg->{state} eq 'new';
+}
+
+# Only top level files can be on the list, a nested one is listed with its directory
+sub _acceptable_files ($app, $pkg, $settings) {
+  return undef if $pkg->{unresolved_matches};
+  my %listed = map { $_ => 1 } @{$settings->{acceptable_files}};
+  my $names  = Cavil::Checkout->new($app->packages->pkg_checkout_dir($pkg->{id}))->listed_names;
+  return @$names && !grep({ !$listed{$_} } @$names) ? join(', ', @$names) : undef;
 }
 
 sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_manual_review, $incomplete_checkout) {

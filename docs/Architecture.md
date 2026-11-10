@@ -327,8 +327,14 @@ package family.
                       stays visible as the notice.
 * `Package Name`: The package is on the "Always accept these packages" list. By default that is the empty metadata
                   packages the Open Build Service uses, such as `000product`.
+* `Package Files`: Every file of the package is on the "Always accept packages made only of these files" list, no
+                   license was found in them and no keyword match is left unresolved. This is for packages that
+                   deliberately ship no source code. By default the list holds the files of an Open Build Service
+                   aggregate, which copies binaries built elsewhere: `_aggregate`, `_scmsync.obsinfo`, `.gitattributes`
+                   and `.gitignore`. Only files at the top of the checkout can match, a file in a subdirectory never
+                   does.
 
-The two risk levels and the two package lists are the parts of this an organisation may reasonably see differently, so
+The two risk levels and the three lists are the parts of this an organisation may reasonably see differently, so
 admins change them on the Settings page instead of in the configuration file. Each control is labelled with the
 condition it governs, risk levels are shown with their names, and every change is recorded in the audit log. A value
 nobody has changed follows the default that ships with Cavil, which is marked as such on the page. Saving a looser
@@ -341,9 +347,17 @@ would otherwise have been accepted, and no accepted review is upgraded to `accep
 section warns as long as the pause lasts, and turning it back on checks every open review again. Accepted reviews
 whose upgrade was skipped during the pause get it with their next analysis, usually the weekly reindex.
 
-The rest of the decision sequence is not a preference and has no setting: the overrides below, the refusal to accept a
-report whose highest risk is 0 (it looks too clean to trust), and the refusal to accept a package whose sibling with
-the same report was rejected by a lawyer.
+The rest of the decision sequence is not a preference and has no setting: the overrides below, the rule for reports
+without a license, and the refusal to accept a package whose sibling with the same report was rejected by a lawyer.
+
+**A report whose highest risk is 0 means Cavil found no license**, at most matches of risk 0 such as copyright lines.
+Every rule that compares reports looks only for what was added: new licenses, new keyword matches, a changed declared
+license. Licenses that went missing never count, so a report without any license matches every comparison, including
+the checksum of an earlier report that was just as empty. None of them accept it, neither `Low Risk`, `Previous
+Result`, `No Differences` nor `Low Risk Changes`, and an accepted review without a license is never upgraded to
+`acceptable_by_lawyer` either. A missing license can itself be the finding a lawyer rejects a package for. Only the two
+lists that say what a package positively is, `Package Name` and `Package Files`, may accept it. Otherwise the report
+stays in `new` with a notice that manual review is required because no license was found.
 
 One condition overrides all of the above and is a first-class safety property: **an incomplete checkout is never
 auto-accepted.** If the source might not have been fully retrieved - the package's `_service` file runs a service
@@ -352,6 +366,11 @@ leaving the report in `new` for a human, with a notice that manual review is req
 incomplete. Acceptance decisions are only ever made against evidence known to be complete; a partial checkout can hide
 exactly the license that matters, so the system declines to rule on it rather than accept on incomplete grounds. (A
 previous result is still surfaced as context, but only as a notice - never as an automatic acceptance.)
+
+A related override: **an empty checkout is never auto-accepted**, not even by the two lists. Failed imports have been
+seen to arrive as packages without a single file, and nothing in an empty report can tell them apart from a package
+that really is empty. The report stays in `new` with a notice that manual review is required because the checkout is
+empty.
 
 A second override covers limitations: **while any name of a package family has a limitation note, no new report for the
 family is auto-accepted.** Cavil cannot check whether a request meets the limitations, so a human has to check every new

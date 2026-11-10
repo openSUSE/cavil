@@ -82,6 +82,7 @@ subtest 'Registry' => sub {
     auto_accept_risk                         => 2,
     acceptable_packages                      => [qw(000product 000release-packages 000package-groups)],
     separate_packages                        => [],
+    acceptable_files                         => [qw(_aggregate _scmsync.obsinfo .gitattributes .gitignore)],
     sbom_creator_name                        => '',
     sbom_creator_email                       => '',
     sbom_creator_url                         => '',
@@ -123,6 +124,9 @@ subtest 'Read and update' => sub {
   $t->put_ok('/settings/auto-accept.json' => json => {values => {acceptable_packages => ['two words']}})
     ->status_is(400)
     ->json_like('/errors/acceptable_packages', qr/spaces/);
+  $t->put_ok('/settings/auto-accept.json' => json => {values => {acceptable_files => ['sub/_aggregate']}})
+    ->status_is(400)
+    ->json_is('/errors/acceptable_files', 'File names cannot contain spaces or slashes');
   $t->put_ok('/settings/auto-accept.json' => json => {values => {nope => 1}})
     ->status_is(400)
     ->json_is('/errors/nope', 'Not part of this section');
