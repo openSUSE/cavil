@@ -245,6 +245,8 @@ A name joins a family when the only difference is one of these:
   `slurm_23_02`, or an update counter such as `_23` in `kernel-livepatch-SLE15-SP7-RT_Update_23`. The underscore marks
   it as a version just like a dash does, so a single digit is enough here, as long as a letter comes right before it.
   An architecture like `x86_64` stays intact.
+* **A dotted version glued to the end of a later part**, like `1.22` in `etcd-for-k8s1.22` or `1.65` in
+  `containerized-data-importer1.65`. The dot marks it as a version, the first part keeps the stricter rule above.
 
 So `python314`, `python315` and `python3.12` are one family, as are `curl` and all of its Open Build Service copies.
 

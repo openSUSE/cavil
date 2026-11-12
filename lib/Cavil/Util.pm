@@ -800,8 +800,9 @@ sub package_family ($name, $separate = {}) {
   if (my ($stem) = $first =~ /^([A-Za-z][A-Za-z_+]*[A-Za-z+])(?:\d{2,3}|\d{1,3}(?:[._]\d{1,3})+)$/a) {
     $first = $stem if ($stem =~ s/^lib//ir) =~ tr/A-Za-z// >= 2;
   }
-  my @parts  = map {s/(?<=[A-Za-z])(?:_\d{1,3})+$//ar} $first, @rest;
-  my $family = join '-', shift @parts, grep { !/^\d{1,3}(?:[._]\d{1,3})*$/a } @parts;
+  $first =~ s/(?<=[A-Za-z])(?:_\d{1,3})+$//a;
+  my @rest_parts = map {s/(?<=[A-Za-z])(?:\d{1,3}(?:\.\d{1,3})+|(?:_\d{1,3})+)$//ar} @rest;
+  my $family     = join '-', $first, grep { !/^\d{1,3}(?:[._]\d{1,3})*$/a } @rest_parts;
   return $separate->{$family} ? $name : $family;
 }
 

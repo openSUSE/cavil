@@ -921,11 +921,14 @@ subtest 'package_family: versioned names' => sub {
   is package_family('python-Sphinx_4_2_0'), 'python-Sphinx', 'in any part of the name';
   is package_family('kernel-livepatch-SLE15-SP7-RT_Update_23'), 'kernel-livepatch-SLE15-SP7-RT_Update',
     'update counter';
-  is package_family('docbook_4'),         'docbook',           'one digit is enough after an underscore';
-  is package_family('cross-x86_64-gcc6'), 'cross-x86_64-gcc6', 'an architecture is no version';
-  is package_family('mozjs128'),          'mozjs',             'three digits';
-  is package_family('python311-pip'),     'python-pip',        'versioned prefix';
-  is package_family('libsoup24'),         'libsoup',           'library';
+  is package_family('docbook_4'),                       'docbook',           'one digit is enough after an underscore';
+  is package_family('cross-x86_64-gcc6'),               'cross-x86_64-gcc6', 'an architecture is no version';
+  is package_family('etcd-for-k8s1.22'),                'etcd-for-k8s',      'dotted version in a later part';
+  is package_family('containerized-data-importer1.65'), 'containerized-data-importer', 'glued to the last word';
+  is package_family('lib3.2'),                          'lib3.2',                      'first part keeps its rule';
+  is package_family('mozjs128'),                        'mozjs',                       'three digits';
+  is package_family('python311-pip'),                   'python-pip',                  'versioned prefix';
+  is package_family('libsoup24'),                       'libsoup',                     'library';
 };
 
 subtest 'package_family: different projects stay apart' => sub {
