@@ -893,13 +893,12 @@ subtest 'safe_string' => sub {
 };
 
 subtest 'package_family: Open Build Service suffixes' => sub {
-  is package_family('curl.17566'),                              'curl',       'incident';
-  is package_family('cups.imported_3576'),                      'cups',       'imported incident';
-  is package_family('python311.SUSE_SLE-15-SP4_Update'),        'python',     'update project';
-  is package_family('abseil-cpp.SUSE_SLE-12-SP5_Update.24419'), 'abseil-cpp', 'update project and incident';
-  is package_family('kgraft-patch-SLE12_Update_10.SUSE_Maintenance_1772'), 'kgraft-patch-SLE12_Update_10',
-    'maintenance';
-  is package_family('opera.openSUSE_Leap_15.6_NonFree.18351'),                 'opera', 'project with a dot';
+  is package_family('curl.17566'),                                         'curl',       'incident';
+  is package_family('cups.imported_3576'),                                 'cups',       'imported incident';
+  is package_family('python311.SUSE_SLE-15-SP4_Update'),                   'python',     'update project';
+  is package_family('abseil-cpp.SUSE_SLE-12-SP5_Update.24419'),            'abseil-cpp', 'update project and incident';
+  is package_family('kgraft-patch-SLE12_Update_10.SUSE_Maintenance_1772'), 'kgraft-patch-SLE12_Update', 'maintenance';
+  is package_family('opera.openSUSE_Leap_15.6_NonFree.18351'),             'opera', 'project with a dot';
   is package_family('000package-groups.home_kukuk_branches_openSUSE_Factory'), '000package-groups', 'home project';
   is package_family('dbus-1.15466'),              'dbus',                      'incident after version';
   is package_family('python-zope.testbrowser'),   'python-zope.testbrowser',   'dotted name kept';
@@ -910,17 +909,23 @@ subtest 'package_family: Open Build Service suffixes' => sub {
 };
 
 subtest 'package_family: versioned names' => sub {
-  is package_family($_),                   'python',        $_ for qw(python python3.12 python310 python314 python315);
-  is package_family($_),                   'nodejs',        $_ for qw(nodejs nodejs-22 nodejs22 nodejs18);
-  is package_family('java-21-openjdk'),    'java-openjdk',  'version token';
-  is package_family('java-1_8_0-openjdk'), 'java-openjdk',  'underscore version token';
-  is package_family('kubectl-1.31-image'), 'kubectl-image', 'dotted version token';
-  is package_family('rubygem-rails-5_1'),  'rubygem-rails', 'trailing version token';
-  is package_family('go1.22-openssl'),     'go-openssl',    'dotted attached version';
-  is package_family('llvm3_8'),            'llvm',          'underscore attached version';
-  is package_family('mozjs128'),           'mozjs',         'three digits';
-  is package_family('python311-pip'),      'python-pip',    'versioned prefix';
-  is package_family('libsoup24'),          'libsoup',       'library';
+  is package_family($_),                    'python',        $_ for qw(python python3.12 python310 python314 python315);
+  is package_family($_),                    'nodejs',        $_ for qw(nodejs nodejs-22 nodejs22 nodejs18);
+  is package_family('java-21-openjdk'),     'java-openjdk',  'version token';
+  is package_family('java-1_8_0-openjdk'),  'java-openjdk',  'underscore version token';
+  is package_family('kubectl-1.31-image'),  'kubectl-image', 'dotted version token';
+  is package_family('rubygem-rails-5_1'),   'rubygem-rails', 'trailing version token';
+  is package_family('go1.22-openssl'),      'go-openssl',    'dotted attached version';
+  is package_family('llvm3_8'),             'llvm',          'underscore attached version';
+  is package_family('apparmor_2_10'),       'apparmor',      'version after an underscore';
+  is package_family('python-Sphinx_4_2_0'), 'python-Sphinx', 'in any part of the name';
+  is package_family('kernel-livepatch-SLE15-SP7-RT_Update_23'), 'kernel-livepatch-SLE15-SP7-RT_Update',
+    'update counter';
+  is package_family('docbook_4'),         'docbook',           'one digit is enough after an underscore';
+  is package_family('cross-x86_64-gcc6'), 'cross-x86_64-gcc6', 'an architecture is no version';
+  is package_family('mozjs128'),          'mozjs',             'three digits';
+  is package_family('python311-pip'),     'python-pip',        'versioned prefix';
+  is package_family('libsoup24'),         'libsoup',           'library';
 };
 
 subtest 'package_family: different projects stay apart' => sub {

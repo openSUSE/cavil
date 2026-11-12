@@ -241,6 +241,10 @@ A name joins a family when the only difference is one of these:
   `5_1` in `rubygem-rails-5_1`.
 * **A version attached to the end of the first word**: two or three digits, or a version with a dot or an underscore
   in it, as in `python315`, `gcc14`, `mozjs128`, `go1.22-openssl` or `llvm3_8`.
+* **A version after an underscore** at the end of any part, like `_2_10` in `apparmor_2_10`, `_23_02` in
+  `slurm_23_02`, or an update counter such as `_23` in `kernel-livepatch-SLE15-SP7-RT_Update_23`. The underscore marks
+  it as a version just like a dash does, so a single digit is enough here, as long as a letter comes right before it.
+  An architecture like `x86_64` stays intact.
 
 So `python314`, `python315` and `python3.12` are one family, as are `curl` and all of its Open Build Service copies.
 
