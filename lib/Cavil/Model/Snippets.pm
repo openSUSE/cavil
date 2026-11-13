@@ -8,7 +8,8 @@ use Mojo::File             qw(path);
 use Cavil::Model::AuditLog qw(audit_event);
 use Cavil::Util            qw(checkout_path file_and_checksum in_package_tree family_match read_lines);
 use Cavil::ReportUtil
-  qw(is_license_filename overlapping_licenses should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear);
+  qw($LEGAL_SNIPPET_SQL is_license_filename overlapping_licenses should_clear_boilerplate should_cover_snippet),
+  qw(should_fold_snippet should_overlap_clear);
 
 has [qw(checkout_dir pg snippet_fold)];
 
@@ -72,15 +73,17 @@ sub resolve_snippets ($self, $package_id, $generation = 0) {
     }
   }
 
+  # Pending snippets count as legal for display, but resolving one needs a classifier verdict (embargoed snippets
+  # are never classified, humans review them)
   my $rows = $db->query(
-    'SELECT fs.id, fs.file, fs.sline, fs.eline, fs.resolution AS current_resolution, s.hash, s.license,
-            s.likelyness, s.second_match, s.score_version, s.like_pattern, lp.license AS plicense, lp.risk AS prisk,
-            lp.catch_all AS pcatch_all, mf.filename
+    "SELECT fs.id, fs.file, fs.sline, fs.eline, fs.resolution AS current_resolution, s.hash,
+            (s.classified AND $LEGAL_SNIPPET_SQL) AS license, s.likelyness, s.second_match, s.score_version,
+            s.like_pattern, lp.license AS plicense, lp.risk AS prisk, lp.catch_all AS pcatch_all, mf.filename
        FROM file_snippets fs
        JOIN snippets s ON s.id = fs.snippet
        JOIN matched_files mf ON mf.id = fs.file
        LEFT JOIN license_patterns lp ON lp.id = s.like_pattern
-      WHERE fs.package = ? AND fs.generation = ?', $package_id, $generation
+      WHERE fs.package = ? AND fs.generation = ?", $package_id, $generation
   );
 
   # Bucket the few resolution values to avoid thousands of individual updates.
@@ -144,15 +147,16 @@ sub file_line_info ($self, $package_id, $file_id) {
   # No generation predicate is needed anywhere here: the file id already belongs to exactly one report
   # generation, so every match and snippet joined through it comes from that same report
   my $snippets = $db->query(
-    'SELECT fs.sline, fs.eline, fs.resolution, s.id, s.hash, s.classified, s.license, s.like_pattern,
+    "SELECT fs.sline, fs.eline, fs.resolution, s.id, s.hash, $LEGAL_SNIPPET_SQL AS legal, s.like_pattern,
             s.likelyness, s.confidence, lp.license AS plicense, lp.spdx AS pspdx, lp.risk AS prisk
        FROM file_snippets fs
        JOIN snippets s ON s.id = fs.snippet
+       JOIN matched_files mf ON mf.id = fs.file
        LEFT JOIN license_patterns lp ON lp.id = s.like_pattern
-      WHERE fs.package = ? AND fs.file = ?', $package_id, $file_id
+      WHERE fs.package = ? AND fs.file = ?", $package_id, $file_id
   );
   for my $snippet ($snippets->hashes->each) {
-    next if $snippet->{classified} && !$snippet->{license};
+    next unless $snippet->{legal};
     my $resolution = $snippet->{resolution} // '';
 
     my $has_closest = defined $snippet->{plicense} && $snippet->{plicense} ne '';
@@ -461,6 +465,11 @@ sub unclassified ($self, $options) {
        WHERE fs.snippet = ? $match ORDER BY fs.id DESC LIMIT 1", $snippet->{id}, @kinds
     )->hash // {};
     $snippet->{$_} = $file->{$_} for qw(filename sline filepackage);
+    $snippet->{license_file} = $db->query(
+      "SELECT EXISTS (SELECT 1 FROM file_snippets fs JOIN snippets s ON s.id = fs.snippet
+         JOIN matched_files mf ON mf.id = fs.file
+        WHERE fs.snippet = ? AND fs.generation = 0 AND NOT s.license AND $LEGAL_SNIPPET_SQL)", $snippet->{id}
+    )->array->[0];
 
     my $license = $db->query('SELECT license, risk FROM license_patterns WHERE id = ? AND license != ?',
       $snippet->{like_pattern} // 0, '')->hash // {};
@@ -505,17 +514,9 @@ sub _snippet_search ($self, $db, $options) {
   my $extra = '';
   if ($options->{package_id}) { $extra .= ' AND fs.package = ?'; push @binds, $options->{package_id}; }
 
-  # Match the report's definition of an unresolved match (Cavil::Model::Reports missed_snippets
-  # partition): drop snippets the classifier has decided are NOT license text (classified = true AND
-  # license = false). Confirmed candidates (license = true) and snippets still pending classification
-  # (classified = false) are kept. Without this the tool floods callers with classifier-rejected code
-  # comments the report never shows, and its counts drift far above the package's unresolved_matches.
-  #
-  # Skip this for "reported": a missing-license report is an explicit human/agent assertion that the
-  # snippet IS a license, and reporting one Cavil auto-resolved (folded/cleared/covered) or the classifier
-  # rejected is an expected *correction*. Those must surface regardless of resolution or classifier verdict
-  # (the res_clause above already imposes no resolution filter), and the curated report set can't flood.
-  $extra .= ' AND (s.license OR NOT s.classified)' unless $res eq 'reported';
+  # The report's legal-text rule, or counts drift from unresolved_matches. "reported" skips it: a missing-license
+  # report asserts the snippet IS a license, so it must surface whatever its resolution or classifier verdict.
+  $extra .= " AND $LEGAL_SNIPPET_SQL" unless $res eq 'reported';
   if (defined $options->{license} && $options->{license} ne '') {
     $extra .= ' AND lp.license = ?';
     push @binds, $options->{license};
@@ -570,6 +571,7 @@ sub _snippet_search ($self, $db, $options) {
               lp.license AS closest_license, lp.risk AS closest_risk, lp.spdx AS closest_spdx
        FROM file_snippets fs
          JOIN snippets s ON s.id = fs.snippet
+         JOIN matched_files mf ON mf.id = fs.file
          JOIN bot_packages bp ON bp.id = fs.package
          LEFT JOIN bot_packages sp ON sp.id = s.package
          LEFT JOIN license_patterns lp ON lp.id = s.like_pattern

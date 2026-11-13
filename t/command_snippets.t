@@ -89,4 +89,36 @@ subtest 'snippets --resolve recomputes the stored resolutions' => sub {
   is $folded, $total, 'every occurrence was resolved to fold';
 };
 
+subtest 'snippets --resolve applies the legal-text rule to existing occurrences' => sub {
+  my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'command_snippets_legal_test');
+  my $config     = {
+    %{$cavil_test->default_config},
+    snippet_fold => {enabled => 1, threshold => 0.9, min_margin => 0.1, max_risk => 9}
+  };
+  my $app = Test::Mojo->new(Cavil => $config)->app;
+  $cavil_test->package_with_snippets_fixtures($app);
+  $cavil_test->checkout_dir->child('package-with-snippets', '2a0737e27a3b75590e7fab112b06a76fe7573615', 'LICENSE')
+    ->spew("The licensor grants you a copyright license for the software for any permitted purpose.\n");
+  $app->minion->enqueue(unpack => [1]);
+  $app->minion->perform_jobs;
+  my $db = $app->pg->db;
+
+  # Classifier-rejected confident GPL folds with no stored resolution, as left behind by the previous release
+  my $gpl = $db->query("SELECT id FROM license_patterns WHERE license = 'GPL' LIMIT 1")->hash->{id};
+  $db->query(
+    'UPDATE snippets SET license = FALSE, classified = TRUE, likelyness = 0.99, second_match = 0,
+       score_version = ?, like_pattern = ?', SNIPPET_SCORE_VERSION, $gpl
+  );
+  $db->query('UPDATE file_snippets SET resolution = NULL');
+
+  capture($app, 'snippets', '--resolve');
+
+  my $resolutions = $db->query(
+    'SELECT mf.filename, array_agg(DISTINCT fs.resolution) AS r FROM file_snippets fs
+       JOIN matched_files mf ON mf.id = fs.file GROUP BY mf.filename'
+  )->hashes->reduce(sub { $a->{$b->{filename}} = $b->{r}; $a }, {});
+  is_deeply $resolutions->{LICENSE}, ['fold'], 'rejected snippets in LICENSE are resolved like legal text';
+  is_deeply $resolutions->{README},  [undef],  'rejected snippets elsewhere stay unresolved and hidden';
+};
+
 done_testing;

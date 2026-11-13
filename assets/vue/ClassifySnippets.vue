@@ -156,6 +156,11 @@
             <div class="float-end">
               <i v-if="snippet.embargoed === true" class="fa-solid fa-lock" title="Embargoed"></i>
               <i v-if="snippet.approved === true" class="fa-solid fa-circle-check ms-2" title="Approved by a human"></i>
+              <i
+                v-else-if="snippet.license_file === true"
+                class="fa-solid fa-file-contract ms-2 snippet-license-file"
+                title="In a license file, shown in reports anyway"
+              ></i>
             </div>
           </div>
           <div class="snippet-source">

@@ -10,6 +10,8 @@ use Test::More;
 use Test::Mojo;
 use Cavil::Test;
 use Cavil::Util qw(SNIPPET_SCORE_VERSION);
+use List::Util  qw(uniq);
+use Mojo::Date;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -198,6 +200,63 @@ subtest 'file browser suppresses classifier-rejected snippets' => sub {
   my $source = $t->get_ok('/reviews/file_view_meta/1/README')->status_is(200)->tx->res->json->{source};
   is scalar(grep { ($_->[1]{risk} // 0) == 9 } @{$source->{lines}}), 0,
     'file browser also shows no unresolved (risk 9) lines for classifier-rejected snippets';
+};
+
+# The classifier misjudges unusual licenses in plain language (PolyForm Shield in pnpm), so in a license file
+# only a human can mark a snippet as not legal text
+subtest 'classifier rejections in a license file are not trusted' => sub {
+  my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'snippet_license_file_rejected_test');
+  my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
+  my $app        = $t->app;
+  $cavil_test->package_with_snippets_fixtures($app);
+  $cavil_test->checkout_dir->child('package-with-snippets', '2a0737e27a3b75590e7fab112b06a76fe7573615', 'LICENSE')
+    ->spew("The licensor grants you a copyright license for the software for any permitted purpose.\n"
+      . "Any purpose is a permitted purpose, except for providing any product that competes with the software.\n");
+  $app->minion->enqueue(unpack => [1]);
+  $app->minion->perform_jobs;
+  my $db = $app->pg->db;
+
+  my $rejected = sub {
+    $db->query('UPDATE snippets SET classified = TRUE, license = FALSE');
+    $app->minion->enqueue(analyze => [1]);
+    $app->minion->perform_jobs;
+  };
+  my $unresolved_lines = sub ($file) {
+    my $source = $t->get_ok("/reviews/file_view_meta/1/$file")->status_is(200)->tx->res->json->{source};
+    return scalar grep { ($_->[1]{risk} // 0) == 9 } @{$source->{lines}};
+  };
+  my $search = sub { $app->snippets->snippet_search({package_id => 1, group => 'none'})->{snippets} };
+
+  $rejected->();
+  my $report = $app->reports->dig_report(1);
+  is_deeply [map { $report->{files}{$_} } keys %{$report->{missed_files}}], ['LICENSE'],
+    'only LICENSE stays unresolved';
+  my $sids = $db->query(
+    "SELECT DISTINCT fs.snippet FROM file_snippets fs JOIN matched_files mf ON mf.id = fs.file
+      WHERE fs.package = 1 AND mf.filename = 'LICENSE'"
+  )->arrays->map(sub { $_->[0] });
+  is $db->select('bot_packages', 'unresolved_matches', {id => 1})->hash->{unresolved_matches}, $sids->size,
+    'and only its snippets are counted';
+
+  $t->get_ok('/login')->status_is(302);
+  ok $unresolved_lines->('LICENSE'), 'file browser shows the LICENSE snippet as unresolved';
+  is $unresolved_lines->('README'), 0, 'but not the same verdict in an ordinary file';
+  is_deeply [sort { $a <=> $b } uniq map { $_->{snippet_id} } @{$search->()}], [sort { $a <=> $b } $sids->each],
+    'snippet search lists exactly the LICENSE snippets';
+
+  my $expires = Mojo::Date->new(time + 36000)->to_datetime =~ s/:\d{2}Z$//r;
+  $t->post_ok('/api_keys' => form => {expires => $expires, type => 'read-only', description => 'rollup'})
+    ->status_is(200);
+  my $key = $t->get_ok('/api_keys/meta')->tx->res->json('/keys/0/api_key');
+  $t->get_ok('/api/v1/report/1.mcp' => {Authorization => "Bearer $key"})
+    ->status_is(200)
+    ->content_like(qr/^@{[$sids->size]} unresolved snippets? need review/m, 'report rollup counts them too');
+
+  $app->snippets->approve($_, 'false') for $sids->each;
+  $rejected->();
+  is_deeply $app->reports->dig_report(1)->{missed_files}, {}, 'a human "not legal" verdict hides them again';
+  is $unresolved_lines->('LICENSE'), 0, 'in the file browser too';
+  is_deeply $search->(), [], 'and in snippet search';
 };
 
 # A snippet that appears in several files must fold/clear in EVERY file, like a real pattern match -

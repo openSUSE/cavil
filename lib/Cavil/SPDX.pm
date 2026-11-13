@@ -7,7 +7,8 @@ use Mojo::Base -base, -signatures;
 use Cavil::Checkout;
 use Cavil::Licenses qw(lic scancode_suggestion);
 use Cavil::PostProcess;
-use Cavil::Util qw(decode_name document_writer fs_bytes read_lines @LICENSE_FLAGS);
+use Cavil::ReportUtil qw($LEGAL_SNIPPET_SQL);
+use Cavil::Util       qw(decode_name document_writer fs_bytes read_lines @LICENSE_FLAGS);
 use Digest::SHA;
 use Mojo::JSON qw(encode_json);
 use Mojo::Date;
@@ -714,12 +715,13 @@ sub _license_rows_by_file ($db, $file_ids) {
   return (\%snippets, \%matches) unless @$file_ids;
 
   my $snippet_sql = qq{
-    SELECT f.file, f.sline, f.eline, f.resolution, s.license, s.like_pattern, s.likelyness,
+    SELECT f.file, f.sline, f.eline, f.resolution, $LEGAL_SNIPPET_SQL AS license, s.like_pattern, s.likelyness,
            p.spdx AS pspdx, p.license AS plicense, p.risk AS prisk, p.catch_all AS pcatch_all,
            p.trademark AS ptrademark, p.patent AS ppatent, p.export_restricted AS pexport_restricted,
            p.cla AS pcla, p.eula AS peula
-    FROM file_snippets f LEFT JOIN snippets s ON f.snippet = s.id LEFT JOIN license_patterns p ON s.like_pattern = p.id
-    WHERE f.file = ANY(?) AND classified = true
+    FROM file_snippets f JOIN snippets s ON f.snippet = s.id JOIN matched_files mf ON mf.id = f.file
+      LEFT JOIN license_patterns p ON s.like_pattern = p.id
+    WHERE f.file = ANY(?) AND s.classified = true
   };
   push @{$snippets{$_->{file}}}, $_ for $db->query($snippet_sql, $file_ids)->hashes->each;
 

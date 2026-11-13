@@ -10,9 +10,10 @@ use Mojo::JSON qw(from_json);
 use Cavil::PatternEngine;
 use Cavil::Checkout;
 use Cavil::Declarations;
-use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(estimated_risk license_compatibility license_document_candidates unexplained_lines);
-use Cavil::Util       qw(checkout_path fs_bytes line_tag family_match to_json_fast @LICENSE_FLAGS);
+use Cavil::Licenses qw(lic);
+use Cavil::ReportUtil
+  qw($LEGAL_SNIPPET_SQL estimated_risk license_compatibility license_document_candidates unexplained_lines);
+use Cavil::Util qw(checkout_path fs_bytes line_tag family_match to_json_fast @LICENSE_FLAGS);
 
 has [qw(checkout_dir pg snippet_fold)];
 
@@ -513,10 +514,10 @@ sub _dig_report {
     $pkg->{id}, $generation, @only);
 
   my $snippets = $db->query(
-    'SELECT s.id, s.hash, s.likelyness, s.like_pattern, fs.file, fs.sline, fs.eline, s.classified, s.license,
+    "SELECT s.id, s.hash, s.likelyness, s.like_pattern, fs.file, fs.sline, fs.eline, $LEGAL_SNIPPET_SQL AS legal,
        fs.resolution
-     FROM snippets s JOIN file_snippets fs ON fs.snippet = s.id
-     WHERE fs.package = ? AND fs.generation = ?' . (@only ? ' AND fs.file = ?' : ''), $pkg->{id}, $generation, @only
+     FROM snippets s JOIN file_snippets fs ON fs.snippet = s.id JOIN matched_files mf ON mf.id = fs.file
+     WHERE fs.package = ? AND fs.generation = ?" . (@only ? ' AND fs.file = ?' : ''), $pkg->{id}, $generation, @only
   );
 
   # Stable content keys make deduplication reproducible across packages.
@@ -534,7 +535,7 @@ sub _dig_report {
   for my $snip_row (@snip_rows) {
     my $resolution = $snip_row->{resolution} // '';
 
-    if (!defined $report->{files}{$snip_row->{file}} || (!$snip_row->{license} && $snip_row->{classified})) {
+    if (!defined $report->{files}{$snip_row->{file}} || !$snip_row->{legal}) {
       next;
     }
 

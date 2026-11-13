@@ -9,7 +9,8 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
-use Cavil::Util qw(SNIPPET_SCORE_VERSION);
+use Cavil::ReportUtil qw($LEGAL_SNIPPET_SQL is_license_filename);
+use Cavil::Util       qw(SNIPPET_SCORE_VERSION);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -60,7 +61,7 @@ my $snip = sub (%o) {
       hash          => "res-$n",
       text          => "resolve snippet $n",
       package       => 1,
-      classified    => 1,
+      classified    => $o{classified} // 1,
       license       => (exists $o{legal} ? $o{legal} : 1),
       approved      => 0,
       confidence    => 100,
@@ -129,6 +130,21 @@ is $res->($shared_no), undef,     'per occurrence: same snippet, no match in thi
 
 is $res->($ignored_f), undef, 'a would-fold snippet that is ignored is never resolved';
 
+my $mkfile = sub ($name) {
+  return $db->insert('matched_files', {package => 1, filename => $name, mimetype => 'text/plain'}, {returning => 'id'})
+    ->hash->{id};
+};
+my $match = sub ($fid, $pid) {
+  $db->insert('pattern_matches', {package => 1, file => $fid, pattern => $pid, sline => 50, eline => 50, ignored => 0});
+};
+my $cocc = sub ($fid, $sid) {
+  return $db->insert(
+    'file_snippets',
+    {package   => 1, file => $fid, snippet => $sid, sline => 10, eline => 15},
+    {returning => 'id'}
+  )->hash->{id};
+};
+
 subtest 'covered: a concrete license already on the file/directory clears the fragment' => sub {
 
   # A concrete low-risk (MIT, risk 2) closest license for the fragments, a high-risk one for the guard,
@@ -145,22 +161,6 @@ subtest 'covered: a concrete license already on the file/directory clears the fr
     'create() flags an "Any ..." license as catch_all';
   is $db->select('license_patterns', 'catch_all', {id => $mit})->hash->{catch_all}, 0,
     'a real license is not catch_all';
-
-  my $mkfile = sub ($name) {
-    return $db->insert('matched_files', {package => 1, filename => $name, mimetype => 'text/plain'},
-      {returning => 'id'})->hash->{id};
-  };
-  my $match = sub ($fid, $pid) {
-    $db->insert('pattern_matches',
-      {package => 1, file => $fid, pattern => $pid, sline => 50, eline => 50, ignored => 0});
-  };
-  my $cocc = sub ($fid, $sid) {
-    return $db->insert(
-      'file_snippets',
-      {package   => 1, file => $fid, snippet => $sid, sline => 10, eline => 15},
-      {returning => 'id'}
-    )->hash->{id};
-  };
 
   # File scope: a file that already carries a concrete Apache-2.0 (risk 4) match
   my $file_a = $mkfile->('coverage/withmatch.txt');
@@ -224,6 +224,48 @@ subtest 'covered: a concrete license already on the file/directory clears the fr
     is $res->($catchclosest), undef, 'directory scope still keeps a low-similarity catch_all-closest in a LICENSE file';
     is $res->($catchcode),    'covered', 'directory scope still clears the same weak match in a non-license file';
   };
+};
+
+subtest 'a classifier rejection in a license file is not trusted' => sub {
+  my $lic  = $mkfile->('override/LICENSE.md');
+  my $code = $mkfile->('override/main.c');
+  $match->($_, $apache) for $lic, $code;
+
+  # Treated as legal text, so the normal resolution runs and covers what the directory already explains
+  my $rejected = $cocc->($lic,  $snip->(legal => 0, score_version => $V, like_pattern => $apache));
+  my $outside  = $cocc->($code, $snip->(legal => 0, score_version => $V, like_pattern => $apache));
+  my $fold     = sub ($fid, %o) {
+    $cocc->($fid, $snip->(%o, likelyness => 0.99, second_match => 0, score_version => $V, like_pattern => $gpl));
+  };
+  my $pending_lic  = $fold->($lic,  legal => 0, classified => 0);
+  my $pending_code = $fold->($code, legal => 0, classified => 0);
+  my $human        = $snip->(legal => 0, score_version => $V, like_pattern => $apache);
+  $db->update('snippets', {approved => 1}, {id => $human});
+  my $ignored = $cocc->($lic, $human);
+
+  my $dapp
+    = Test::Mojo->new(Cavil => {%$config, snippet_fold => {%{$config->{snippet_fold}}, cover_scope => 'dir'}})->app;
+  $dapp->snippets->resolve_snippets(1);
+  my $res = sub ($fid) { $db->select('file_snippets', 'resolution', {id => $fid})->hash->{resolution} };
+  is $res->($rejected),     'covered', 'rejected snippet in a LICENSE file is resolved like legal text';
+  is $res->($outside),      undef,     'the same verdict in a source file is still trusted';
+  is $res->($ignored),      undef,     'a human "not legal" verdict wins in a LICENSE file';
+  is $res->($pending_lic),  undef,     'a snippet awaiting classification never resolves, not even in a LICENSE file';
+  is $res->($pending_code), undef,     'nor anywhere else (embargoed snippets are never classified)';
+
+  my @names = (
+    qw(LICENSE pkg/LICENCE pkg/COPYING.LESSER pkg/NOTICE pkg/EULA.md pkg/THIRD-PARTY-NOTICES.md),
+    qw(foo/LICENSE-2.0.txt foo/license.processed pkg/LICENSES/LicenseRef-Qt-Commercial.txt),
+    qw(pkg/LICENSES/GPL-3.0-or-later.txt src/main.rs doc/RELICENSE.md foo/LICENSEE.txt foo/MIT-LICENSE.txt),
+    qw(foo/NOTICE_TO_USERS license-decl-1.0/src/engine.c agent/utils/license.go src/licence.RB)
+  );
+  for my $name (@names) {
+    my $legal = $db->query(
+      "SELECT $LEGAL_SNIPPET_SQL AS legal FROM (SELECT FALSE AS license, TRUE AS classified, FALSE AS approved) s,
+         (SELECT ?::text AS filename) mf", $name
+    )->hash->{legal};
+    is !!$legal, !!is_license_filename($name), "SQL and Perl agree on $name";
+  }
 };
 
 subtest 'disabling the feature clears all resolutions' => sub {

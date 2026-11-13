@@ -265,7 +265,7 @@ sub list_meta ($self) {
 
   my $snippets = $unclassified->{snippets};
   for my $snippet (@$snippets) {
-    $snippet->{$_} = $snippet->{$_} ? true : false for qw(embargoed license classified approved);
+    $snippet->{$_} = $snippet->{$_} ? true : false for qw(embargoed license classified approved license_file);
   }
 
   $self->render(json => {snippets => $snippets, hasMore => $unclassified->{has_more} ? true : false});

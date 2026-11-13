@@ -164,6 +164,25 @@ t.test('Cavil UI - snippet triage filters and search', skipUnlessOnline, async t
       t.equal(await containers().count(), 13, 'load-more eventually shows all folded rows');
     });
 
+    await t.test('classifier rejections in a license file are marked until a human votes', async t => {
+      await open();
+      await search('rejected');
+      await waitForRow('rejected license file body');
+      const licenseRow = page.locator('.snippet-container:has-text("rejected license file body")');
+      const sourceRow = page.locator('.snippet-container:has-text("rejected source file body")');
+      const marker = licenseRow.locator('.snippet-license-file');
+      t.equal(await marker.count(), 1, 'the license file row is marked');
+      t.equal(await marker.getAttribute('title'), 'In a license file, shown in reports anyway', 'with a short tooltip');
+      t.equal(await sourceRow.locator('.snippet-license-file').count(), 0, 'the same verdict elsewhere is not');
+
+      await Promise.all([
+        page.waitForResponse(r => r.request().method() === 'POST' && r.url().includes('/snippets/')),
+        licenseRow.locator('.snippet-arrow-up a').click()
+      ]);
+      await licenseRow.locator('.fa-circle-check').waitFor();
+      t.equal(await marker.count(), 0, 'a human vote replaces the marker');
+    });
+
     assertNoUnexpectedConsoleErrors(t, errorLogs);
   } finally {
     delete process.env.JS_UI_FIXTURES;

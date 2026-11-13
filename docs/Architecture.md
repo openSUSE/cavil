@@ -1285,3 +1285,9 @@ $ curl -X POST --data '# SPDX-License-Identifier: GPL-2.0-only' http://127.0.0.1
 
 The confidence value is presented to users in the UI and meant to help select the best possible candidates for new
 training data for future versions of the model.
+
+In license files (`LICENSE`, `COPYING`, `NOTICE`, `EULA` and similar names) a "not legal text" verdict is not trusted.
+An unusual license written in plain language is exactly what the classifier tends to misjudge, and hiding it there
+would hide a new license. Such a snippet goes through the normal folding, clearing and covering instead, so fragments of
+licenses already found nearby are still resolved automatically. A reviewer marking a snippet as not legal text, or
+ignoring it, always wins.

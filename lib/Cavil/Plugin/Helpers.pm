@@ -6,7 +6,7 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Checkout;
 use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(license_classification peripheral_scope report_risk);
+use Cavil::ReportUtil qw($LEGAL_SNIPPET_SQL license_classification peripheral_scope report_risk);
 use Cavil::Role       qw(roles_with_capability);
 use Cavil::Util       qw(checkout_path decode_name extract_spdx_identifiers license_link spdx_link);
 use CommonMark        ();
@@ -486,12 +486,11 @@ sub _unmatched_rollup ($c, $id, $top = 10) {
   my $result = $c->snippets->snippet_search(
     {resolution => 'unresolved', group => 'text', order => 'occurrences', package_id => $id, limit => $top});
 
-  # Same rule as snippet_search / the missed_snippets partition: exclude classifier-rejected snippets
-  # (classified AND NOT license) so the total matches what the tool lists and what the report shows.
+  # The report's legal-text rule, so the total matches what the tool lists and what the report shows
   my $total = $c->pg->db->query(
-    'SELECT count(DISTINCT fs.snippet) FROM file_snippets fs JOIN snippets s ON s.id = fs.snippet
-      WHERE fs.package = ? AND fs.generation = 0 AND fs.resolution IS NULL
-        AND (s.license OR NOT s.classified)', $id
+    "SELECT count(DISTINCT fs.snippet) FROM file_snippets fs JOIN snippets s ON s.id = fs.snippet
+       JOIN matched_files mf ON mf.id = fs.file
+      WHERE fs.package = ? AND fs.generation = 0 AND fs.resolution IS NULL AND $LEGAL_SNIPPET_SQL", $id
   )->array->[0];
   return {rows => $result->{snippets}, total => $total};
 }

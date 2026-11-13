@@ -388,7 +388,7 @@ sub snippet_triage_fixtures ($self, $app) {
         text          => $o{text},
         package       => 1,
         classified    => 1,
-        license       => 1,
+        license       => $o{license} // 1,
         approved      => 0,
         confidence    => 100,
         likelyness    => $o{likelyness},
@@ -398,7 +398,8 @@ sub snippet_triage_fixtures ($self, $app) {
       },
       {returning => 'id'}
     )->hash->{id};
-    $db->insert('file_snippets', {package => 1, file => $file, snippet => $sid, sline => $line, eline => $line + 5});
+    $db->insert('file_snippets',
+      {package => 1, file => $o{file} // $file, snippet => $sid, sline => $line, eline => $line + 5});
   };
 
   $insert->(likelyness => 0.99, second_match => 0.5, text => "fold marker body number $_ with GPL terms") for 1 .. 11;
@@ -413,6 +414,13 @@ sub snippet_triage_fixtures ($self, $app) {
   $insert->(likelyness => 0.99, second_match => 0.99, text => 'overlap notice body');
   $insert->(likelyness => 0.99, second_match => 0.99, text => 'covered fragment body');
   $insert->(likelyness => 0.40, second_match => 0.0,  text => 'unresolved random noise body');
+
+  # Classifier rejections, only the one in a license file still shows in reports
+  my $license_file
+    = $db->insert('matched_files', {package => 1, filename => 'LICENSE', mimetype => 'text/plain'}, {returning => 'id'})
+    ->hash->{id};
+  $insert->(likelyness => 0.40, license => 0, file => $license_file, text => 'rejected license file body');
+  $insert->(likelyness => 0.40, license => 0, text => 'rejected source file body');
 
   $app->snippets->resolve_snippets(1);
   $db->query(

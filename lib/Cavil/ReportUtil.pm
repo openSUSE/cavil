@@ -16,7 +16,7 @@ our @EXPORT_OK = (
   qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
   qw(license_compatibility license_document_candidates license_obligations license_obligation_ids minimal_snippet),
   qw(is_catalog_entry is_vendored_path license_terms_kind peripheral_scope peripheral_scope_label),
-  qw(unexplained_line_numbers),
+  qw(unexplained_line_numbers $LEGAL_SNIPPET_SQL),
   qw(new_license_names new_unresolved_files overlapping_licenses ranked_incompatibilities report_checksum report_risk),
   qw(report_shortname should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear),
   qw(smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_risk summary_delta_score unexplained_lines)
@@ -87,7 +87,7 @@ sub estimated_risk ($risk, $match) {
 # Keep folding precision-first because it asserts a specific license.
 sub should_fold_snippet ($cfg, $snippet, $pattern) {
   return 0 unless $cfg && $cfg->{enabled};
-  return 0 unless $snippet->{license};                                                    # classifier says legal text
+  return 0 unless $snippet->{license};                                                    # legal text
   return 0 unless ($snippet->{score_version} // 0) == SNIPPET_SCORE_VERSION;              # scored by current model
   return 0 unless $pattern && defined $pattern->{license} && $pattern->{license} ne '';
 
@@ -103,7 +103,7 @@ sub should_fold_snippet ($cfg, $snippet, $pattern) {
 sub should_clear_boilerplate ($cfg, $snippet, $pattern) {
   return 0 unless $cfg && $cfg->{enabled};
   return 0 unless my $threshold = $cfg->{clear_threshold};                                # 0/undef disables clearing
-  return 0 unless $snippet->{license};                                                    # classifier says legal text
+  return 0 unless $snippet->{license};                                                    # legal text
   return 0 unless ($snippet->{score_version} // 0) == SNIPPET_SCORE_VERSION;              # scored by current model
   return 0 unless $pattern && defined $pattern->{license} && $pattern->{license} ne '';
 
@@ -125,7 +125,7 @@ sub overlapping_licenses ($sline, $eline, $spans) {
 # A curated overlap is authoritative, but a strong match to another license needs review.
 sub should_overlap_clear ($cfg, $snippet, $overlap_licenses) {
   return 0 unless $cfg && $cfg->{enabled} && $cfg->{overlap_clear};
-  return 0 unless $snippet->{license};                                # classifier says legal text
+  return 0 unless $snippet->{license};                                # legal text
   return 0 unless $overlap_licenses && @$overlap_licenses;            # overlaps a licensed match
 
   my $like = $snippet->{plicense};
@@ -141,7 +141,7 @@ sub should_overlap_clear ($cfg, $snippet, $overlap_licenses) {
 # Catch-all risk is unreliable, so weak matches in license files remain reviewable.
 sub should_cover_snippet ($cfg, $snippet, $cover_risk) {
   return 0 unless $cfg && $cfg->{enabled} && (($cfg->{cover_scope} // 'off') ne 'off');
-  return 0 unless $snippet->{license};                                                    # classifier says legal text
+  return 0 unless $snippet->{license};                                                    # legal text
   return 0 unless ($snippet->{score_version} // 0) == SNIPPET_SCORE_VERSION;              # trust the risk read
   return 0 unless defined $cover_risk;    # a concrete license covers this scope
 
@@ -160,14 +160,20 @@ our @SOURCE_EXTENSIONS = qw(
   asm awk bash c cc cjs cpp cs cxx dart el go gradle groovy h hh hpp java jl js jsx kt lua mjs mm
   php pl pm py rb rs scala sh sql swift tcl ts tsx vim
 );
-my $SOURCE_EXTENSION = do { my $alternation = join '|', @SOURCE_EXTENSIONS; qr/[.](?:$alternation)$/i };
+my $SOURCE_EXTENSIONS = join '|', @SOURCE_EXTENSIONS;
+my $LICENSE_NAMES     = 'LICEN[CS]E|LICENSEREF|COPYING|COPYRIGHT|NOTICE|EULA|LEGAL|UNLICENSE|THIRD[_-]?PARTY';
+
+# The classifier misjudges unusual licenses written in plain language, so in a license file only a human verdict
+# (approved, which includes ignores) can mark a snippet as not legal text. Needs the aliases s and mf.
+our $LEGAL_SNIPPET_SQL
+  = "(s.license OR NOT s.classified OR (NOT s.approved AND mf.filename ~* '(^|/)($LICENSE_NAMES)([.-][^/]*)?\$'"
+  . " AND mf.filename !~* '[.]($SOURCE_EXTENSIONS)\$'))";
 
 # Match the basename so license-named directories do not classify every child as legal text.
 sub is_license_filename ($path) {
   my ($basename) = $path =~ m{([^/]*)$};
-  return 0 if $basename =~ $SOURCE_EXTENSION;
-  return $basename
-    =~ m{^(?:LICEN[CS]E|LICENSEREF|COPYING|COPYRIGHT|NOTICE|EULA|LEGAL|UNLICENSE|THIRD[_-]?PARTY)(?:[.\-]|$)}i ? 1 : 0;
+  return 0 if $basename =~ m{[.](?:$SOURCE_EXTENSIONS)$}i;
+  return $basename =~ m{^(?:$LICENSE_NAMES)(?:[.\-]|$)}i ? 1 : 0;
 }
 
 # Include unresolved guesses so compatibility review errs toward visibility; proximity conveys confidence.

@@ -350,6 +350,18 @@ subtest 'Accepted because of low risk (with human review)' => sub {
   $t->app->minion->perform_jobs;
 
   $pkg = $t->app->packages->find(1);
+  is $pkg->{state}, 'new', 'classifier rejections in LICENSE are not trusted';
+  my $in_license = $db->query(
+    "SELECT DISTINCT fs.snippet FROM file_snippets fs JOIN matched_files mf ON mf.id = fs.file
+      WHERE fs.package = 1 AND mf.filename = 'Mojolicious-7.25/LICENSE'"
+  )->arrays->map(sub { $_->[0] });
+  ok $in_license->size, 'LICENSE has snippets';
+
+  $t->app->snippets->approve($_, 'false') for $in_license->each;
+  $t->app->minion->enqueue('reindex_all');
+  $t->app->minion->perform_jobs;
+
+  $pkg = $t->app->packages->find(1);
   is $pkg->{state},  'acceptable',                       'automatically accepted';
   is $pkg->{result}, 'Accepted because of low risk (5)', 'because of low risk';
 };
