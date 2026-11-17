@@ -73,7 +73,7 @@ t.test('Cavil UI - report states', skipUnlessOnline, async t => {
       );
       t.equal(await page.locator('#ajax-status').count(), 0, 'report pane is not left polling forever');
       t.equal(
-        await page.locator('text=No files matching any known license patterns or keywords have been found.').count(),
+        await page.locator('[data-empty-report-notice]').count(),
         0,
         'missing obsolete report does not show the empty report notice'
       );
@@ -98,8 +98,13 @@ t.test('Cavil UI - report states', skipUnlessOnline, async t => {
       );
       t.match(
         await page.locator('[data-empty-report-notice]').innerText(),
-        /No files matching any known license patterns or keywords have been found/,
-        'empty report notice is shown'
+        /No license found\s+None of the \d+ files in this checkout match a known license pattern or keyword/,
+        'empty report notice is shown with the file count'
+      );
+      t.equal(
+        await page.locator('[data-empty-report-notice] a.browse-files').getAttribute('href'),
+        '/reviews/file_view/1/',
+        'a checkout too big to list links to the file browser'
       );
       t.equal(
         await page.locator('[data-empty-report-notice] a.checkout-file').count(),

@@ -262,7 +262,12 @@ sub _report_details ($c, $pkg, $report) {
   }
 
   return {
-    package               => {id => $pkg->{id}, name => $pkg->{name}, unresolved_matches => $pkg->{unresolved_matches}},
+    package => {
+      id                 => $pkg->{id},
+      name               => $pkg->{name},
+      unresolved_matches => $pkg->{unresolved_matches},
+      unpacked_files     => $pkg->{unpacked_files}
+    },
     checkout_files        => $checkout_files,
     chart                 => $chart,
     license_compatibility => $report->{license_compatibility} // {licenses => [], matrix => {}, proximity => {}},

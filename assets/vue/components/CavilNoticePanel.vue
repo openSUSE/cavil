@@ -126,17 +126,6 @@ export default {
 .cavil-notice-panel-info .cavil-notice-heading i {
   color: var(--cavil-accent-strong);
 }
-.cavil-notice-panel-success {
-  border-color: var(--cavil-success-tint-3);
-}
-.cavil-notice-panel-success .cavil-notice-heading {
-  background: var(--cavil-success-tint-1);
-  border-bottom-color: var(--cavil-success-tint-3);
-  color: var(--cavil-success-deep);
-}
-.cavil-notice-panel-success .cavil-notice-heading i {
-  color: var(--cavil-success-deep);
-}
 /* Light edges these panels with a pale tint of the hue. Inverting a pale tint lands on a
    saturated mid-tone, which next to the chips reads as a hard outline, so dark uses the
    same translucent hue border the chips do. The heading only has a bottom edge, so setting
@@ -144,10 +133,6 @@ export default {
 [data-bs-theme='dark'] .cavil-notice-panel-warning,
 [data-bs-theme='dark'] .cavil-notice-panel-warning .cavil-notice-heading {
   border-color: var(--cavil-attention-border);
-}
-[data-bs-theme='dark'] .cavil-notice-panel-success,
-[data-bs-theme='dark'] .cavil-notice-panel-success .cavil-notice-heading {
-  border-color: var(--cavil-success-border);
 }
 
 .cavil-notice-list {

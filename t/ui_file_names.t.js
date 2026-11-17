@@ -58,9 +58,10 @@ t.test('Cavil UI - file names', skipUnlessOnline, async t => {
       await page.waitForSelector('[data-empty-report-notice]');
       t.match(
         await page.innerText('[data-empty-report-notice]'),
-        /The checkout only contains these files:/,
+        /None of the 2 files in this checkout match a known license pattern or keyword/,
         'it says the list is everything'
       );
+      t.equal(await page.locator('[data-empty-report-notice] a.browse-files').count(), 0, 'no browser link needed');
       const links = page.locator('[data-empty-report-notice] a.checkout-file');
       t.same(await links.allInnerTexts(), ['.gitattributes', '.gitignore'], 'both files are listed');
       t.equal(await links.first().getAttribute('href'), '/reviews/file_view/2/.gitattributes', 'linked to the browser');

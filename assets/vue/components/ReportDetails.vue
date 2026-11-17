@@ -95,14 +95,21 @@
         </div>
         <CavilNoticePanel
           v-else-if="emptyReport"
-          title="No matching files"
-          tone="success"
-          icon="fa-solid fa-circle-check"
+          title="No license found"
+          tone="info"
+          icon="fa-solid fa-circle-info"
           data-empty-report-notice
         >
           <p class="cavil-notice-summary">
-            No files matching any known license patterns or keywords have been found.
-            <template v-if="checkoutFiles.length > 0">The checkout only contains these files:</template>
+            {{ emptyReportSummary }}
+            <a
+              v-if="checkoutFiles.length === 0 && checkoutFileCount"
+              :href="fileViewUrl(pkgId, '')"
+              target="_blank"
+              rel="noopener"
+              class="browse-files"
+              >Browse the files</a
+            >
           </p>
           <ul v-if="checkoutFiles.length > 0" class="cavil-notice-list">
             <li v-for="file in checkoutFiles" :key="file" class="cavil-notice-item">
@@ -580,6 +587,7 @@ export default {
     return {
       chart: null,
       checkoutFiles: [],
+      checkoutFileCount: null,
       componentFilter: '',
       components: [],
       licenseCompatibility: {licenses: [], matrix: {}, proximity: {}},
@@ -669,6 +677,13 @@ export default {
     },
     emptyReport() {
       return this.sortedRisks.length === 0 && this.missedFiles.length === 0;
+    },
+    emptyReportSummary() {
+      const count = this.checkoutFileCount;
+      if (count === 0) return 'The checkout contains no files.';
+      if (count === 1) return 'The only file in this checkout does not match a known license pattern or keyword.';
+      if (count > 1) return `None of the ${count} files in this checkout match a known license pattern or keyword.`;
+      return 'No file in this checkout matches a known license pattern or keyword.';
     },
     isAdminOrContributor() {
       return this.hasAdminRole || this.hasContributorRole;
@@ -846,6 +861,7 @@ export default {
       this.chart = data.chart;
       this.licenseCompatibility = data.license_compatibility ?? {licenses: [], matrix: {}, proximity: {}};
       this.checkoutFiles = data.checkout_files ?? [];
+      this.checkoutFileCount = data.package.unpacked_files ?? null;
       this.missedFiles = data.missed_files;
       this.unresolvedMatches = data.package.unresolved_matches;
       if (data.package.name) this.packageName = data.package.name;
@@ -1414,6 +1430,13 @@ export default {
 .checkout-file:hover,
 .checkout-file:focus {
   color: var(--cavil-accent-strong);
+  text-decoration-color: currentColor;
+}
+.browse-files {
+  text-decoration-color: transparent;
+}
+.browse-files:hover,
+.browse-files:focus {
   text-decoration-color: currentColor;
 }
 /* The bar lines up with the sentence above it rather than running edge to edge, so the notice reads as
