@@ -159,6 +159,13 @@ subtest 'error-broken-archive' => sub {
   is_deeply $hash->{unpacked}{'error-broken-archive/test.txt'}, {mime => 'text/plain'}, 'right structure';
 };
 
+subtest 'Missing checkout' => sub {
+  my $missing = $TMP->child('missing', 'cb5e100e5a9a3e7f6d1fd97512215282');
+  eval { Cavil::Checkout->new($missing)->unpack };
+  like $@, qr/Checkout .+ does not exist/, 'right error';
+  ok !-e $missing, 'nothing created';
+};
+
 subtest 'Derived documents never reach the unpacked tree' => sub {
   my $co  = $TMP->child('report-exclude', 'hash')->make_path;
   my $src = $TMP->child('report-exclude-src')->make_path;

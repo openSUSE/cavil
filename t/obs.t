@@ -546,6 +546,16 @@ EOF
   }
 };
 
+# scmsync package that has not been synced from Git yet
+get '/source/:project/unsynced' => [project => ['home:kraih']] => (query => {view => 'info'}) => {text => <<'EOF'};
+<sourceinfo package="unsynced" srcmd5="d41d8cd98f00b204e9800998ecf8427e">
+  <error>no source uploaded</error>
+</sourceinfo>
+EOF
+
+get '/source/:project/unsynced' => [project => ['home:kraih']] =>
+  {text => '<directory name="unsynced" srcmd5="d41d8cd98f00b204e9800998ecf8427e"></directory>'};
+
 get '/*whatever' => {whatever => ''} => {text => '', status => 404};
 
 # Connect mock web service
@@ -625,6 +635,16 @@ subtest 'Source download for missing packages' => sub {
   like $@, qr/does-not-exist/, 'right error';
   eval { $obs->download_source($api, 'home:kraih', 'perl-Mojo-SQLite', $dir); };
   like $@, qr/Mojo-SQLite-1.004.tar.gz/, 'right error';
+};
+
+subtest 'Packages without sources' => sub {
+  eval { $obs->package_info($api, 'home:kraih', 'unsynced') };
+  like $@, qr/no source uploaded/, 'right error';
+
+  my $dir = tempdir->child('unsynced');
+  eval { $obs->download_source($api, 'home:kraih', 'unsynced', $dir) };
+  like $@, qr/No sources/, 'right error';
+  is $dir->list({hidden => 1})->size, 0, 'no files';
 };
 
 subtest 'Embargo' => sub {
@@ -761,6 +781,48 @@ subtest 'Bot API (with Minion background jobs)' => sub {
   $worker->unregister;
   undef $guard;
   is $t->app->packages->find(1)->{processing_job}, undef, 'package no longer claimed';
+
+  # Reviving a package that has been cleaned up imports its sources again
+  $minion->perform_jobs_in_foreground;
+  my $checkout = $t->app->packages->pkg_checkout_dir(1);
+  ok -e $checkout->child('perl-Mojolicious.spec'), 'checkout exists';
+  $t->app->pg->db->update('bot_packages', {obsolete => 1}, {id => 1});
+  $minion->enqueue('cleanup');
+  $minion->perform_jobs_in_foreground;
+  ok !-e $checkout, 'checkout removed';
+  my $imports = $minion->jobs({tasks => ['obs_import']})->total;
+  $t->post_ok('/packages/import/1', $headers, form => {state => 'new'})->status_is(200);
+  is $minion->jobs({tasks => ['obs_import']})->total, $imports + 1, 'package imported again';
+  $minion->perform_jobs_in_foreground;
+  ok -e $checkout->child('perl-Mojolicious.spec'), 'checkout restored';
+  my $pkg = $t->app->packages->find(1);
+  is $pkg->{obsolete}, 0, 'not obsolete';
+  ok $pkg->{indexed},        'indexed';
+  ok $pkg->{unpacked_files}, 'files unpacked';
+
+  # The bot recreating the package first starts the import, the revive does not double it
+  $t->app->pg->db->update('bot_packages', {obsolete => 1}, {id => 1});
+  $minion->enqueue('cleanup');
+  $minion->perform_jobs_in_foreground;
+  ok !-e $checkout, 'checkout removed';
+  $imports = $minion->jobs({tasks => ['obs_import']})->total;
+  $t->post_ok('/packages', $headers,
+    form =>
+      {api => $api, package => 'perl-Mojolicious', project => 'home:kraih', rev => 1, external_link => 'obs#500001'})
+    ->status_is(200)
+    ->json_is('/saved/id' => 1);
+  $t->post_ok('/packages/import/1', $headers, form => {state => 'new'})->status_is(200);
+  is $minion->jobs({tasks => ['obs_import']})->total, $imports + 1, 'package imported again only once';
+  $minion->perform_jobs_in_foreground;
+  ok -e $checkout->child('perl-Mojolicious.spec'), 'checkout restored';
+
+  # A checkout directory without sources is no checkout
+  $_->remove for $checkout->list->each;
+  $imports = $minion->jobs({tasks => ['obs_import']})->total;
+  $t->post_ok('/packages/import/1', $headers, form => {state => 'new'})->status_is(200);
+  is $minion->jobs({tasks => ['obs_import']})->total, $imports + 1, 'package imported again';
+  $minion->perform_jobs_in_foreground;
+  ok -e $checkout->child('perl-Mojolicious.spec'), 'checkout restored';
 };
 
 subtest 'Package info (with ssh authentication)' => sub {

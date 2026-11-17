@@ -374,7 +374,8 @@ Content-Type: application/json
 
 `POST /packages/import/<package_id>`
 
-Re-import package. Usually used to reopen a review after it has already been obsoleted.
+Re-import package. Usually used to reopen a review after it has already been obsoleted. If cleanup has already removed
+the package sources, reopening imports them again.
 
 **Request parameters:**
 

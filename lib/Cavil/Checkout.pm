@@ -4,6 +4,7 @@
 package Cavil::Checkout;
 use Mojo::Base -base, -signatures;
 
+use Carp qw(croak);
 use File::Unpack2;
 use File::Spec::Functions qw(catfile);
 use Mojo::File            qw(path tempdir);
@@ -82,7 +83,10 @@ sub keyword_report ($self, $matcher, $meta, $file) {
 sub new ($class, $dir) { $class->SUPER::new(dir => $dir) }
 
 sub unpack ($self, $options = {}) {
-  my $dir    = path($self->dir);
+  my $dir = path($self->dir);
+
+  # The unpacker would create the directory and report a missing checkout as an empty one
+  croak "Checkout $dir does not exist" unless -d $dir;
   my $unpack = $dir->child('.unpacked')->remove_tree;
 
   # Cavil's own derived documents (Cavil::Model::Packages::DOCUMENTS), stale the moment the tree is rebuilt.

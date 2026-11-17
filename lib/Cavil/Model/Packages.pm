@@ -1240,6 +1240,42 @@ sub obs_import ($self, $id, $data, $priority = PRIORITY_INCOMING) {
   );
 }
 
+sub reimport ($self, $id) {
+  my $src = $self->pg->db->query(
+    'SELECT bp.name, bp.checkout_dir, bp.external_link, bp.priority, bs.api_url, bs.project, bs.package, bs.srcmd5,
+       bs.type
+     FROM bot_packages bp JOIN bot_sources bs ON bp.source = bs.id
+     WHERE bp.id = ?', $id
+  )->hash;
+  return undef unless $src && length($src->{api_url} // '');
+
+  # Not doubled when "POST /packages" has already started one
+  return undef
+    if $self->minion->jobs(
+    {tasks => ['obs_import', 'git_import'], states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
+
+  my %common = (external_link => $src->{external_link}, priority => $src->{priority});
+  return $self->git_import(
+    $id,
+    {url => $src->{api_url}, pkg => $src->{package}, hash => $src->{srcmd5}, %common},
+    incoming_priority($src->{priority})
+  ) if $src->{type} eq 'git';
+  return $self->obs_import(
+    $id,
+    {
+      api       => $src->{api_url},
+      project   => $src->{project},
+      pkg       => $src->{package},
+      srcpkg    => $src->{name},
+      rev       => $src->{srcmd5},
+      srcmd5    => $src->{srcmd5},
+      verifymd5 => $src->{checkout_dir},
+      %common
+    },
+    incoming_priority($src->{priority})
+  );
+}
+
 sub obsolete_duplicate_new ($self) {
   my $db = $self->pg->db;
 

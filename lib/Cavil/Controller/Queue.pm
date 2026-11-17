@@ -95,8 +95,10 @@ sub create_package ($self) {
     ($srcpkg, $srcmd5, $verifymd5) = @{$info}{qw(package srcmd5 verifymd5)};
   }
 
-  my $dir    = checkout_path($config->{checkout_dir}, $srcpkg, $verifymd5);
-  my $create = !-e $dir;
+  my $dir = checkout_path($config->{checkout_dir}, $srcpkg, $verifymd5);
+
+  # An empty directory left behind by a failed import has no sources either
+  my $create = !$dir->list({dir => 1})->size;
 
   my $user = $self->users->licensedigger;
   my $pkgs = $self->packages;
@@ -211,7 +213,10 @@ sub import_package ($self) {
   $pkgs->update({id => $id, %changes});
   $pkgs->add_tags($id, $tags);
   $pkgs->resolve_targets($id);
-  $pkgs->reindex($id) if $reindex;
+
+  # Reviving a package whose sources were cleaned up needs them back, a reindex would only find them missing
+  my $sources = $pkgs->pkg_checkout_dir($id)->list({dir => 1})->size;
+  $pkgs->reindex($id) if $reindex && ($sources || !$pkgs->reimport($id));
 
   return $self->render(json => {imported => $obj});
 }

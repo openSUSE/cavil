@@ -111,13 +111,14 @@ sub download_source ($self, $api, $project, $pkg, $dir, $options = {}) {
   croak "$url: " . $res->code unless $res->is_success;
   my $dom    = $res->dom;
   my $srcmd5 = $dom->at('directory')->{srcmd5};
-  my @files  = $dom->find('entry')->map('attr')->each;
+
+  # We've actually seen "_meta" in IBS (usually a checksum mismatch)
+  my @files = grep { $_->{name} ne '_meta' } $dom->find('entry')->map('attr')->each;
+
+  # OBS answers with an empty listing while a package has no sources yet (like an unsynced scmsync package)
+  croak "$url: No sources" unless @files;
 
   for my $file (@files) {
-
-    # We've actually seen this in IBS (usually a checksum mismatch)
-    next if $file->{name} eq '_meta';
-
     my $url = _url($api, 'source', $project, $pkg, $file->{name});
     $url->query([expand => 1, rev => $srcmd5]);
     my $res = $self->_request($url);
@@ -136,7 +137,11 @@ sub package_info ($self, $api, $project, $pkg, $options = {}) {
   croak "$url: " . $res->code unless $res->is_success;
 
   my $source = $res->dom->at('sourceinfo');
-  my $info   = {srcmd5 => $source->{srcmd5}, verifymd5 => $source->{verifymd5}, package => $pkg};
+  unless ($source->{verifymd5}) {
+    my $error = $source->at('error');
+    croak "$url: " . ($error ? $error->text : 'Missing verifymd5');
+  }
+  my $info = {srcmd5 => $source->{srcmd5}, verifymd5 => $source->{verifymd5}, package => $pkg};
 
   my $linfo = $self->_find_link_target($api, $project, $pkg, $options->{rev} || $source->{srcmd5});
   $info->{package} = $linfo->{package} if $linfo;
