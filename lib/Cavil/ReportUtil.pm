@@ -10,7 +10,8 @@ use Mojo::File qw(path);
 use Mojo::JSON qw(decode_json from_json);
 use Mojo::Util;
 use Cavil::Licenses 'lic';
-use Cavil::Util qw(SNIPPET_SCORE_VERSION decode_name extract_spdx_identifiers $COPYRIGHT_LEADER $COPYRIGHT_TOKEN);
+use Cavil::Util
+  qw(SNIPPET_SCORE_VERSION decode_name extract_spdx_identifiers original_filename $COPYRIGHT_LEADER $COPYRIGHT_TOKEN);
 
 our @EXPORT_OK = (
   qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
@@ -288,7 +289,8 @@ my %PERIPHERAL_SEGMENT = (
       qw(vendor vendored _vendor third_party third-party thirdparty third_parties third-parties 3rdparty),
     qw(contrib deps node_modules gomodcache)
   ),
-  (map { $_ => 'license catalog' } qw(licenses third_party_licenses third-party-licenses))
+  (map { $_ => 'license catalog' } qw(licenses third_party_licenses third-party-licenses)),
+  (map { $_ => 'build' } qw(m4 build-aux))
 );
 
 # OBS cpio paths decorate vendored segments, for example vendor.obscpio._ or build-gomodcache._1. Only the
@@ -296,46 +298,63 @@ my %PERIPHERAL_SEGMENT = (
 my $OBS_VENDORED_SEGMENT
   = qr/(?:^|[_-])(?:node_modules|vendor|vendored|third_party|3rdparty|gomodcache)\.|[_-]gomodcache$/;
 
-# Basenames do not determine whether code is peripheral. A test, doc or example segment anywhere in the path
-# beats a vendored one, because a vendored dependency's own tests are as ignorable as the package's own.
-sub _path_peripheral_kind ($path) {
+# Names GNU Autotools, gnulib, gettext and libtool give their own files, which end up in a binary package only
+# when a -devel package installs an autoconf macro for its users, under a license written for that. Hand-written
+# Makefiles, CMake and Meson files stay out on purpose: they can declare the licenses of what they compile, and
+# -devel packages install CMake files under the library's own license.
+my %BUILD_FILE = map { $_ => 1 } qw(configure configure.ac configure.in aclocal.m4 acinclude.m4 Makefile.am
+  Makefile.in Makefile.in.in config.guess config.sub config.rpath install-sh missing compile depcomp ar-lib
+  mkinstalldirs ylwrap test-driver tap-driver.sh py-compile mdate-sh ltmain.sh texinfo.tex move-if-change
+  symlink-tree config-ml.in mkdep gendocs.sh gitlog-to-changelog git-version-gen gnupload bootstrap autogen.sh
+  maint.mk Rules-quot insert-header.sin remove-potcdate.sin quot.sed boldquot.sed Makevars);
+
+# One dot only, corenetwork.te.m4 is SELinux policy source
+sub _is_build_name ($name) { return $BUILD_FILE{$name} || $name =~ /^[^.]+\.m4$/ }
+
+# A test, doc or example segment anywhere in the path beats a vendored one, because a vendored dependency's own
+# tests are as ignorable as the package's own, and so are its build files. Basenames only decide build files, a
+# self-extracting script unpacks into "configure._/" with its payload beside it. Packages that ship their build
+# files as their product, such as libtool, pass $build false.
+sub _path_peripheral_kind ($path, $build = 1) {
   my @segs = split m{/}, $path;
-  pop @segs;
-  my $vendored;
+  my $name = original_filename(pop @segs) =~ s/\._\d*$//r;
+  my %found;
   for my $seg (@segs) {
     my $lc   = lc $seg;
     my $kind = $PERIPHERAL_SEGMENT{$lc};
     $kind = 'vendored' if !$kind && $lc =~ $OBS_VENDORED_SEGMENT;
     next         unless $kind;
-    return $kind unless $kind eq 'vendored';
-    $vendored = 1;
+    return $kind unless $kind eq 'vendored' || $kind eq 'build';
+    $found{$kind} = 1;
   }
-  return $vendored ? 'vendored' : undef;
+  return 'build'
+    if $build
+    && ($found{build} || _is_build_name($name) || (@segs && $segs[-1] =~ /^(.+)\._\d*$/ && _is_build_name($1)));
+  return $found{vendored} ? 'vendored' : undef;
 }
-
-sub _path_is_peripheral ($path) { return _path_peripheral_kind($path) ? 1 : 0 }
 
 # True when a path is bundled third-party code (vendor/, node_modules/, third_party/, an OBS vendored cpio
 # segment, ...). The package's declared license does not describe such code, so a caller can decide whether the
 # declared license applies to a file: it does for the package's own source, tests and docs, but not for what it
-# vendors in. Tests/docs are the package's own, so they are deliberately not "vendored" here.
-sub is_vendored_path ($path) { return (_path_peripheral_kind($path) // '') eq 'vendored' ? 1 : 0 }
+# vendors in. Tests/docs are the package's own, so they are deliberately not "vendored" here, but a vendored
+# dependency's build files are still its code, whether the package ships them or not.
+sub is_vendored_path ($path) { return (_path_peripheral_kind($path, 0) // '') eq 'vendored' ? 1 : 0 }
 
-# 0 shipped source, 1 vendored dependency code, 2 tests/docs/examples/license catalogs. Vendored code sits
-# between the two because it can still be linked into the build, so it needs a look; the tier 2 kinds are
+# 0 shipped source, 1 vendored dependency code, 2 tests/docs/examples/build files/license catalogs. Vendored code
+# sits between the two because it can still be linked into the build, so it needs a look; the tier 2 kinds are
 # ignorable wherever they sit, including inside a vendored tree.
-sub _path_tier ($path) {
-  my $kind = _path_peripheral_kind($path) // return 0;
+sub _path_tier ($path, $build = 1) {
+  my $kind = _path_peripheral_kind($path, $build) // return 0;
   return $kind eq 'vendored' ? 1 : 2;
 }
 
 # Report peripheral location without prescribing action; the classification is heuristic.
-sub peripheral_scope ($paths) {
+sub peripheral_scope ($paths, $build = 1) {
   return undef unless @$paths;
 
   my %kinds;
   for my $path (@$paths) {
-    my $kind = _path_peripheral_kind($path) // return undef;
+    my $kind = _path_peripheral_kind($path, $build) // return undef;
     $kinds{$kind} = 1;
   }
 
@@ -343,8 +362,8 @@ sub peripheral_scope ($paths) {
 }
 
 # The wording of the web report's scope label, for the text reports
-sub peripheral_scope_label ($paths) {
-  my $kinds = peripheral_scope($paths) // return undef;
+sub peripheral_scope_label ($paths, $build = 1) {
+  my $kinds = peripheral_scope($paths, $build) // return undef;
   my $last  = pop @$kinds;
   return (@$kinds ? join(', ', @$kinds) . " and $last" : $last) . ' files';
 }
@@ -368,6 +387,7 @@ sub _pair_proximity ($dig_report, $licenses, $matrix) {
   return {} unless @flagged_pairs;
 
   my $file_ids = _file_license_ids($dig_report);
+  my $build    = !$dig_report->{ships_build_files};
 
   my (@dir_mask, @dir_conf, @dir_rep, @same_file, %lic_rep, %lic_resolved);
   for my $path (keys %$file_ids) {
@@ -385,7 +405,7 @@ sub _pair_proximity ($dig_report, $licenses, $matrix) {
       $lic_resolved{$b} = 1 if $c >= 2;
     }
 
-    my $tier = _path_tier($path);
+    my $tier = _path_tier($path, $build);
     push @same_file, [$path, $amask, ($path =~ tr{/}{}), $tier] if $amask & ($amask - 1);
     next unless %bconf;
 
@@ -562,11 +582,16 @@ sub incompatibility_location ($row) {
 # is the deep vendored terms rather than the package's own.
 sub license_document_candidates ($dig_report, $limit = 100) {
   my $files = $dig_report->{files} || {};
+  my $build = !$dig_report->{ships_build_files};
 
   my @found;
   for my $id (keys %$files) {
     my $path = $files->{$id};
-    next unless defined $path && is_license_filename($path) && !is_catalog_entry($path) && !license_terms_kind($path);
+    next
+      unless defined $path
+      && is_license_filename($path)
+      && !is_catalog_entry($path)
+      && !license_terms_kind($path, $build);
     push @found, {id => $id, path => $path};
   }
 
@@ -586,8 +611,9 @@ sub is_catalog_entry ($path) {
 # Where a license file sits, like the peripheral classification. A REUSE LICENSES/ directory holds texts named by
 # SPDX id, which is_license_filename already rejects, but linux-firmware keeps its real terms there as
 # LICENSE.<vendor>, so for a license-named file that directory alone is not peripheral.
-sub license_terms_kind ($path) {
-  return _path_peripheral_kind(is_license_filename($path) ? $path =~ s{(?:^|/)licenses/(?=[^/]+$)}{/}ir : $path);
+sub license_terms_kind ($path, $build = 1) {
+  return _path_peripheral_kind(is_license_filename($path) ? $path =~ s{(?:^|/)licenses/(?=[^/]+$)}{/}ir : $path,
+    $build);
 }
 
 # Use only real matches; snippet resolution can suppress an unrecognized clause.

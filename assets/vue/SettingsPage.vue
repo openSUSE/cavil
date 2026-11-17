@@ -20,6 +20,7 @@
         <SettingsApiKeys v-if="section === 'api-keys'" />
         <SettingsAutoAccept v-else-if="section === 'auto-accept'" />
         <SettingsExcludedFiles v-else-if="section === 'excluded-files'" />
+        <SettingsLegalReports v-else-if="section === 'legal-reports'" />
         <SettingsCommentTemplates v-else-if="section === 'comment-templates'" />
         <SettingsBotTokens v-else-if="section === 'bot-tokens'" />
         <SettingsSbom v-else-if="section === 'sbom'" />
@@ -36,6 +37,7 @@ import SettingsAutoAccept from './components/SettingsAutoAccept.vue';
 import SettingsBotTokens from './components/SettingsBotTokens.vue';
 import SettingsCommentTemplates from './components/SettingsCommentTemplates.vue';
 import SettingsExcludedFiles from './components/SettingsExcludedFiles.vue';
+import SettingsLegalReports from './components/SettingsLegalReports.vue';
 import SettingsRetention from './components/SettingsRetention.vue';
 import SettingsSbom from './components/SettingsSbom.vue';
 import SettingsStatus from './components/SettingsStatus.vue';
@@ -50,6 +52,7 @@ const SECTIONS = [
     group: 'Reviews',
     cap: 'infra'
   },
+  {id: 'legal-reports', label: 'Legal reports', icon: 'fa-solid fa-file-contract', group: 'Reviews', cap: 'infra'},
   {
     id: 'comment-templates',
     label: 'Comment templates',
@@ -71,6 +74,7 @@ export default {
     SettingsBotTokens,
     SettingsCommentTemplates,
     SettingsExcludedFiles,
+    SettingsLegalReports,
     SettingsRetention,
     SettingsSbom,
     SettingsStatus

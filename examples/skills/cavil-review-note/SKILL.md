@@ -164,7 +164,9 @@ its heading and flags, not by its name.
 Risk 1-4 is the acceptable band (strong copyleft is acceptable for SUSE's distribution model); escalation begins at risk
 5. Acceptability is still product-dependent, so treat these as leans. A license line marked
 `(only in license catalog files)` matches only a license text kept in a catalog directory such as `LICENSES/`, not code
-under that license.
+under that license. A line marked `(only in build files)` matches only build machinery, such as configure scripts, m4
+macros, `Makefile.in` templates and helpers like `install-sh`, which does not end up in the binary package. Both labels
+say where the files are, not what to decide.
 
 A `[flags: ...]` suffix is a curated marker a human attached to the pattern:
 - **CLA** - business risk only (upstream could relicense later); note it, never change the recommendation on it alone.
@@ -290,7 +292,8 @@ groups:
   questions for at least the highest-risk ones (copyleft GPL/AGPL/CDDL, or the package's own license) and say which you
   deferred. Writing "vendored, so aggregation" without opening a file is the gap reviewers report AI notes leaving most
   often.
-- **Lower priority** - a count of pairs meeting only in tests, docs or examples, via an unresolved-snippet guess, or at
+- **Lower priority** - a count of pairs meeting only in tests, docs, examples or build files, via an unresolved-snippet
+  guess, or at
   the package root (aggregation). Do not trace these; enumerating them is the noise reviewers asked to stop.
 
 Also check, wherever they are listed, any pair that includes the package's own declared license and any classic
@@ -301,7 +304,7 @@ it is not proof), using `cavil_list_files` only to widen the picture.
 Likely a **false alarm** (lean ACCEPT, but say why):
 - Separate components not combined into what ships (a build-time-only tool, an optional plugin nothing imports), or
   files that are never compiled (tests, sample data, docs), with what you checked.
-- The flagged text is confined to license catalogs.
+- The flagged text is confined to license catalogs or to build machinery (configure scripts, m4 macros, `Makefile.in`).
 - The headers show a more permissive variant (`GPL-2.0-or-later`, relicensable to v3) or an exception that resolves it
   (Classpath, autoconf, GCC-runtime, Bison, LLVM).
 - The flagged license comes only from an unresolved snippet whose match is weak or is not license text once read.
@@ -350,7 +353,8 @@ opened and found separate. An empty repository (see the declared-license check) 
 - An additional risk (Step 4, "Anything else legally material") that clearly blocks.
 
 Otherwise **NEEDS HUMAN REVIEW** if any of these applies (never ACCEPT around them):
-- Risk 6 or 7 only in license catalog files, or not shipped, or you could not establish that it ships; say which.
+- Risk 6 or 7 only in license catalog or build files, or not shipped, or you could not establish that it ships; say
+  which.
 - A System Notice starting with "Limitation noted", or a `[limitation]` note: a lawyer set conditions for every version
   that the report cannot check. Quote them.
 - Risk 5, a Patent / Export restricted flag, a SUSE-owned EULA or one of unknown owner.

@@ -148,7 +148,7 @@ Vendored dependencies (spot check these - vendored code linked into the build is
 
 Lower priority (full matrix in the web report):
 %     if ($peripheral) {
-* <%= $peripheral %> in tests/docs/examples (ignorable even inside a vendored tree)
+* <%= $peripheral %> in tests/docs/examples/build files (ignorable even inside a vendored tree)
 %     }
 %     if ($weak) {
 * <%= $weak %> via an unresolved-snippet guess
@@ -188,7 +188,7 @@ similarity drops.
 %     my @flag_labels = (['patent', 'Patent'], ['trademark', 'Trademark'], ['export_restricted', 'Export restricted'], ['cla', 'CLA'], ['eula', 'EULA']);
 %     my %has_flag = map { $_ => 1 } @{$matches->{flags} || []};
 %     my $flags = join(', ', map { $_->[1] } grep { $has_flag{$_->[0]} } @flag_labels);
-%     my $where = peripheral_scope_label([map { $_->[1] } @$files]);
+%     my $where = peripheral_scope_label([map { $_->[1] } @$files], !$report->{ships_build_files});
 * <%== $matches->{spdx} || $matches->{name} %>: <%== $num %> <%== $num == 1 ? 'file' : 'files' %><%== $where ? " (only in $where)" : '' %><%== $flags ? " [flags: $flags]" : '' %><%== $new_lics->{$matches->{name}} ? ' NEW' : '' %>
 %     for (my $i = $max_files - 1; $i >= 0; $i--) {
   - `<%== maybe_utf8($files->[$i][1]) %>`

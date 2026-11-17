@@ -237,10 +237,10 @@ into three groups (the web report shows the full directional matrix):
   well, and you **must open at least the highest-risk ones**. "Vendored" says where the code sits,
   not that it is separable: a vendored library that the shipped code links, imports or compiles in is
   a combined work exactly like a co-located one. Treat the label as a location, never as a verdict.
-- **Lower priority** - a *count* of the remaining pairs that meet only in tests, docs or examples
-  (including a vendored dependency's own tests and docs), only via an unresolved-snippet guess, or
-  only at the package root (aggregation). Tests, docs and examples are essentially always ignorable;
-  do **not** trace these.
+- **Lower priority** - a *count* of the remaining pairs that meet only in tests, docs, examples or
+  build files (including a vendored dependency's own), only via an unresolved-snippet guess, or only
+  at the package root (aggregation). Tests, docs, examples and build files are essentially always
+  ignorable; do **not** trace these.
 
 It is **informational, not a risk flag**: almost every package that vendors dependencies has some
 flagged pair, because the matrix lists any two present licenses OSADL considers incompatible *when
@@ -278,8 +278,10 @@ Signals it is likely a **false alarm** (lean ACCEPT, but say why):
   "it is under `vendor/`" is not that check.
 - The flagged license text is confined to **test fixtures, sample data, documentation, or license
   catalogs** (e.g. an SPDX license list, `licenses/` directory, or test corpus) rather than
-  shipped/compiled code. This holds inside a vendored tree too: a dependency's own tests are as
-  ignorable as the package's own.
+  shipped/compiled code, or to **build machinery** (configure scripts, m4 macros, `Makefile.in`
+  templates, helpers like `install-sh`; the report marks such a license `(only in build files)`), which
+  does not end up in the binary package. This holds inside a vendored tree too: a dependency's own
+  tests and build files are as ignorable as the package's own.
 - The actual file headers show a **more permissive variant** than the heuristic assumed - e.g. the
   GPL files are really `GPL-2.0-or-later` (relicensable to v3) rather than `GPL-2.0-only`, or carry
   an exception (Classpath, autoconf, GCC-runtime, Bison, LLVM) that resolves the conflict.
@@ -359,7 +361,7 @@ Let the risk levels and flags from 3b steer the lean:
 - **A license change to non-open-source terms (3a)** → REJECT; make it the first line of the summary, marked `⚠ LICENSE CHANGE:`. This outranks every other signal.
 - **A material unanticipated risk (3e)** → at least NEEDS HUMAN REVIEW, or REJECT if it clearly blocks; never ACCEPT around it. Give it its own line in the summary and cite it in the reasoning.
 - **A System Notice starting with "Limitation noted", or a note marked `[limitation]`** → NEEDS HUMAN REVIEW, never ACCEPT. A lawyer set conditions for every version of this package that the report cannot check. Quote the limitations from the notice in the summary. `cavil_accept_review` and `cavil_reject_review` refuse these packages anyway.
-- **Risk 6 or 7 present** (e.g. SSPL; non-commercial / field-of-use / ethical) → REJECT lean; name the license. When its license line is marked `(only in license catalog files)`, or you could not establish that it ships, lean NEEDS HUMAN REVIEW instead and say which: a catalog match is only a license text kept in a directory such as `LICENSES/`, not code under that license. Say so, and never ACCEPT on this label alone.
+- **Risk 6 or 7 present** (e.g. SSPL; non-commercial / field-of-use / ethical) → REJECT lean; name the license. When its license line is marked `(only in license catalog files)` or `(only in build files)`, or you could not establish that it ships, lean NEEDS HUMAN REVIEW instead and say which: a catalog match is only a license text kept in a directory such as `LICENSES/`, not code under that license, and build files do not end up in the binary package. Say so, and never ACCEPT on this label alone.
 - **Proprietary third-party code in shipped files (3a)** → REJECT, naming the `LicenseRef-SUSE-NonFree` correction.
 - **An unmet license-text obligation (3c)** → REJECT, naming the missing text or, for a text that must accompany every copy, the `%license` line to add; obligations that could not be checked → NEEDS HUMAN REVIEW.
 - **EULA flag** → NEEDS HUMAN REVIEW for a SUSE-owned EULA or one whose owner you cannot tell; a third-party one is proprietary code.

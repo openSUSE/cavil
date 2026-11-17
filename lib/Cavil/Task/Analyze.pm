@@ -7,7 +7,7 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 use Cavil::ReportUtil qw(new_license_names new_unresolved_files report_checksum report_shortname summary_delta),
   qw(summary_delta_risk summary_delta_score);
 use Cavil::Checkout;
-use Cavil::Util qw(family_of package_family to_json_fast FAMILY_OF);
+use Cavil::Util qw(family_listed family_of to_json_fast FAMILY_OF);
 
 my $EMPTY      = 'Manual review is required because the checkout is empty';
 my $NO_LICENSE = 'Manual review is required because no license was found';
@@ -307,9 +307,7 @@ sub _auto_review ($app, $id) {
   # Fast-track packages that are configured to always be acceptable
   my $name     = $pkg->{name};
   my %separate = map { $_ => 1 } @{$settings->{separate_packages}};
-  if (my ($listed)
-    = grep { ($pkg->{family} // '') eq package_family($_, \%separate) } @{$settings->{acceptable_packages}})
-  {
+  if (my $listed = family_listed($pkg->{family}, $settings->{acceptable_packages}, \%separate)) {
     return _hold($app, $pkg, $limitations, 'Otherwise accepted package name', paused => $paused) if $hold;
     return _accept($app, $pkg, 'acceptable', "Accepted because of package name ($listed)");
   }

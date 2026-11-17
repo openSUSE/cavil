@@ -175,7 +175,7 @@ naming a role, and roles are named bundles of capabilities.
 | propose | Propose patterns, ignores and snippets; a proposal needs a curator to take effect. |
 | recommend | AI-assisted review notes by this account are shown as the recommendation on the report. |
 | curate | Curate the corpus and drive reviews: create/edit/remove patterns, manage ignores and comment templates, accept or reject proposals, apply snippet decisions, edit review tags, reindex, and accept or reject reviews. |
-| infra | Operate the instance: the job dashboard, the automatic acceptance, excluded files, bot token and SBOM settings, and package upload into the review backlog. |
+| infra | Operate the instance: the job dashboard, the automatic acceptance, excluded files, legal report, bot token and SBOM settings, and package upload into the review backlog. |
 | review | Move a report from `new` to `acceptable` (a non-lawyer expert sign-off), or replace the comment of an `acceptable` one. Never changes a rejection or a lawyer sign-off. |
 | review_lawyer | Move a report from `new` to `acceptable_by_lawyer` (the legal sign-off). |
 | upload_ephemeral | Upload archives for ephemeral one-off reviews, via the web form or the User API. Without `infra` every upload is forced ephemeral, so it can never reach the review backlog. |
@@ -214,8 +214,8 @@ provider, not by Cavil.
 The Settings page groups its sections into personal settings, the ones that shape reviews for everybody, the
 integrations with the outside world, and the instance itself, and each section asks for its own capability, so people
 only see the sections they may use. Anyone who is logged in can manage their own API keys, comment templates need
-`curate`, and automatic acceptance, excluded files, bot tokens, the SBOM creator, data retention and the instance
-status are limited to admins for now. The page
+`curate`, and automatic acceptance, excluded files, legal reports, bot tokens, the SBOM creator, data retention and
+the instance status are limited to admins for now. The page
 is written for people who are not technical, so opening a section to lawyers later is only a change of who may reach
 it.
 
@@ -600,12 +600,12 @@ down and clearly labelled.
 The ranking combines three signals, in a deliberate order of precedence:
 
 1. **Where the evidence lives.** Three tiers, in this order: the package's shipped source, then vendored
-   third-party code, then tests, documentation, examples and license-text catalogues (directories where
-   unrelated licenses sit next to each other by construction, which says nothing about combination). Shipped
-   source always wins, because that is what decides the actual deliverable. Vendored code sits in the middle
-   rather than at the bottom: a vendored library that gets linked into the build is a combined work like any
-   other, so it earns a look. A vendored dependency's own tests and documentation are as ignorable as the
-   package's own, and drop to the bottom tier with them.
+   third-party code, then tests, documentation, examples, build files and license-text catalogues (directories
+   where unrelated licenses sit next to each other by construction, which says nothing about combination).
+   Shipped source always wins, because that is what decides the actual deliverable. Vendored code sits in the
+   middle rather than at the bottom: a vendored library that gets linked into the build is a combined work like
+   any other, so it earns a look. A vendored dependency's own tests, documentation and build files are as
+   ignorable as the package's own, and drop to the bottom tier with them.
 2. **How trustworthy the evidence is.** A real license match outranks a folded snippet, which outranks the
    guessed nearest license of an unresolved snippet. An unresolved guess is a similarity ranking for text
    Cavil could not identify, not a claim the license is present, so it is the weakest signal; it still counts,
@@ -613,6 +613,17 @@ The ranking combines three signals, in a deliberate order of precedence:
 3. **How close the two licenses sit.** Both licenses in one file is the strongest proximity signal, then the
    same directory, then a shared parent directory (the deeper the shared directory, the stronger), and finally
    two licenses that meet only at the package root, which is the classic aggregation shape.
+
+Build files are the build machinery of GNU Autotools and its companions: configure scripts, m4 macros,
+`Makefile.in` templates and helpers such as `install-sh` or `config.guess`, recognised by the names those tools
+give them and by the `m4/` and `build-aux/` directories. They almost never end up in a binary package, the
+exception being a -devel package that installs an autoconf macro for its users, and they carry their own
+licenses, often a GPL with an exception written for exactly this use, which is why they turn up in so many
+reports. Hand-written Makefiles, CMake and Meson files are deliberately not build files here: they can
+declare the licenses of the code they compile, and -devel packages install CMake files. Build tools such as
+autoconf, libtool or bison ship their build files as the product, so admins keep a list of those packages on the
+"Legal reports" section of the Settings page, and none of their files count as build files. The same
+classification gives the web report its "only in build files" label next to a license found nowhere else.
 
 A pair that appears only through an unresolved guess and never shares a file with its partner has no real
 co-location to show; rather than a dead end, the report points the reviewer straight at the file that carries

@@ -1026,11 +1026,11 @@ sub legal_documents_fixtures ($self, $app) {
   my $pkgs   = $app->packages;
   my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
 
-  for my $license ('MIT', 'Apache-2.0', 'ISC') {
+  for my $license ('MIT', 'Apache-2.0', 'ISC', 'Zlib') {
     $app->patterns->create(pattern => "SPDX-License-Identifier: $license", license => $license);
   }
-  $app->pg->db->query('UPDATE license_patterns SET spdx = license WHERE license IN (?, ?, ?)',
-    'MIT', 'Apache-2.0', 'ISC');
+  $app->pg->db->query('UPDATE license_patterns SET spdx = license WHERE license IN (?, ?, ?, ?)',
+    'MIT', 'Apache-2.0', 'ISC', 'Zlib');
 
   # A body pattern, so a fully recognised document can be longer than a one-line SPDX stub
   my $mit_body = <<'MIT';
@@ -1122,6 +1122,10 @@ LICENSE
   $src->child('vendor', 'helper')->make_path->child('LICENSE')
     ->spew("# SPDX-License-Identifier: ISC\n\nA bundled dependency's own terms.\n");
   $src->child('src')->make_path->child('license.go')->spew("# SPDX-License-Identifier: MIT\n\npackage main\n");
+
+  # The only Zlib, in build machinery that never ends up in the binary package
+  $src->child('m4')->make_path->child('ax_zlib.m4')->spew("dnl SPDX-License-Identifier: Zlib\n");
+  $src->child('configure')->spew("#!/bin/sh\n# SPDX-License-Identifier: Zlib\n");
 
   my $tarball = $dir->child("$name-1.0.tar.gz")->to_string;
   system('tar', '-czf', $tarball, '-C', $stage->to_string, "$name-1.0") == 0

@@ -276,7 +276,8 @@ of the roles above, and a bot account can never accept or reject a review.
 Some decisions are made in the web interface rather than in `cavil.conf`. Log in as the admin, open **Settings** from
 the account menu, and check that automatic acceptance matches what your organisation is comfortable with: which risk
 levels Cavil may accept without a person, and which placeholder packages are always accepted. The defaults are a
-reasonable start. The same page holds the list of files Cavil should never unpack.
+reasonable start. The same page holds the list of files Cavil should never unpack, and under **Legal reports** the
+build tools whose build files are what they ship.
 
 Two more sections connect Cavil to the outside world. Under **Bot tokens**, add one token for every bot that will
 submit packages, such as the Open Build Service or Gitea integration; until there is at least one token the bot API

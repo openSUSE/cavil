@@ -33,6 +33,7 @@ $app->patterns->create(
   license => 'Penguin-Commercial',
   risk    => 7
 );
+$app->patterns->create(pattern => 'Building requires a walrus license', license => 'Walrus-Build', risk => 6);
 $db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_)
   for qw(GPL-2.0-only Apache-2.0 GPL-2.0-or-later MPL-1.1 MIT);
 my $pkg = $app->packages->find(1);
@@ -45,6 +46,9 @@ $dir->child('src')->make_path->child('patented.c')->spew("/* Code */\n/* The pen
 # Custom terms kept in a REUSE catalog, the only place the license is matched
 $dir->child('LICENSES')->make_path->child('LicenseRef-Penguin-Commercial.txt')
   ->spew("Commercial use requires a penguin license.\n");
+
+# Restrictive terms that only build machinery carries, which never ends up in the binary package
+$dir->child('m4')->make_path->child('ax_walrus.m4')->spew("dnl Building requires a walrus license\n");
 
 # A mutual conflict and a one-way pair deeper down, which the report's proximity ranking puts first
 $dir->child('src')->make_path->child('mutual.c')
@@ -206,6 +210,24 @@ subtest 'A license only in the catalog says so' => sub {
   my ($reasons) = evidence(dossier(), 'LICENSES/LicenseRef-Penguin-Commercial.txt');
   like $reasons, qr/^- risk 7: Penguin-Commercial, matched in 1 file, only in license catalog files, first match/m,
     'the catalog context travels with the risk';
+};
+
+subtest 'A license only in build files is no evidence of what ships, unless the package is a build tool' => sub {
+  ok !evidence(dossier(), 'm4/ax_walrus.m4'), 'build files never end up in the binary package';
+
+  my $rebuild = sub {
+    $app->packages->analyze(1);
+    $app->minion->perform_jobs;
+    $t->post_ok('/documents/1/dossier')->status_is(200);
+    $app->minion->perform_jobs;
+  };
+  $app->settings->update('tester', {build_tool_packages => ['perl-Mojolicious']});
+  $rebuild->();
+  my ($reasons) = evidence(dossier(), 'm4/ax_walrus.m4');
+  like $reasons, qr/^- risk 6: Walrus-Build, matched in 1 file, first match at line 1$/m, 'a build tool ships them';
+  $app->settings->update('tester', {}, ['build_tool_packages']);
+  $rebuild->();
+  ok !evidence(dossier(), 'm4/ax_walrus.m4'), 'back to the default';
 };
 
 subtest 'The main spec survives past any line cap' => sub {

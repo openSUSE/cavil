@@ -126,13 +126,13 @@ sub _high_risk ($ctx) {
       my $name = $matches->{spdx} || $matches->{name};
       my ($pick, $line) = @flags ? _flagged_match($ctx, $license, $risk) : ();
       unless (defined $pick) {
-        my @paths = grep { _ships($_) } map { $_->[1] } @{$matches->{files}};
+        my @paths = grep { _ships($ctx, $_) } map { $_->[1] } @{$matches->{files}};
         next unless defined($pick = (grep({ is_license_filename($_) } @paths), @paths)[0]);
         $line = min(values %{_first_match_lines($ctx, _file_ids($ctx, [$pick])->{$pick}, [$license, $name])});
       }
 
       my $files = @{$matches->{files}};
-      my $where = peripheral_scope_label([map { $_->[1] } @{$matches->{files}}]);
+      my $where = peripheral_scope_label([map { $_->[1] } @{$matches->{files}}], !$ctx->{report}{ships_build_files});
       push @evidence,
         _evidence(
         $pick, 'risk',
@@ -161,7 +161,7 @@ sub _flagged_match ($ctx, $license, $risk) {
         AND (lp.eula OR lp.patent OR lp.export_restricted)
       GROUP BY mf.filename ORDER BY mf.filename LIMIT 500', $ctx->{pkg}{id}, $license, $risk
   )->arrays->to_array;
-  my @shipped = grep { _ships($_->[0]) } @$rows;
+  my @shipped = grep { _ships($ctx, $_->[0]) } @$rows;
   my ($pick) = (grep({ is_license_filename($_->[0]) } @shipped), @shipped);
   return $pick ? @$pick : ();
 }
@@ -437,7 +437,9 @@ sub _shipping ($ctx) {
   my @files = sort { ($a =~ tr{/}{}) <=> ($b =~ tr{/}{}) || $a cmp $b } keys %files;
 
   my (@specs, @evidence, $build);
-  for my $name (grep { !peripheral_scope([$_]) } @files) {
+
+  # Build files with install rules are the evidence here, not noise to skip
+  for my $name (grep { !peripheral_scope([$_], 0) } @files) {
     my $depth = $name =~ tr{/}{};
     my ($basename) = $name =~ m{([^/]+)$};
     if    ($depth == 0 && $basename =~ /\.spec$/) { push @specs, $name }
@@ -472,9 +474,9 @@ sub _shipping ($ctx) {
 }
 
 # Shipped source or vendored code, which can be linked in, but not tests, docs, examples or license catalogs
-sub _ships ($path) {
+sub _ships ($ctx, $path) {
   return 0 if is_catalog_entry($path);
-  my $kind = license_terms_kind($path);
+  my $kind = license_terms_kind($path, !$ctx->{report}{ships_build_files});
   return !$kind || $kind eq 'vendored';
 }
 

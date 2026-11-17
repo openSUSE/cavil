@@ -26,7 +26,8 @@ our @EXPORT_OK = (
   qw(load_ignored_files),
   qw(line_tag lines_context normalize_license_expr),
   qw(extract_copyrights extract_spdx_identifiers extract_urls_and_emails legal_review_notices),
-  qw(is_internal_name normalize_license_text obs_ssh_auth original_filename family_match family_of package_family paginate),
+  qw(is_internal_name normalize_license_text obs_ssh_auth original_filename paginate),
+  qw(family_listed family_match family_of package_family),
   qw(parse_list_filter FAMILY_OF),
   qw(lookup_tokens parse_lookup),
   qw(in_package_tree parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip pattern_contains_skip),
@@ -804,6 +805,11 @@ sub package_family ($name, $separate = {}) {
   my @rest_parts = map {s/(?<=[A-Za-z])(?:\d{1,3}(?:\.\d{1,3})+|(?:_\d{1,3})+)$//ar} @rest;
   my $family     = join '-', $first, grep { !/^\d{1,3}(?:[._]\d{1,3})*$/a } @rest_parts;
   return $separate->{$family} ? $name : $family;
+}
+
+# The first name on a settings list that covers the family
+sub family_listed ($family, $names, $separate = {}) {
+  return (grep { ($family // '') eq package_family($_, $separate) } @$names)[0];
 }
 
 # The stored family is the truth, a name no package carries (yet) falls back to the rule. Bind with family_of.

@@ -219,7 +219,7 @@ sub _report_details ($c, $pkg, $report) {
 
         # Where this license lives, when not one file of it is in shipped code. Lets a reader skip a
         # license that only ever turns up in a vendored tree or a test fixture without reading paths.
-        scope => peripheral_scope([map { $_->[1] } @$files]),
+        scope => peripheral_scope([map { $_->[1] } @$files], !$report->{ships_build_files}),
         ($new_license{$matches->{name}} ? (new => \1) : ())
       };
     }

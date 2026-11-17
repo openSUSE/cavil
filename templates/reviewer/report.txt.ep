@@ -61,7 +61,7 @@ Every new version of this package needs a human legal review against these limit
 %     push @tags, 'folded'     if $c == 2;
 %     push @tags, 'unresolved' if $c <= 1;
 %     my $tags  = @tags ? ' [' . join(', ', @tags) . ']' : '';
-%     my $where = $pair->{tier} == 2 ? ' (tests/docs/examples only)' : $loc ? " ($loc)" : '';
+%     my $where = $pair->{tier} == 2 ? ' (tests/docs/examples/build files only)' : $loc ? " ($loc)" : '';
 * <%== $pair->{a} %> and <%== $pair->{b} %><%== $tags %><%== $where %>
 %   }
 

@@ -46,6 +46,9 @@ subtest 'Permission errors' => sub {
     $t->get_ok('/settings/retention')->status_is(403);
     $t->get_ok('/settings/retention.json')->status_is(403);
     $t->put_ok('/settings/retention.json' => json => {values => {}})->status_is(403);
+    $t->get_ok('/settings/legal-reports')->status_is(403);
+    $t->get_ok('/settings/legal-reports.json')->status_is(403);
+    $t->put_ok('/settings/legal-reports.json' => json => {values => {}})->status_is(403);
     $t->delete_ok('/settings/excluded-files/1')->status_is(403);
     $t->get_ok('/settings')->status_is(302)->header_is(Location => '/settings/api-keys');
     $t->get_ok('/settings/api-keys')->status_is(200);
@@ -69,6 +72,7 @@ subtest 'Pages' => sub {
     ->status_is(200)
     ->content_like(qr/setupSettings\('excluded-files', true, true\)/);
   $t->get_ok('/settings/retention')->status_is(200)->content_like(qr/setupSettings\('retention', true, true\)/);
+  $t->get_ok('/settings/legal-reports')->status_is(200)->content_like(qr/setupSettings\('legal-reports', true, true\)/);
   $t->get_ok('/settings/nothing')->status_is(404);
 };
 
@@ -88,7 +92,9 @@ subtest 'Registry' => sub {
     sbom_creator_url                         => '',
     days_to_keep_orphaned_packages           => 60,
     days_to_keep_orphaned_duplicate_packages => 7,
-    hours_to_keep_ephemeral_packages         => 24
+    hours_to_keep_ephemeral_packages         => 24,
+    build_tool_packages                      =>
+      [qw(autoconf autoconf-archive automake bison cmake gettext-runtime gnulib libtool sendmail texinfo)]
     },
     'defaults match the old configuration';
   is $settings->value('auto_accept_risk'), 0, 'test harness override';
@@ -367,6 +373,52 @@ subtest 'Data retention' => sub {
     ->json_is('/custom', [qw(days_to_keep_orphaned_duplicate_packages days_to_keep_orphaned_packages)]);
 };
 
+subtest 'Legal reports' => sub {
+  my $defaults = [qw(autoconf autoconf-archive automake bison cmake gettext-runtime gnulib libtool sendmail texinfo)];
+  my $analyzed = sub { $app->minion->jobs({tasks => ['analyze']})->total };
+  my $ships    = sub { $app->reports->dig_report(1)->{ships_build_files} };
+  $t->get_ok('/settings/legal-reports.json')
+    ->status_is(200)
+    ->json_is('/values',                       {build_tool_packages => $defaults})
+    ->json_is('/defaults/build_tool_packages', $defaults)
+    ->json_is('/custom',                       [])
+    ->json_hasnt('/values/auto_accept');
+  ok !$ships->(), 'perl-Mojolicious is no build tool';
+
+  $t->put_ok('/settings/legal-reports.json' => json => {values => {build_tool_packages => ['lib tool']}})
+    ->status_is(400)
+    ->json_is('/errors/build_tool_packages', 'Package names cannot contain spaces');
+  $t->put_ok('/settings/legal-reports.json' => json => {values => {acceptable_risk => 3}})
+    ->status_is(400)
+    ->json_is('/errors/acceptable_risk', 'Not part of this section');
+
+  # Only the families added or removed have their reports rebuilt, libtool has no package here
+  my $before = $analyzed->();
+  my @list   = ((grep { $_ ne 'libtool' } @$defaults), 'perl-Mojolicious');
+  $t->put_ok('/settings/legal-reports.json' => json => {values => {build_tool_packages => \@list}})
+    ->status_is(200)
+    ->json_is('/values/build_tool_packages', \@list)
+    ->json_is('/custom',                     ['build_tool_packages'])
+    ->json_is('/last_change/login',          'tester');
+  is $analyzed->() - $before, 2, 'both perl-Mojolicious versions are analyzed again';
+  is_deeply $events->('settings.changed')->last->{data}, {changes => {build_tool_packages => [$defaults, \@list]}},
+    'recorded';
+  $app->minion->perform_jobs;
+  ok $ships->(), 'the report knows the package ships its build files';
+
+  $before = $analyzed->();
+  $t->put_ok('/settings/legal-reports.json' => json => {values => {build_tool_packages => \@list}})->status_is(200);
+  is $analyzed->() - $before, 0, 'nothing changed, nothing analyzed';
+
+  $t->put_ok('/settings/legal-reports.json' => json => {reset => ['build_tool_packages']})
+    ->status_is(200)
+    ->json_is('/values/build_tool_packages', $defaults)
+    ->json_is('/custom',                     []);
+  is $analyzed->() - $before, 2, 'analyzed again after a reset';
+  $app->minion->perform_jobs;
+  ok !$ships->(), 'back to build files being peripheral';
+};
+
 subtest 'Excluded files' => sub {
   $t->get_ok('/pagination/settings/excluded-files')
     ->status_is(200)
@@ -420,7 +472,7 @@ subtest 'Excluded files' => sub {
     ['unpack_exclusion.removed', 'r.zip']
     ],
     'audited';
-  $t->get_ok('/pagination/audit?category=settings')->status_is(200)->json_is('/total', 23);
+  $t->get_ok('/pagination/audit?category=settings')->status_is(200)->json_is('/total', 25);
 };
 
 subtest 'SBOM creator' => sub {

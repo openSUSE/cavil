@@ -21,7 +21,11 @@ my %SETTINGS = (
   sbom_creator_url    => {default => '',                                                          check => \&_url},
   days_to_keep_orphaned_packages           => {default => 60, check => _count(1, 3650)},
   days_to_keep_orphaned_duplicate_packages => {default => 7,  check => _count(1, 3650)},
-  hours_to_keep_ephemeral_packages         => {default => 24, check => _count(1, 8760)}
+  hours_to_keep_ephemeral_packages         => {default => 24, check => _count(1, 8760)},
+  build_tool_packages                      => {
+    default => [qw(autoconf autoconf-archive automake bison cmake gettext-runtime gnulib libtool sendmail texinfo)],
+    check   => \&_names
+  }
 );
 
 has 'pg';
@@ -34,9 +38,7 @@ sub get ($self) { return $self->_effective($self->_stored($self->pg->db)) }
 
 # The "Never group these packages" names as a set, read with the caller's handle
 sub separate_in ($db) {
-  my $row   = $db->select('settings', ['value'], {name => 'separate_packages'})->expand->hash;
-  my $names = $row ? _checked('separate_packages', $row->{value}) : _default('separate_packages');
-  return {map { $_ => 1 } @$names};
+  return {map { $_ => 1 } @{value_in($db, 'separate_packages')}};
 }
 
 sub summary ($self, @keys) {
@@ -95,9 +97,12 @@ sub update ($self, $login, $values, $reset = []) {
   return {old => $old, new => \%new};
 }
 
-sub value ($self, $key) {
+sub value ($self, $key) { return value_in($self->pg->db, $key) }
+
+# One setting, read with the caller's handle
+sub value_in ($db, $key) {
   die "Unknown setting: $key\n" unless $SETTINGS{$key};
-  my $row = $self->pg->db->select('settings', ['value'], {name => $key})->expand->hash;
+  my $row = $db->select('settings', ['value'], {name => $key})->expand->hash;
   return $row ? _checked($key, $row->{value}) : _default($key);
 }
 

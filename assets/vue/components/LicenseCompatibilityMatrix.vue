@@ -279,7 +279,7 @@ export default {
     scopeTag() {
       const p = this.selectedProximity;
       if (!p || p.no_colocation || !p.tier) return null;
-      return p.tier === 1 ? 'vendored' : 'tests / docs / examples';
+      return p.tier === 1 ? 'vendored' : 'tests / docs / examples / build files';
     }
   },
   methods: {

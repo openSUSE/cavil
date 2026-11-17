@@ -8,7 +8,8 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 my %SECTION_KEYS = (
   'auto-accept' =>
     [qw(acceptable_files acceptable_packages acceptable_risk auto_accept auto_accept_risk separate_packages)],
-  retention =>
+  'legal-reports' => [qw(build_tool_packages)],
+  retention       =>
     [qw(days_to_keep_orphaned_duplicate_packages days_to_keep_orphaned_packages hours_to_keep_ephemeral_packages)],
   sbom => [qw(sbom_creator_email sbom_creator_name sbom_creator_url)]
 );
@@ -94,7 +95,7 @@ sub update_section ($self) {
 
   my ($old, $new) = @{$result}{qw(old new)};
   my $packages  = $self->packages;
-  my $rechecked = $packages->analyze_held($old, $new);
+  my $rechecked = $packages->analyze_held($old, $new) + $packages->analyze_build_tools($old, $new);
   $rechecked += $packages->reindex_families($packages->sync_families)
     if "@{$old->{separate_packages}}" ne "@{$new->{separate_packages}}";
   $self->render(json => {%{$self->_section_summary($self->stash('section'))}, rechecked => $rechecked});

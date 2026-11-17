@@ -18,7 +18,7 @@ use Cavil::Util (
   qw(normalize_license_expr obs_ssh_auth original_filename),
   qw(parse_lookup),
   qw(parse_list_filter parse_service_file normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
-  qw(family_match package_family safe_string),
+  qw(family_listed family_match package_family safe_string),
   qw(external_link_data incoming_priority request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles),
   qw(validate_tags PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_WAITING),
   qw(decode_json_fast encode_json_fast to_json_fast)
@@ -959,6 +959,16 @@ subtest 'package_family: never group these packages' => sub {
   is package_family('gst123',         {gst => 1}), 'gst123', 'names that would fold into a listed name keep their own';
   is package_family('gst123.555',     {gst => 1}), 'gst123', 'with their build service copies';
   is package_family('gst.555',        {gst => 1}), 'gst',    'copies of the listed name stay with it';
+};
+
+subtest 'family_listed' => sub {
+  my @names = qw(autoconf libtool gettext-runtime);
+  is family_listed('autoconf',                    \@names), 'autoconf',        'listed by name';
+  is family_listed(package_family('autoconf213'), \@names), 'autoconf',        'another version of a listed name';
+  is family_listed('gettext-runtime',             \@names), 'gettext-runtime', 'a name with a dash';
+  is family_listed('binutils',                    \@names), undef,             'not listed';
+  is family_listed(undef,                         \@names), undef,             'a package without a family yet';
+  is family_listed('libtool-2.5', ['libtool-2.5'], {'libtool-2.5' => 1}), 'libtool-2.5', 'a name never grouped';
 };
 
 subtest 'family_match' => sub {

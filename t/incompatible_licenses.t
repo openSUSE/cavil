@@ -22,8 +22,9 @@ $t->app->pg->db->query('DELETE FROM license_patterns');
 $t->app->patterns->create(pattern => 'SPDX-License-Identifier: Apache-2.0',   license => 'Apache-2.0');
 $t->app->patterns->create(pattern => 'SPDX-License-Identifier: GPL-2.0-only', license => 'GPL-2.0-only');
 $t->app->patterns->create(pattern => 'SPDX-License-Identifier: GPL-3.0-only', license => 'GPL-3.0-only');
+$t->app->patterns->create(pattern => 'SPDX-License-Identifier: MPL-1.1',      license => 'MPL-1.1');
 $t->app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_)
-  for qw(Apache-2.0 GPL-2.0-only GPL-3.0-only);
+  for qw(Apache-2.0 GPL-2.0-only GPL-3.0-only MPL-1.1);
 
 my $pkg = $t->app->packages->find(1);
 my $dir = path($cavil_test->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
@@ -39,6 +40,12 @@ $module->child('http.c')->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\nDeep
 my $vendored = $dir->child('vendor', 'foo')->make_path;
 $vendored->child('lib.c')->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\nVendored GPL-2.0 library.\n");
 $vendored->child('plugin.c')->spurt("# SPDX-License-Identifier: GPL-3.0-only\n\nVendored GPL-3.0 plugin.\n");
+
+# Build machinery never ends up in the binary package, so a pair meeting only there is as ignorable as tests
+my $m4 = $dir->child('m4')->make_path;
+$m4->child('ax_mpl.m4')->spurt("dnl SPDX-License-Identifier: MPL-1.1\n\nAC_DEFUN([AX_MPL], [])\n");
+$m4->child('ax_gpl.m4')->spurt("dnl SPDX-License-Identifier: GPL-2.0-only\n\nAC_DEFUN([AX_GPL], [])\n");
+$dir->child('configure')->spurt("#!/bin/sh\n# SPDX-License-Identifier: MPL-1.1\n\necho configured\n");
 
 $t->app->minion->enqueue(unpack => [1]);
 $t->app->minion->perform_jobs;
@@ -56,7 +63,7 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
       ->json_like('/package_summary', qr!Real-time web framework!)
       ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
       ->json_like('/state',           qr!new!)
-      ->json_is('/unpacked_files', 345)
+      ->json_is('/unpacked_files', 348)
       ->json_is('/unpacked_size',  '2.5MiB');
   };
 
@@ -74,7 +81,8 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
 
     ok my $report = $json->{report},                  'report';
     ok my $compat = $report->{license_compatibility}, 'license compatibility matrix';
-    is_deeply $compat->{licenses}, ['Apache-2.0', 'GPL-2.0-only', 'GPL-3.0-only'], 'every flagged license on the axes';
+    is_deeply $compat->{licenses}, ['Apache-2.0', 'GPL-2.0-only', 'GPL-3.0-only', 'MPL-1.1'],
+      'every flagged license on the axes';
 
     # OSADL flags both directions as "No", verbatim.
     is $compat->{matrix}{'Apache-2.0'}{'GPL-2.0-only'}{compatibility}, 'No', 'Apache-2.0 <- GPL-2.0-only: No';
@@ -99,7 +107,7 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
     # and the detail panel can link to the files.
     $t->get_ok('/reviews/report_details/1')
       ->status_is(200)
-      ->json_is('/license_compatibility/licenses', ['Apache-2.0', 'GPL-2.0-only', 'GPL-3.0-only'])
+      ->json_is('/license_compatibility/licenses', ['Apache-2.0', 'GPL-2.0-only', 'GPL-3.0-only', 'MPL-1.1'])
       ->json_is('/license_compatibility/matrix/Apache-2.0/GPL-2.0-only/compatibility', 'No')
       ->json_is('/license_compatibility/proximity/Apache-2.0/GPL-2.0-only/same_file',  0)
       ->json_is('/license_compatibility/proximity/Apache-2.0/GPL-2.0-only/lca_depth',  2)
@@ -141,7 +149,45 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
     like $mcp, qr/Vendored dependencies \(spot check/, 'vendored pairs get their own section';
     like $mcp, qr!\QGPL-2.0-only + GPL-3.0-only [mutual] - same directory `vendor/foo`\E!,
       'with the pair and the files to open';
-    unlike $mcp, qr/in tests\/docs\/examples/, 'nothing was demoted to the ignorable count';
+  };
+
+  subtest 'Build files' => sub {
+    my $scope = sub {
+      $t->get_ok('/reviews/report_details/1')->status_is(200);
+      my ($mpl) = grep { $_->{name} eq 'MPL-1.1' } map {@$_} values %{$t->tx->res->json->{risks}};
+      return $mpl->{scope};
+    };
+    is $t->app->reports->dig_report(1)->{license_compatibility}{proximity}{'GPL-2.0-only'}{'MPL-1.1'}{tier}, 2,
+      'a pair meeting only in build files is ignorable';
+    is_deeply $scope->(), ['build'], 'the license is only in build files';
+    my $mcp = $t->app->build_controller->mcp_report(1);
+    like $mcp, qr/\* MPL-1\.1: 2 files \(only in build files\)/, 'MCP report says where the license is';
+    like $mcp, qr!\* 3 in tests/docs/examples/build files \(ignorable even inside a vendored tree\)!,
+      'MCP report counts the pairs with MPL-1.1 as lower priority';
+    $t->get_ok('/reviews/report/1.txt')
+      ->status_is(200)
+      ->content_like(qr!\* GPL-2\.0-only and MPL-1\.1 \(tests/docs/examples/build files only\)!,
+      'text report says where the pair meets');
+
+    # A build tool ships its build files, so for it they are shipped source
+    $t->app->pg->db->update('bot_users', {roles => ['admin']}, {login => 'tester'});
+    $t->put_ok('/settings/legal-reports.json' => json => {values => {build_tool_packages => ['perl-Mojolicious']}})
+      ->status_is(200)
+      ->json_is('/values/build_tool_packages', ['perl-Mojolicious']);
+    $t->app->minion->perform_jobs;
+    is $t->app->reports->dig_report(1)->{license_compatibility}{proximity}{'GPL-2.0-only'}{'MPL-1.1'}{tier}, 0,
+      'shipped source of a build tool';
+    $t->get_ok('/reviews/report/1.json')
+      ->status_is(200)
+      ->json_is('/report/license_compatibility/proximity/GPL-2.0-only/MPL-1.1/tier', 0,
+      'the cached report was rebuilt');
+    is $scope->(), undef, 'no scope label';
+    like $t->app->build_controller->mcp_report(1), qr!\QGPL-2.0-only + MPL-1.1 [mutual] - same directory `m4`\E!,
+      'worth investigating again';
+
+    $t->put_ok('/settings/legal-reports.json' => json => {reset => ['build_tool_packages']})->status_is(200);
+    $t->app->minion->perform_jobs;
+    is_deeply $scope->(), ['build'], 'labelled again after a reset';
   };
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');

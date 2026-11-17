@@ -136,15 +136,18 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       t.equal(await link.locator('.cavil-path-dir').innerText(), 'legal-docs-1.0/', 'even a lone shared prefix');
     });
 
-    // Shares this fixture: ISC is only in vendor/helper, MIT and Apache-2.0 are in shipped code.
+    // Shares this fixture: ISC is only in vendor/helper, Zlib only in build files, MIT and Apache-2.0 are in
+    // shipped code.
     await t.test('the license list says when a license is only in uninteresting places', async t => {
       const scoped = page.locator('.risk-license-item', {has: page.locator('.risk-license-scope')});
-      t.equal(await scoped.count(), 1, 'exactly the one license that never touches shipped code');
-      t.match(await scoped.innerText(), /ISC/, 'the vendored-only license');
-      t.match(await scoped.locator('.risk-license-scope').innerText(), /^only in vendored files$/, 'says where');
+      t.equal(await scoped.count(), 2, 'exactly the licenses that never touch shipped code');
+      const isc = scoped.filter({hasText: 'ISC'});
+      t.match(await isc.locator('.risk-license-scope').innerText(), /^only in vendored files$/, 'vendored');
+      const zlib = scoped.filter({hasText: 'Zlib'});
+      t.match(await zlib.locator('.risk-license-scope').innerText(), /^only in build files$/, 'build files');
 
       // A location, not a verdict: a wrong "vendored" that read as "ignore this" would hide a real license
-      t.notMatch(await scoped.innerText(), /ignore|safe|skip/i, 'and never what to do about it');
+      t.notMatch((await scoped.allInnerTexts()).join('|'), /ignore|safe|skip/i, 'and never what to do about it');
     });
 
     // The common case in production: a column no row fills would read as missing data

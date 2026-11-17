@@ -281,6 +281,18 @@ sub analyze_held ($self, $old, $new) {
   return scalar @$ids;
 }
 
+# A build tool's build files are shipped source, so the families added to or removed from the list need their
+# reports rebuilt. A plain re-analyze is enough, it touches no files.
+sub analyze_build_tools ($self, $old, $new) {
+  my %count;
+  $count{$_}++ for @{$old->{build_tool_packages}}, @{$new->{build_tool_packages}};
+  return 0 unless my @changed = grep { $count{$_} == 1 } keys %count;
+  my %separate = map { $_ => 1 } @{$new->{separate_packages}};
+  my $rows     = $self->_family_packages([map { package_family($_, \%separate) } @changed]);
+  $self->analyze($_->{id}, PRIORITY_UPKEEP) for @$rows;
+  return scalar grep { $_->{state} eq 'new' } @$rows;
+}
+
 # A changed limitation only reaches the versions waiting for review through their next auto review
 sub analyze_waiting ($self, $name) {
   $self->_enqueue('analyzed', $_->{id})
@@ -1424,13 +1436,9 @@ sub reindex_matched_packages ($self, $pid, $priority = PRIORITY_UPKEEP) {
 # Ignored lines are applied while indexing, so families that gained or lost a name need fresh reports, and the
 # automatic review that follows checks their waiting reviews again
 sub reindex_families ($self, $families) {
-  my $rows
-    = $self->pg->db->query(
-    'SELECT id, state FROM bot_packages WHERE family = ANY(?) AND NOT obsolete AND indexed IS NOT NULL', $families)
-    ->hashes;
+  my $rows = $self->_family_packages($families);
   $self->reindex_package_ids([map { $_->{id} } @$rows]);
-  my @waiting = grep { $_->{state} eq 'new' } @$rows;
-  return scalar @waiting;
+  return scalar grep { $_->{state} eq 'new' } @$rows;
 }
 
 # The priority is the one the rebuilds will run at. Turning the list into jobs is left to the queue
@@ -1626,6 +1634,12 @@ sub _enqueue ($self, $task, $id, $priority = PRIORITY_INCOMING, $parents = [], $
       notes    => {external_link => $pkg->{external_link}, package => $pkg->{name}, "pkg_$id" => 1}
     }
   );
+}
+
+sub _family_packages ($self, $families) {
+  return $self->pg->db->query(
+    'SELECT id, state FROM bot_packages WHERE family = ANY(?) AND NOT obsolete AND indexed IS NOT NULL', $families)
+    ->hashes;
 }
 
 1;

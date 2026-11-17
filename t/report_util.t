@@ -42,10 +42,11 @@ subtest 'is_vendored_path' => sub {
   ok is_vendored_path('vendor.obscpio._/curl/http.c'), 'an OBS vendored cpio segment is vendored';
   ok is_vendored_path('build-gomodcache._12/github.com/aws/aws-sdk-go/@v/LICENSE.txt'),
     'an unpacked Go module cache is vendored';
+  ok is_vendored_path('vendor/zlib/configure'), 'build files of a vendored dependency are still its code';
 
   # The package's own code - source, tests, docs - is not vendored, so its declared license applies.
   ok !is_vendored_path($_), "$_ is not vendored" for qw(
-    src/main.c lib/Mojo/DOM.pm README.md t/basic.t test/foo.c docs/guide.md examples/demo.c COPYING
+    src/main.c lib/Mojo/DOM.pm README.md t/basic.t test/foo.c docs/guide.md examples/demo.c COPYING configure
   );
 };
 
@@ -489,7 +490,29 @@ subtest 'license_compatibility proximity ranking' => sub {
       # which is a test directory in Ruby but a specification in plenty of other trees, nor Perl's "t".
       'src/pkg/mod/golang.org/x/y.go' => 0,
       'src/spec/parser.rb'            => 0,
-      't/basic.t'                     => 0
+      't/basic.t'                     => 0,
+
+      # Build machinery by the names GNU Autotools and its companions give it, also inside a vendored tree
+      'm4/ax_pthread.m4'                  => 2,
+      'build-aux/install-sh'              => 2,
+      'configure.processed'               => 2,
+      'bfd/Makefile.processed.in'         => 2,
+      'configure._/_15040.processed.bin'  => 2,
+      'configure._/configure._.processed' => 2,
+      'bfd/ax_tls.m4'                     => 2,
+      'vendor/zlib/configure'             => 2,
+      'po/Makefile.in.in'                 => 2,
+      'tests/Makefile.in'                 => 2,
+      'Makefile'                          => 0,
+      'CMakeLists.txt'                    => 0,
+      'meson.build'                       => 0,
+      'cmake/FindFoo.cmake'               => 0,
+      'setup.py'                          => 0,
+      'Makefile.PL'                       => 0,
+      'policy/modules/corenetwork.te.m4'  => 0,
+      'src/configure.c'                   => 0,
+      'build._/modules/ROOT/index.adoc'   => 0,
+      'vendor/zlib/Makefile'              => 1
     );
     for my $path (sort keys %expect) {
       my $report = {
@@ -500,6 +523,18 @@ subtest 'license_compatibility proximity ranking' => sub {
       my $p = license_compatibility($report, $TEST_MATRIX)->{proximity}{'Apache-2.0'}{'GPL-2.0-only'};
       is $p->{tier}, $expect{$path}, "$path -> tier $expect{$path}";
     }
+  };
+
+  subtest 'Build tools ship their build files' => sub {
+    my $report = {
+      files    => {1       => 'm4/libtool.m4'},
+      licenses => {'Combo' => {spdx    => 'Apache-2.0 AND GPL-2.0-only'}},
+      risks    => {5       => {'Combo' => {100 => [1]}}}
+    };
+    is license_compatibility($report, $TEST_MATRIX)->{proximity}{'Apache-2.0'}{'GPL-2.0-only'}{tier}, 2, 'build file';
+    $report->{ships_build_files} = 1;
+    is license_compatibility($report, $TEST_MATRIX)->{proximity}{'Apache-2.0'}{'GPL-2.0-only'}{tier}, 0,
+      'shipped source of a build tool';
   };
 };
 
@@ -589,6 +624,9 @@ subtest 'peripheral_scope' => sub {
   is peripheral_scope(['a/vendor/x/LICENSE', 'a/src/main.c']), undef, 'a single core file withholds it';
   is peripheral_scope(['src/main.c']),                         undef, 'plain shipped code';
   is peripheral_scope([]),                                     undef, 'no files at all is not vacuously peripheral';
+  is_deeply peripheral_scope(['m4/ax_pthread.m4',     'configure._/_1.processed.bin']), ['build'], 'build files';
+  is_deeply peripheral_scope(['build-aux/install-sh', 'doc/x']), ['build', 'documentation'],       'build and docs';
+  is peripheral_scope(['m4/ax_pthread.m4', 'configure'], 0), undef, 'not for a package that ships build files';
 };
 
 subtest 'peripheral_scope_label' => sub {
@@ -597,6 +635,8 @@ subtest 'peripheral_scope_label' => sub {
   is peripheral_scope_label(['a/doc/x', 'a/tests/y', 'a/vendor/z']), 'documentation, test and vendored files',
     'three kinds';
   is peripheral_scope_label(['a/vendor/x', 'src/main.c']), undef, 'nothing to say while shipped code is involved';
+  is peripheral_scope_label(['aclocal.m4', 'Makefile.processed.in']), 'build files', 'build files';
+  is peripheral_scope_label(['aclocal.m4'], 0), undef, 'nothing to say for a build tool';
 };
 
 subtest 'license_terms_kind' => sub {
@@ -607,6 +647,8 @@ subtest 'license_terms_kind' => sub {
   is license_terms_kind('vendor/x/LICENSES/LICENSE.foo'),    'vendored',        'vendored terms stay vendored';
   is license_terms_kind('docs/licenses/LICENSE.bar'),        'documentation',   'docs stay docs';
   is license_terms_kind('src/main.c'),                       undef,             'plain source';
+  is license_terms_kind('build-aux/COPYING'),                'build',           'terms of the build helpers';
+  is license_terms_kind('build-aux/COPYING', 0),             undef, 'unless the package ships its build files';
   ok is_catalog_entry('debian/copyright'),                'Debian copyright';
   ok is_catalog_entry('tools/debian/copyright.template'), 'Debian copyright template';
   ok !is_catalog_entry('COPYRIGHT'),                      'a package COPYRIGHT file';

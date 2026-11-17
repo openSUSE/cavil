@@ -242,6 +242,24 @@ t.test('Cavil UI - settings', skipUnlessOnline, async t => {
       t.equal(await page.inputValue('#hours-to-keep-ephemeral-packages'), '24', 'back to the default');
     });
 
+    await t.test('Legal reports', async t => {
+      await page.click('.cavil-settings-nav-item >> text=Legal reports');
+      await page.waitForSelector('#build-tool-packages [data-note-tag-chip="libtool"]');
+      t.pass('build tools by default');
+
+      await page.fill('#build-tool-packages input', 'my-build-tool');
+      await page.keyboard.press('Enter');
+      await save();
+      await page.reload();
+      await page.waitForSelector('#build-tool-packages [data-note-tag-chip="my-build-tool"]');
+      t.pass('new name kept');
+      t.equal(await page.locator('#build-tool-packages [data-note-tag-chip="autoconf"]').count(), 1, 'defaults too');
+
+      await page.click('[data-reset="build_tool_packages"]');
+      await page.waitForSelector('[data-default="build_tool_packages"]');
+      t.equal(await page.locator('[data-note-tag-chip="my-build-tool"]').count(), 0, 'back to the default');
+    });
+
     await t.test('Status', async t => {
       await page.click('.cavil-settings-nav-item >> text=Status');
       await page.waitForSelector('#status td.cavil-status-name');

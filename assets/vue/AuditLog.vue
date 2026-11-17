@@ -138,6 +138,7 @@ const settingLabels = {
   acceptable_packages: 'Always accept these packages',
   acceptable_files: 'Always accept packages made only of these files',
   separate_packages: 'Never group these packages',
+  build_tool_packages: 'Packages that ship their build files',
   sbom_creator_name: 'SBOM organisation',
   sbom_creator_email: 'SBOM email address',
   sbom_creator_url: 'SBOM web address',

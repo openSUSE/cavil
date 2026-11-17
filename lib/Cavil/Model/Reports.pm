@@ -13,7 +13,8 @@ use Cavil::Declarations;
 use Cavil::Licenses qw(lic);
 use Cavil::ReportUtil
   qw($LEGAL_SNIPPET_SQL estimated_risk license_compatibility license_document_candidates unexplained_lines);
-use Cavil::Util qw(checkout_path fs_bytes line_tag family_match to_json_fast @LICENSE_FLAGS);
+use Cavil::Model::Settings;
+use Cavil::Util qw(checkout_path fs_bytes line_tag family_listed family_match to_json_fast @LICENSE_FLAGS);
 
 has [qw(checkout_dir pg snippet_fold)];
 
@@ -44,6 +45,9 @@ sub dig_report {
 
   my $report = $self->_dig_report($db, {}, $pkg, \%ignored_lines, $limit_to_file, $generation, $scope);
 
+  # Build tools ship their build files, so none of theirs are peripheral
+  my $tools = Cavil::Model::Settings::value_in($db, 'build_tool_packages');
+  $report->{ships_build_files} = 1 if family_listed($pkg->{family}, $tools, Cavil::Model::Settings::separate_in($db));
   $report->{license_compatibility} = license_compatibility($report);
 
   delete $report->{matches};
