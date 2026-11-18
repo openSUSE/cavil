@@ -45,7 +45,7 @@
     "prettier": "^3.0.0",
     "tap": "^16.1.0",
     "terser-webpack-plugin": "^5.3.1",
-    "vue": "^3.2.37",
+    "vue": "^3.5.44",
     "vue-loader": "^17.0.0",
     "webpack": "^5.72.0",
     "webpack-cli": "^5.1.4"
