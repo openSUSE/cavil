@@ -582,6 +582,7 @@ sub ui_fixtures ($self, $app) {
   my $harbor = $pkgs->find($pkg_id);
   $harbor->{external_link} = 'obs#123456';
   $pkgs->update($harbor);
+  $self->checkout_dir->child('harbor-helm', '4fcfdab0e71b0bebfdf8b5cc3badfec4')->make_path;
   $pkgs->unpack($pkg_id);
 
   # One open review with a CVE tag so the tag filter (tag:CVE) has real data to match
