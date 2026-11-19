@@ -120,6 +120,13 @@ The files that state this package's terms, with the lines of each no known licen
 
 
 % }
+% if ($no_license_text) {
+## Copied Files
+
+No license text is copied into the package, the spec has no `%license` line.
+
+
+% }
 % my @notes = grep { !$_->{limitation} } @$notes;
 % if (@notes) {
 ## Notes

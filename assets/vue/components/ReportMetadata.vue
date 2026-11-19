@@ -342,6 +342,28 @@
       </form>
     </div>
     <cavil-notice-panel
+      v-if="legalReviewNotices.length > 0"
+      id="spec-legal-review-notices"
+      icon="fa-solid fa-user-pen"
+      title="Legal review notices from packagers"
+    >
+      <ul class="cavil-notice-list">
+        <!-- eslint-disable-next-line vue/no-v-for-template-key -->
+        <template v-for="(text, index) in legalReviewNotices" :key="index">
+          <li
+            :class="['cavil-notice-item', {'legal-review-notice-clamped': noticeClamped(text, index)}]"
+            v-text="text"
+          ></li>
+          <li v-if="noticeLines(text) > NOTICE_PREVIEW_LINES" class="list-more-toggle">
+            <button type="button" @click="toggleNotice(index)">
+              <i :class="noticesExpanded.has(index) ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'"></i>
+              {{ noticesExpanded.has(index) ? 'Show less' : `Show full notice (${noticeLines(text)} lines)` }}
+            </button>
+          </li>
+        </template>
+      </ul>
+    </cavil-notice-panel>
+    <cavil-notice-panel
       v-if="documents.length > 0"
       id="legal-documents"
       icon="fa-solid fa-scale-balanced"
@@ -374,42 +396,17 @@
         />
       </ul>
     </cavil-notice-panel>
-    <cavil-notice-panel
-      v-if="legalReviewNotices.length > 0"
-      id="spec-legal-review-notices"
-      icon="fa-solid fa-user-pen"
-      title="Legal review notices from packagers"
-    >
-      <ul class="cavil-notice-list">
-        <!-- eslint-disable-next-line vue/no-v-for-template-key -->
-        <template v-for="(text, index) in legalReviewNotices" :key="index">
-          <li
-            :class="['cavil-notice-item', {'legal-review-notice-clamped': noticeClamped(text, index)}]"
-            v-text="text"
-          ></li>
-          <li v-if="noticeLines(text) > NOTICE_PREVIEW_LINES" class="list-more-toggle">
-            <button type="button" @click="toggleNotice(index)">
-              <i :class="noticesExpanded.has(index) ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'"></i>
-              {{ noticesExpanded.has(index) ? 'Show less' : `Show full notice (${noticeLines(text)} lines)` }}
-            </button>
-          </li>
-        </template>
-      </ul>
-    </cavil-notice-panel>
-    <cavil-notice-panel
-      v-if="copiedFiles['%doc'] !== null || copiedFiles['%license'] !== null"
-      icon="fa-regular fa-copy"
-      title="Copied files"
-    >
+    <cavil-notice-panel v-if="hasSpec" id="copied-files" icon="fa-regular fa-copy" title="Copied files">
       <dl class="cavil-notice-definition-list">
         <template v-if="copiedFiles['%doc'] !== null">
           <dt>%doc</dt>
           <dd>{{ copiedFiles['%doc'] }}</dd>
         </template>
-        <template v-if="copiedFiles['%license'] !== null">
-          <dt>%license</dt>
-          <dd>{{ copiedFiles['%license'] }}</dd>
-        </template>
+        <dt>%license</dt>
+        <dd v-if="copiedFiles['%license'] !== null">{{ copiedFiles['%license'] }}</dd>
+        <dd v-else>
+          <span class="cavil-meta-badge cavil-meta-badge-info" data-no-license-text>no license text copied</span>
+        </dd>
       </dl>
     </cavil-notice-panel>
     <ToastNotifier ref="toaster" />
@@ -567,6 +564,9 @@ export default {
     },
     formatIcon() {
       return FORMAT_ICONS[this.declarations[0]?.format] ?? null;
+    },
+    hasSpec() {
+      return this.declarations.some(d => d.format === 'spec');
     },
     canReview() {
       if (this.hasAdminRole === true) return true;
@@ -901,7 +901,7 @@ export default {
     refreshData(data) {
       const copiedFiles = data.copied_files;
       for (const key of ['%doc', '%license']) {
-        if (copiedFiles[key].length > 0) this.copiedFiles[key] = copiedFiles[key].map(displayName).join(' ');
+        this.copiedFiles[key] = copiedFiles[key].length > 0 ? copiedFiles[key].map(displayName).join(' ') : null;
       }
 
       this.created = moment(data.created * 1000).fromNow();

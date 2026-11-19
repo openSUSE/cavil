@@ -50,12 +50,16 @@ sub report ($self) {
         checksum      => $pkg->{checksum},
         limit         => 100
       )->{page};
+      my $declarations = $self->reports->declarations($id)->{declarations};
+      my $no_license_text
+        = grep({ $_->{format} eq 'spec' } @$declarations) && !grep { @{$_->{'%license'} // []} } @$declarations;
       $self->render(
         'reviewer/report',
         report          => $report,
         package         => $pkg,
         notes           => $notes,
-        legal_documents => $self->helpers->legal_documents($id)
+        legal_documents => $self->helpers->legal_documents($id),
+        no_license_text => $no_license_text
       );
     },
     mcp => sub {

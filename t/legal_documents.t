@@ -48,6 +48,10 @@ $dir->child('vendor', 'foo')->make_path->child('LICENSE')
 
 $dir->child('src')->make_path->child('license.go')->spurt("# SPDX-License-Identifier: Artistic-2.0\n\npackage main\n");
 
+# A spec that copies no license text into the package
+my $spec = $dir->child('perl-Mojolicious.spec');
+$spec->spurt($spec->slurp =~ s/^%license .*\n//mr);
+
 $t->app->minion->enqueue(unpack => [1]);
 $t->app->minion->perform_jobs;
 
@@ -110,6 +114,9 @@ subtest 'Text report lists the documents' => sub {
   like $text, qr/\Q$COVERED_LINE\E\n/, 'and a fully matched document stating only its size';
 
   unlike $text, qr/## Declared License/, 'and nothing grades the declared license';
+
+  like $text, qr/## Copied Files\n\nNo license text is copied into the package, the spec has no `%license` line\./,
+    'a spec without a license text says so';
 };
 
 subtest 'MCP report lists the documents' => sub {

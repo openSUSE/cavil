@@ -201,6 +201,12 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       const items = notices.locator('.cavil-notice-item');
       const toggle = notices.locator('.list-more-toggle button');
 
+      // Read right after the comment, before the documents they are often about
+      const before = await notices.evaluate(el => {
+        const documents = document.querySelector('#legal-documents');
+        return Boolean(el.compareDocumentPosition(documents) & Node.DOCUMENT_POSITION_FOLLOWING);
+      });
+      t.ok(before, 'the notices come before the legal documents');
       t.equal(await items.count(), 2, 'both notices are listed');
       t.equal(await items.nth(0).innerText(), 'The enterprise terms do not apply to this build', 'short one as is');
       t.equal(await toggle.count(), 1, 'only the long one has a toggle');
@@ -281,6 +287,21 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       t.match(await license.innerText(), /MIT/, 'the declared license is shown as the plain value');
       t.notMatch(await license.innerText(), /declared|confirming|found in the code/i, 'with no annotation');
       t.equal(await page.locator('#declaration-note').count(), 0, 'and no annotation element at all');
+    });
+
+    // Only the package as a whole is judged, a file copied through a macro Cavil cannot resolve would make any
+    // per-document marking a guess
+    await t.test('the copied files say when no license text is copied into the package', async t => {
+      const copied = page.locator('#copied-files');
+      t.match(await copied.innerText(), /%license\s+no license text copied/, 'the gap is named');
+      t.match(await copied.locator('[data-no-license-text]').getAttribute('class'), /badge-info/, 'as an annotation');
+      t.notMatch(await copied.getAttribute('class'), /warning/, 'while the panel itself stays calm');
+      t.notMatch(await page.locator('#legal-documents').innerText(), /copied/i, 'and no document is marked');
+
+      await page.goto(`${url}/reviews/details/2`);
+      await copied.waitFor();
+      t.match(await copied.innerText(), /%license\s+COPYING/, 'a package that copies one lists it');
+      t.equal(await copied.locator('[data-no-license-text]').count(), 0, 'with nothing else to say');
     });
 
     assertNoUnexpectedConsoleErrors(t, errorLogs);

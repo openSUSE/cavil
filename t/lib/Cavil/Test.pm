@@ -1161,6 +1161,9 @@ BuildArch:      noarch
 
 %description
 Synthetic package carrying nothing but stock license text.
+
+%files
+%license COPYING
 SPEC
 
   my $clean_stage = tempdir;
