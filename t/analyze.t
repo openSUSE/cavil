@@ -221,7 +221,7 @@ subtest 'Versioned and build service names share the decisions of their package 
   };
 
   my $incident = $make->('perl-Mojolicious.12345');
-  is $incident->{family}, 'perl-Mojolicious', 'family stored';
+  is $incident->{family}, 'perl-mojolicious', 'family stored';
   is $incident->{state},  'new',              'held';
   like $incident->{notice},
     qr/Manual review is required because it was rejected before with the same license as \d+ in perl-Mojolicious/,
@@ -245,7 +245,7 @@ subtest 'Versioned and build service names share the decisions of their package 
   is $same->{notice}, 'Not found any significant difference against 2 in perl-Mojolicious', 'notice names it too';
 
   my $other = $make->('perl-Mojolicious-Plugin');
-  is $other->{family}, 'perl-Mojolicious-Plugin', 'own family';
+  is $other->{family}, 'perl-mojolicious-plugin', 'own family';
   is $other->{state},  'new',                     'different package inherits nothing';
 
   subtest 'A limitation holds the whole family' => sub {
@@ -278,8 +278,8 @@ subtest 'Versioned and build service names share the decisions of their package 
 
   subtest 'Stored families are brought up to date' => sub {
     $db->query("UPDATE bot_packages SET family = 'perl-Mojo' WHERE id = ?", $incident->{id});
-    is_deeply $pkgs->sync_families, ['perl-Mojo', 'perl-Mojolicious'], 'both families of a regrouped name';
-    is $pkgs->find($incident->{id})->{family}, 'perl-Mojolicious', 'restored';
+    is_deeply $pkgs->sync_families, ['perl-Mojo', 'perl-mojolicious'], 'both families of a regrouped name';
+    is $pkgs->find($incident->{id})->{family}, 'perl-mojolicious', 'restored';
     is_deeply $pkgs->sync_families, [], 'nothing left to change';
   };
 };

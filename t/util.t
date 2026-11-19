@@ -897,13 +897,13 @@ subtest 'package_family: Open Build Service suffixes' => sub {
   is package_family('cups.imported_3576'),                                 'cups',       'imported incident';
   is package_family('python311.SUSE_SLE-15-SP4_Update'),                   'python',     'update project';
   is package_family('abseil-cpp.SUSE_SLE-12-SP5_Update.24419'),            'abseil-cpp', 'update project and incident';
-  is package_family('kgraft-patch-SLE12_Update_10.SUSE_Maintenance_1772'), 'kgraft-patch-SLE12_Update', 'maintenance';
+  is package_family('kgraft-patch-SLE12_Update_10.SUSE_Maintenance_1772'), 'kgraft-patch-sle12_update', 'maintenance';
   is package_family('opera.openSUSE_Leap_15.6_NonFree.18351'),             'opera', 'project with a dot';
   is package_family('000package-groups.home_kukuk_branches_openSUSE_Factory'), '000package-groups', 'home project';
   is package_family('dbus-1.15466'),              'dbus',                      'incident after version';
   is package_family('python-zope.testbrowser'),   'python-zope.testbrowser',   'dotted name kept';
-  is package_family('openoffice.org-dict-cs_CZ'), 'openoffice.org-dict-cs_CZ', 'locale after a dash is no project';
-  is package_family('openoffice.org-dict-cs_CZ.12345'),     'openoffice.org-dict-cs_CZ', 'and its incident copy';
+  is package_family('openoffice.org-dict-cs_CZ'), 'openoffice.org-dict-cs_cz', 'locale after a dash is no project';
+  is package_family('openoffice.org-dict-cs_CZ.12345'),     'openoffice.org-dict-cs_cz', 'and its incident copy';
   is package_family('python-backports.ssl_match_hostname'), 'python-backports.ssl_match_hostname', 'lower case kept';
   is package_family('keybinder-3.0'),                       'keybinder', 'short dotted number is a version';
 };
@@ -918,8 +918,8 @@ subtest 'package_family: versioned names' => sub {
   is package_family('go1.22-openssl'),      'go-openssl',    'dotted attached version';
   is package_family('llvm3_8'),             'llvm',          'underscore attached version';
   is package_family('apparmor_2_10'),       'apparmor',      'version after an underscore';
-  is package_family('python-Sphinx_4_2_0'), 'python-Sphinx', 'in any part of the name';
-  is package_family('kernel-livepatch-SLE15-SP7-RT_Update_23'), 'kernel-livepatch-SLE15-SP7-RT_Update',
+  is package_family('python-Sphinx_4_2_0'), 'python-sphinx', 'in any part of the name';
+  is package_family('kernel-livepatch-SLE15-SP7-RT_Update_23'), 'kernel-livepatch-sle15-sp7-rt_update',
     'update counter';
   is package_family('docbook_4'),                       'docbook',           'one digit is enough after an underscore';
   is package_family('cross-x86_64-gcc6'),               'cross-x86_64-gcc6', 'an architecture is no version';
@@ -959,6 +959,19 @@ subtest 'package_family: never group these packages' => sub {
   is package_family('gst123',         {gst => 1}), 'gst123', 'names that would fold into a listed name keep their own';
   is package_family('gst123.555',     {gst => 1}), 'gst123', 'with their build service copies';
   is package_family('gst.555',        {gst => 1}), 'gst',    'copies of the listed name stay with it';
+
+  is package_family('OpenH323', $separate),       'OpenH323', 'listed in any letter case, keeping its spelling';
+  isnt package_family('Coin', {coin => 1}),       package_family('coin', {coin => 1}), 'so case variants can be parted';
+  is package_family('GST123', {Gst => 1}),        'gst123', 'a name kept out of a listed family still folds case';
+  is package_family('openh264', {OpenH323 => 1}), 'openh',  'and the rules apply to everything else';
+};
+
+subtest 'package_family: letter case' => sub {
+  is package_family($_),                                 'dsview',          $_ for qw(DSView dsview DsView);
+  is package_family($_),                                 'openqa',          $_ for qw(openQA openqa);
+  is package_family($_),                                 'perl-b-keywords', $_ for qw(perl-B-Keywords perl-b-keywords);
+  is package_family('DSView.openSUSE_Leap_15.6_Update'), 'dsview',  'a project suffix is still found by its capitals';
+  is package_family('LaTeXML.12345'),                    'latexml', 'and an incident copy';
 };
 
 subtest 'family_listed' => sub {

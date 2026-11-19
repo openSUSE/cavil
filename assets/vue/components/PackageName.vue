@@ -11,7 +11,8 @@
 </template>
 
 <script>
-// The family only ever drops characters from the name, so walking both once marks what was folded away
+// The family only ever drops characters from the name and folds its letter case, so walking both once marks what
+// was folded away
 export default {
   name: 'PackageName',
   props: {
@@ -23,13 +24,14 @@ export default {
       return `Version suffix, decisions and notes are shared across the ${this.family} package family`;
     },
     segments() {
-      const {family, name} = this;
-      if (family === null || family === name) return [{text: name, folded: false}];
+      const {name} = this;
+      const family = this.family?.toLowerCase() ?? null;
+      if (family === null || family === name.toLowerCase()) return [{text: name, folded: false}];
 
       const segments = [];
       let matched = 0;
       for (const char of name) {
-        const folded = char !== family[matched];
+        const folded = char.toLowerCase() !== family[matched];
         if (!folded) matched++;
         const last = segments[segments.length - 1];
         if (last !== undefined && last.folded === folded) last.text += char;

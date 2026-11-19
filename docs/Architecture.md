@@ -233,6 +233,8 @@ Cavil groups such names into a **package family** and treats every name in it as
 
 A name joins a family when the only difference is one of these:
 
+* **Letter case**, as in `DSView` and `dsview` or `openQA` and `openqa`. Packages are sometimes renamed to lower case,
+  and the other rules below are applied first, since they rely on capital letters to recognise a project name.
 * **An Open Build Service suffix** after a dot. That is either a number with at least three digits (`curl.17566`,
   `cups.imported_3576`) or the name of a project, whose parts are joined by underscores and which contains a capital
   letter before any dash (`.openSUSE_Leap_15.6_Update`, `.home_alice_branches_Base_System`). A locale after a dash, as
@@ -275,12 +277,13 @@ themselves, so such a pair rarely shares a decision. The exception is that a per
 
 When a pair like that turns up, admins put either of the names on the "Never group these packages" list on the Settings
 page. A listed name never shares a family with another name, whether it would be folded into that name or that name into
-it, and only its Open Build Service copies stay with it. Saving the list updates the stored families right away and
-queues rebuilds of the families that gained or lost a name, since ignored matches are applied while indexing. Until
-those rebuilds are done, reports can still reflect the old grouping, so turn "Accept reviews automatically" off before
-editing the list and back on once the rebuilds have finished. Decisions already made stay as they are, because Cavil
-passes its decisions on to other systems and cannot take them back. Like every setting change, the edit is recorded in
-the audit log.
+it, and only its Open Build Service copies stay with it. Names on the list match regardless of letter case and keep
+their own spelling, so listing a name also keeps apart names that differ from it only in case. Saving the list updates
+the stored families right away and queues rebuilds of the families that gained or lost a name, since ignored matches are
+applied while indexing. Until those rebuilds are done, reports can still reflect the old grouping, so turn "Accept
+reviews automatically" off before editing the list and back on once the rebuilds have finished. Decisions already made
+stay as they are, because Cavil passes its decisions on to other systems and cannot take them back. Like every setting
+change, the edit is recorded in the audit log.
 
 Everything that records a decision or curated knowledge applies to the whole family:
 * the automatic acceptance rules below

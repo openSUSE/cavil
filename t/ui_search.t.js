@@ -118,6 +118,30 @@ t.test('Cavil UI - review search', skipUnlessOnline, async t => {
       t.match(await page.innerText(`${rows}:nth-child(1) > td:nth-child(5)`), /harbor-helm/);
     });
 
+    await t.test('Letter case is part of the family, not something folded away', async t => {
+      const name = page.locator('#review-search tbody > tr .cavil-list-package').first();
+      await page.goto(`${url}/search?q=perl-UI-Test1`);
+      await name.waitFor();
+      t.equal(await name.innerText(), 'perl-UI-Test1', 'the name keeps its spelling');
+      t.equal(await name.locator('.cavil-package-name-folded').count(), 0, 'and nothing of it is dimmed');
+
+      await page.route('**/pagination/search/**', async route => {
+        const response = await route.fetch();
+        const data = await response.json();
+        data.page[0].package = 'perl-Mojolicious.SUSE_SLE-15-SP7_Update';
+        data.page[0].family = 'perl-mojolicious';
+        await route.fulfill({response, json: data});
+      });
+      await page.goto(`${url}/search?q=perl-UI-Test1`);
+      await name.locator('.cavil-package-name-folded').waitFor();
+      t.equal(
+        await name.locator('.cavil-package-name-folded').innerText(),
+        '.SUSE_SLE-15-SP7_Update',
+        'only the suffix'
+      );
+      await page.unroute('**/pagination/search/**');
+    });
+
     await t.test('Long links wrap inside the Ids column instead of overlapping the report', async t => {
       await page.route('**/pagination/search/**', async route => {
         const response = await route.fetch();

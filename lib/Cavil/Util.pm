@@ -790,21 +790,25 @@ sub in_package_tree ($unpacked, $path) {
 
 # Every limit here keeps apart a pair of different projects found in a production name list (see "Package families"
 # in docs/Architecture.md), loosening one trades a known collision for recall
-sub package_family ($name, $separate = {}) {
-  return $name if $separate->{$name};
+#
+# Letter case is folded last, the build service suffix is recognised by its capitals. A listed name keeps its own
+# spelling, which is the only way to keep apart two names that differ in nothing else.
+sub package_family ($name, $listed = {}) {
+  my %separate = map { lc() => 1 } keys %$listed;
+  return $name if $separate{lc $name};
   $name =~ s/\.(?=[^.-]*[A-Z])(?=[^.-]*_)[A-Za-z].*$//;
   $name =~ s/(?:\.(?:imported_)?\d{3,})+$//a;
-  return $name if $separate->{$name};
+  return $name if $separate{lc $name};
 
   my ($first, @rest) = split /-/, $name, -1;
-  return $name unless defined $first;
+  return lc $name unless defined $first;
   if (my ($stem) = $first =~ /^([A-Za-z][A-Za-z_+]*[A-Za-z+])(?:\d{2,3}|\d{1,3}(?:[._]\d{1,3})+)$/a) {
     $first = $stem if ($stem =~ s/^lib//ir) =~ tr/A-Za-z// >= 2;
   }
   $first =~ s/(?<=[A-Za-z])(?:_\d{1,3})+$//a;
   my @rest_parts = map {s/(?<=[A-Za-z])(?:\d{1,3}(?:\.\d{1,3})+|(?:_\d{1,3})+)$//ar} @rest;
   my $family     = join '-', $first, grep { !/^\d{1,3}(?:[._]\d{1,3})*$/a } @rest_parts;
-  return $separate->{$family} ? $name : $family;
+  return lc($separate{lc $family} ? $name : $family);
 }
 
 # The first name on a settings list that covers the family

@@ -139,14 +139,14 @@ subtest 'Search covers the package family' => sub {
     ->json_is('/total'          => 2)
     ->json_is('/page/0/id'      => $id)
     ->json_is('/page/0/package' => 'perl-Mojolicious.12345')
-    ->json_is('/page/0/family'  => 'perl-Mojolicious')
+    ->json_is('/page/0/family'  => 'perl-mojolicious')
     ->json_is('/page/1/package' => 'perl-Mojolicious');
   $t->get_ok('/pagination/search/perl-Mojolicious.12345')->status_is(200)->json_is('/total' => 2);
   $t->get_ok('/pagination/search/perl')->status_is(200)->json_is('/total' => 1)->json_hasnt('/family');
   $t->get_ok('/pagination/search/perl-Mojolicious?limit=1')
     ->status_is(200)
     ->json_is('/page/0/package' => 'perl-Mojolicious.12345')
-    ->json_is('/family'         => 'perl-Mojolicious', 'family spans more names than this page shows');
+    ->json_is('/family'         => 'perl-mojolicious', 'family spans more names than this page shows');
 };
 
 done_testing();

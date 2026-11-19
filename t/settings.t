@@ -217,7 +217,7 @@ subtest 'Never group these packages' => sub {
   };
   $db->update('bot_packages', {reviewing_user => 1}, {id => 1});
   my $versioned = $add->('perl-Mojolicious-9.41');
-  is $pkgs->find($versioned)->{family}, 'perl-Mojolicious', 'grouped by the rules';
+  is $pkgs->find($versioned)->{family}, 'perl-mojolicious', 'grouped by the rules';
   $pkgs->ignore_line({package => 'perl-Mojolicious-9.41', hash => 'separate-hash', owner => 1});
   ok $app->patterns->ignore_pattern_exists('perl-Mojolicious', 'separate-hash'), 'ignored for the whole family';
   my $reindexed = sub { $app->minion->jobs({tasks => ['index_later']})->total };
@@ -227,7 +227,7 @@ subtest 'Never group these packages' => sub {
     ->status_is(200)
     ->json_is('/values/separate_packages', ['perl-Mojolicious-9.41']);
   is $pkgs->find($versioned)->{family}, 'perl-Mojolicious-9.41', 'separated right away';
-  is $pkgs->find(1)->{family},          'perl-Mojolicious',      'the rest of the family stays';
+  is $pkgs->find(1)->{family},          'perl-mojolicious',      'the rest of the family stays';
   ok !$app->patterns->ignore_pattern_exists('perl-Mojolicious', 'separate-hash'), 'its ignored matches went with it';
   is $reindexed->() - $before, 2, 'the former family is reindexed';
   is $pkgs->find($add->('perl-Mojolicious-9.41.12345'))->{family}, 'perl-Mojolicious-9.41',
@@ -254,7 +254,7 @@ subtest 'Never group these packages' => sub {
     ->json_is('/total', 0, 'a listed name not imported yet finds nothing');
 
   $t->put_ok('/settings/auto-accept.json' => json => {reset => ['separate_packages']})->status_is(200);
-  is $pkgs->find($versioned)->{family}, 'perl-Mojolicious', 'grouped again';
+  is $pkgs->find($versioned)->{family}, 'perl-mojolicious', 'grouped again';
 };
 
 subtest 'Pause automatic acceptance' => sub {
