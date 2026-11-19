@@ -271,9 +271,11 @@ With these rules about a third of all names share a family with at least one oth
 projects still end up together, because a number in their names looks exactly like a version: standard numbers in
 `openh264` and `openh323`, `gst` and `gst123`, and `tpm-tools` and `tpm2.0-tools`, specification numbers in `jsr-305`
 and `jsr-311`, separate codecs in `broadvoice16` and `broadvoice32`, and numbered bundles that are not versions, like
-`python-comfyui-workflow-templates-media-assets-01` and `-02`. Most acceptance rules still compare the reports
-themselves, so such a pair rarely shares a decision. The exception is that a person's review of one counts as a review
-"of the package" for the other.
+`python-comfyui-workflow-templates-media-assets-01` and `-02`. Of the more than 500 groups of names that differ only in
+letter case, a few are different projects too: the Hare language `hare` and the Haskell refactoring tool `HaRe`, and the
+Haskell libraries `ghc-unique` and `ghc-Unique`. Most acceptance rules still compare the reports themselves, so such a
+pair rarely shares a decision. The exception is that a person's review of one counts as a review "of the package" for
+the other.
 
 When a pair like that turns up, admins put either of the names on the "Never group these packages" list on the Settings
 page. A listed name never shares a family with another name, whether it would be folded into that name or that name into
