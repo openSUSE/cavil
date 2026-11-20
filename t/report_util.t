@@ -16,7 +16,7 @@ use Cavil::ReportUtil (
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
   qw(spdx_edit_snippet summary_delta summary_delta_risk summary_delta_score unexplained_line_numbers),
   qw(unexplained_lines),
-  qw(is_catalog_entry license_terms_kind)
+  qw(license_terms_kind)
 );
 
 # A small injectable OSADL-style matrix (outbound -> inbound), so the compatibility tests do not depend
@@ -391,6 +391,17 @@ subtest 'license_compatibility proximity ranking' => sub {
     is $p->{lca_depth}, 0, 'the real code meets only at the package root';
   };
 
+  subtest 'A license catalog file is the lowest tier' => sub {
+    my $report = {
+      files    => {1            => 'linux-firmware-1/WHENCE.processed'},
+      licenses => {'Apache-2.0' => {spdx => 'Apache-2.0'}, 'GPL-2.0-only' => {spdx => 'GPL-2.0-only'}},
+      risks    => {5            => {'Apache-2.0' => {100 => [1]}, 'GPL-2.0-only' => {101 => [1]}}}
+    };
+    my $p = license_compatibility($report, $TEST_MATRIX)->{proximity}{'Apache-2.0'}{'GPL-2.0-only'};
+    is $p->{same_file}, 1, 'both licenses in WHENCE';
+    is $p->{tier},      2, 'but WHENCE only lists licenses, it does not combine them';
+  };
+
   subtest 'No file evidence yields no proximity' => sub {
     my $report = {licenses => {map { $_ => {spdx => $_} } qw(Apache-2.0 GPL-2.0-only)}};
     my $compat = license_compatibility($report, $TEST_MATRIX);
@@ -618,6 +629,7 @@ subtest 'peripheral_scope' => sub {
   is_deeply peripheral_scope(['a/vendor/foo/test/x.c']),     ['test'], 'a dependency test reads as a test';
   is_deeply peripheral_scope(['a/licenses/GPL-2.0', 'a/LICENSES/MIT']), ['license catalog'],
     'a license text collection';
+  is_deeply peripheral_scope(['fw-1/WHENCE.processed', 'debian/copyright']), ['license catalog'], 'license indexes';
 
   # One file in shipped code is enough to say nothing: the marker exists to let a reader skip a license,
   # so it must never appear while any of its matches could be the package's own code.
@@ -648,10 +660,15 @@ subtest 'license_terms_kind' => sub {
   is license_terms_kind('docs/licenses/LICENSE.bar'),        'documentation',   'docs stay docs';
   is license_terms_kind('src/main.c'),                       undef,             'plain source';
   is license_terms_kind('build-aux/COPYING'),                'build',           'terms of the build helpers';
-  is license_terms_kind('build-aux/COPYING', 0),             undef, 'unless the package ships its build files';
-  ok is_catalog_entry('debian/copyright'),                'Debian copyright';
-  ok is_catalog_entry('tools/debian/copyright.template'), 'Debian copyright template';
-  ok !is_catalog_entry('COPYRIGHT'),                      'a package COPYRIGHT file';
+  is license_terms_kind('build-aux/COPYING', 0), undef,             'unless the package ships its build files';
+  is license_terms_kind('debian/copyright'),     'license catalog', 'Debian copyright';
+  is license_terms_kind('tools/debian/copyright.template'), 'license catalog', 'Debian copyright template';
+  is license_terms_kind('fw-1/WHENCE'),                     'license catalog', 'linux-firmware WHENCE';
+  is license_terms_kind('fw-1/vendor/x/WHENCE.processed'),  'license catalog', 'processed, and wins over vendored';
+  is license_terms_kind('COPYRIGHT'),                       undef,             'a package COPYRIGHT file';
+  is license_terms_kind('src/whence.c'),                    undef,             'source named after it';
+  is license_terms_kind('fw-1/WHENCEFORTH'),                undef,             'nor a longer name';
+  is license_terms_kind('zsh-1/Functions/whence'),          undef,             'nor a lowercase one';
 };
 
 subtest 'unexplained_line_numbers' => sub {

@@ -148,7 +148,7 @@ Vendored dependencies (spot check these - vendored code linked into the build is
 
 Lower priority (full matrix in the web report):
 %     if ($peripheral) {
-* <%= $peripheral %> in tests/docs/examples/build files (ignorable even inside a vendored tree)
+* <%= $peripheral %> in tests/docs/examples/build files/license catalogs (ignorable even inside a vendored tree)
 %     }
 %     if ($weak) {
 * <%= $weak %> via an unresolved-snippet guess

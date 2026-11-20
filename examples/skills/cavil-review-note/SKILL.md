@@ -163,8 +163,9 @@ its heading and flags, not by its name.
 
 Risk 1-4 is the acceptable band (strong copyleft is acceptable for SUSE's distribution model); escalation begins at risk
 5. Acceptability is still product-dependent, so treat these as leans. A license line marked
-`(only in license catalog files)` matches only a license text kept in a catalog directory such as `LICENSES/`, not code
-under that license. A line marked `(only in build files)` matches only build machinery, such as configure scripts, m4
+`(only in license catalog files)` matches only a license text kept in a catalog directory such as `LICENSES/`, or an
+index such as `debian/copyright` or linux-firmware's `WHENCE` that lists each file's license. Neither is code, but an
+index entry still names the license of a file that ships. A line marked `(only in build files)` matches only build machinery, such as configure scripts, m4
 macros, `Makefile.in` templates and helpers like `install-sh`, which does not end up in the binary package. Both labels
 say where the files are, not what to decide.
 

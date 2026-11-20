@@ -162,11 +162,11 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
     is_deeply $scope->(), ['build'], 'the license is only in build files';
     my $mcp = $t->app->build_controller->mcp_report(1);
     like $mcp, qr/\* MPL-1\.1: 2 files \(only in build files\)/, 'MCP report says where the license is';
-    like $mcp, qr!\* 3 in tests/docs/examples/build files \(ignorable even inside a vendored tree\)!,
+    like $mcp, qr!\* 3 in tests/docs/examples/build files/license catalogs \(ignorable even inside a vendored tree\)!,
       'MCP report counts the pairs with MPL-1.1 as lower priority';
     $t->get_ok('/reviews/report/1.txt')
       ->status_is(200)
-      ->content_like(qr!\* GPL-2\.0-only and MPL-1\.1 \(tests/docs/examples/build files only\)!,
+      ->content_like(qr!\* GPL-2\.0-only and MPL-1\.1 \(tests/docs/examples/build files/license catalogs only\)!,
       'text report says where the pair meets');
 
     # A build tool ships its build files, so for it they are shipped source

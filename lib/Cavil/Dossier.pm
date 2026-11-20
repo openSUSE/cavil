@@ -6,7 +6,7 @@ use Mojo::Base -base, -signatures;
 
 use Cavil::Checkout;
 use Cavil::ReportUtil
-  qw(is_catalog_entry is_license_filename is_vendored_path license_terms_kind peripheral_scope peripheral_scope_label),
+  qw(is_license_filename is_vendored_path license_terms_kind peripheral_scope peripheral_scope_label),
   qw(incompatibility_location ranked_incompatibilities unexplained_line_numbers);
 use Cavil::Util
   qw(checkout_path decode_name document_writer extract_spdx_identifiers fs_bytes md5_file original_filename read_lines);
@@ -192,7 +192,7 @@ sub _incompatible_pairs ($ctx) {
     my @verdicts = map {"$_->[0] -> $_->[1]: $matrix->{$_->[0]}{$_->[1]}{compatibility}"}
       grep { $matrix->{$_->[0]}{$_->[1]} } [$x, $y], [$y, $x];
     my %seen;
-    my @files = grep { !$seen{$_}++ && !/$LOCKFILE/ && !is_catalog_entry($_) } @{$pair->{files}};
+    my @files = grep { !$seen{$_}++ && !/$LOCKFILE/ } @{$pair->{files}};
     my $ids   = _file_ids($ctx, \@files);
 
     for my $name (@files) {
@@ -475,7 +475,6 @@ sub _shipping ($ctx) {
 
 # Shipped source or vendored code, which can be linked in, but not tests, docs, examples or license catalogs
 sub _ships ($ctx, $path) {
-  return 0 if is_catalog_entry($path);
   my $kind = license_terms_kind($path, !$ctx->{report}{ships_build_files});
   return !$kind || $kind eq 'vendored';
 }

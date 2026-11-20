@@ -605,8 +605,10 @@ down and clearly labelled.
 The ranking combines three signals, in a deliberate order of precedence:
 
 1. **Where the evidence lives.** Three tiers, in this order: the package's shipped source, then vendored
-   third-party code, then tests, documentation, examples, build files and license-text catalogues (directories
-   where unrelated licenses sit next to each other by construction, which says nothing about combination).
+   third-party code, then tests, documentation, examples, build files and license catalogues (directories of
+   license texts, and indexes such as Debian's `copyright` or linux-firmware's `WHENCE` that list every
+   component's license), where unrelated licenses sit next to each other by construction, which says nothing
+   about combination.
    Shipped source always wins, because that is what decides the actual deliverable. Vendored code sits in the
    middle rather than at the bottom: a vendored library that gets linked into the build is a combined work like
    any other, so it earns a look. A vendored dependency's own tests, documentation and build files are as

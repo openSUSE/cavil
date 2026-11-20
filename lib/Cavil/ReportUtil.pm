@@ -16,7 +16,7 @@ use Cavil::Util
 our @EXPORT_OK = (
   qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
   qw(license_compatibility license_document_candidates license_obligations license_obligation_ids minimal_snippet),
-  qw(is_catalog_entry is_vendored_path license_terms_kind peripheral_scope peripheral_scope_label),
+  qw(is_vendored_path license_terms_kind peripheral_scope peripheral_scope_label),
   qw(unexplained_line_numbers $LEGAL_SNIPPET_SQL),
   qw(new_license_names new_unresolved_files overlapping_licenses ranked_incompatibilities report_checksum report_risk),
   qw(report_shortname should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear),
@@ -311,11 +311,15 @@ my %BUILD_FILE = map { $_ => 1 } qw(configure configure.ac configure.in aclocal.
 # One dot only, corenetwork.te.m4 is SELinux policy source
 sub _is_build_name ($name) { return $BUILD_FILE{$name} || $name =~ /^[^.]+\.m4$/ }
 
+# Debian copyright files and linux-firmware's WHENCE list every component's license and state no terms of their own
+my $CATALOG_FILE = qr{(?:^|/)(?:(?i:debian/copyright|[^/]*copyright\.template)|WHENCE)$};
+
 # A test, doc or example segment anywhere in the path beats a vendored one, because a vendored dependency's own
 # tests are as ignorable as the package's own, and so are its build files. Basenames only decide build files, a
 # self-extracting script unpacks into "configure._/" with its payload beside it. Packages that ship their build
 # files as their product, such as libtool, pass $build false.
 sub _path_peripheral_kind ($path, $build = 1) {
+  return 'license catalog' if original_filename($path) =~ $CATALOG_FILE;
   my @segs = split m{/}, $path;
   my $name = original_filename(pop @segs) =~ s/\._\d*$//r;
   my %found;
@@ -587,11 +591,7 @@ sub license_document_candidates ($dig_report, $limit = 100) {
   my @found;
   for my $id (keys %$files) {
     my $path = $files->{$id};
-    next
-      unless defined $path
-      && is_license_filename($path)
-      && !is_catalog_entry($path)
-      && !license_terms_kind($path, $build);
+    next unless defined $path && is_license_filename($path) && !license_terms_kind($path, $build);
     push @found, {id => $id, path => $path};
   }
 
@@ -601,11 +601,6 @@ sub license_document_candidates ($dig_report, $limit = 100) {
   my $dropped = @found > $limit ? @found - $limit : 0;
   splice @found, $limit if $dropped;
   return {documents => \@found, dropped => $dropped};
-}
-
-# Debian copyright files catalog every component's license and state no terms of their own
-sub is_catalog_entry ($path) {
-  return $path =~ m{(?:^|/)debian/copyright$}i || $path =~ m{(?:^|/)[^/]*copyright\.template$}i ? 1 : 0;
 }
 
 # Where a license file sits, like the peripheral classification. A REUSE LICENSES/ directory holds texts named by
