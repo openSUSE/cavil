@@ -72,7 +72,7 @@ them through this table:
 
 | Format | The package is | Its license declaration covers | What ships |
 |---|---|---|---|
-| `obsprj` | A project repository (`workflow.config` is build service configuration) | Nothing | Nothing of its own; each directory, at any depth, with a spec named after it directly inside (`OS/hauler/hauler.spec`, not `OS/`) is a member package shipped by that spec and reviewed here |
+| `obsprj` | A project repository (`workflow.config` is build service configuration) | Nothing | Nothing of its own; each directory, at any depth, with a spec named after it directly inside (`tools/foo/foo.spec`, not `tools/`) is a member package shipped by that spec and reviewed here |
 | `dockerfile` | A container image recipe | Only the `Dockerfile` itself | The image: the packages it installs (`zypper install`, `FROM`), reviewed as their own packages, plus checkout files it copies in (`COPY`, `ADD`; not `COPY --from` a build stage) or builds |
 | `kiwi` | An image recipe | Nothing in the checkout: its `org.opencontainers.image.licenses` label describes the built image | The image: the packages it lists, reviewed as their own packages, plus checkout overlays (`root/`, an `<archive>`) |
 | `helm` | A Helm chart | Only `Chart.yaml` itself | The chart's files as they are |
@@ -533,7 +533,7 @@ AI-assisted review recommendation: ACCEPT
 
 Issues for legal reviewer:
 - No package-wide declared license, none needed: the checkout holds only `Dockerfile` and `_service`. A `Dockerfile` license header would cover only that file.
-- What ships: the `akri-agent` package on a SUSE base image, both reviewed as their own packages; nothing from the checkout is copied in, so no license-text obligations here.
+- What ships: the `foo` package on a SUSE base image, both reviewed as their own packages; nothing from the checkout is copied in, so no license-text obligations here.
 
 **Suggested next step:** Human reviewer can accept; nothing for the packager to change.
 
@@ -546,13 +546,13 @@ A project repository:
 AI-assisted review recommendation: NEEDS HUMAN REVIEW
 
 Issues for legal reviewer:
-- No package-wide declared license: a project repository. Its 12 member packages declare their own in their specs; `OS/erofs-utils/erofs-utils.spec` (GPL-2.0-or-later) and `OS/hauler/hauler.spec` (Apache-2.0) match their code.
-- License-text obligations checked for erofs-utils and hauler only; both ship their texts.
-- Any EULA (risk 6) only in `OS/hauler/hauler-2.1.2/testdata/`: a link to SUSE's own EULA, no finding.
+- No package-wide declared license: a project repository. Its 5 member packages declare their own in their specs; `tools/foo/foo.spec` (MIT) and `libs/bar/bar.spec` (LGPL-2.1-or-later) match their code.
+- License-text obligations checked for foo and bar only; both ship their texts.
+- Any EULA (risk 6) in `tools/foo/foo-1.0/README.md`: a link to SUSE's own EULA, no finding.
 
-**Suggested next step:** Nothing for the packager to change. Reviewer can check the 10 unchecked members.
+**Suggested next step:** Nothing for the packager to change. Reviewer can check the 3 unchecked members.
 
-**Confidence:** Medium - 2 of 12 members checked.
+**Confidence:** Medium - 2 of 5 members checked.
 ```
 
 No notable issues:
