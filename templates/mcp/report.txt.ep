@@ -53,7 +53,7 @@ lawyer's decision; a lawyer's result on the same report is the strongest precede
 
 %   for my $h (@$history) {
 %     my $who = ($h->{login} ? " by $h->{login}" : '') . ($h->{state} eq 'acceptable' ? ' (not a lawyer)' : '');
-* <%= $h->{id} %><%== $h->{name} ne $summary->{package_name} ? " ($h->{name})" : '' %><%== $h->{version} ? " (version $h->{version})" : '' %>: <%= $h->{state} %><%== $who %> on <%= Mojo::Date->new($h->{reviewed_epoch})->to_datetime %><%== $h->{same} ? ' [same report]' : '' %>
+* <%== $h->{id} %><%== $h->{name} ne $summary->{package_name} ? " ($h->{name})" : '' %><%== $h->{version} ? " (version $h->{version})" : '' %>: <%== $h->{state} %><%== $who %> on <%== Mojo::Date->new($h->{reviewed_epoch})->to_datetime %><%== $h->{same} ? ' [same report]' : '' %>
 %     if (length(my $result = $h->{result} // '')) {
 %       $result =~ s/\s+/ /g;
   Result: <%== length $result > 1000 ? substr($result, 0, 1000) . '...' : $result %>
@@ -141,20 +141,20 @@ Vendored dependencies (spot check these - vendored code linked into the build is
 <%== $line %>
 %     }
 %     if ($dropped > 0) {
-* and <%= $dropped %> more vendored pairs, not listed (full matrix in the web report)
+* and <%== $dropped %> more vendored pairs, not listed (full matrix in the web report)
 %     }
 %   }
 %   if ($peripheral || $weak || $distant) {
 
 Lower priority (full matrix in the web report):
 %     if ($peripheral) {
-* <%= $peripheral %> in tests/docs/examples/build files/license catalogs (ignorable even inside a vendored tree)
+* <%== $peripheral %> in tests/docs/examples/build files/license catalogs (ignorable even inside a vendored tree)
 %     }
 %     if ($weak) {
-* <%= $weak %> via an unresolved-snippet guess
+* <%== $weak %> via an unresolved-snippet guess
 %     }
 %     if ($distant) {
-* <%= $distant %> only at the package root (aggregation)
+* <%== $distant %> only at the package root (aggregation)
 %     }
 %   }
 
@@ -210,14 +210,14 @@ No files matched known license patterns or keywords.
 
 ## Unmatched Snippets
 
-<%= $unmatched->{total} %> unresolved snippet<%= $unmatched->{total} == 1 ? '' : 's' %> need review. Highest impact first (one pattern or ignore clears every identical occurrence):
+<%== $unmatched->{total} %> unresolved snippet<%== $unmatched->{total} == 1 ? '' : 's' %> need review. Highest impact first (one pattern or ignore clears every identical occurrence):
 
 %   for my $s (@{$unmatched->{rows}}) {
 %     my $preview = substr(($s->{text} // '') =~ s/\s+/ /gr, 0, 120);
-* <%= $s->{occurrences} %>x snippet <%= $s->{snippet_id} %> (~<%= $s->{closest_license} // 'unknown-license' %> <%= $s->{similarity} %>%): <%== $preview %>
+* <%== $s->{occurrences} %>x snippet <%== $s->{snippet_id} %> (~<%== $s->{closest_license} // 'unknown-license' %> <%== $s->{similarity} %>%): <%== $preview %>
 %   }
 
-For the full list and per-snippet detail (verbatim text, overlaps, keywords, covered-by): cavil_search_snippets(package_id=<%= $summary->{id} %>).
+For the full list: cavil_search_snippets(package_id=<%== $summary->{id} %>). For one snippet's verbatim text, overlaps, keywords and covered-by, add group=none and its snippet_id.
 
 % }
 % my $emails = $artifacts->{emails} // {total => 0, values => []};
@@ -226,7 +226,7 @@ For the full list and per-snippet detail (verbatim text, overlaps, keywords, cov
 
 ## Email Addresses
 
-Ordered by occurrences<%= $emails->{total} > @emails ? ", top " . scalar(@emails) . " of $emails->{total}" : '' %>.
+Ordered by occurrences<%== $emails->{total} > @emails ? ", top " . scalar(@emails) . " of $emails->{total}" : '' %>.
 
 %   for my $email (@emails) {
 * `<%== $email->[0] %>`: <%== $email->[1] %>
@@ -239,7 +239,7 @@ Ordered by occurrences<%= $emails->{total} > @emails ? ", top " . scalar(@emails
 
 ## URLs
 
-Ordered by occurrences<%= $urls->{total} > @urls ? ", top " . scalar(@urls) . " of $urls->{total}" : '' %>.
+Ordered by occurrences<%== $urls->{total} > @urls ? ", top " . scalar(@urls) . " of $urls->{total}" : '' %>.
 
 %   for my $url (@urls) {
 * `<%== $url->[0] %>`: <%== $url->[1] %>
@@ -262,10 +262,10 @@ those lines: the auto-resolved snippet counts can hide them.
 %   for my $document (@{$legal_documents->{documents}}) {
 %     my $unexplained = $document->{unexplained};
 %     my @licenses    = sort keys %{$matched{original_filename($document->{path})} // {}};
-* `<%== maybe_utf8($document->{path}) %>`: <%== @licenses ? join(', ', @licenses) . ', ' : '' %><%= $document->{lines} %> line<%= $document->{lines} == 1 ? '' : 's' %><%== $unexplained ? ", $unexplained unknown" : '' %>
+* `<%== maybe_utf8($document->{path}) %>`: <%== @licenses ? join(', ', @licenses) . ', ' : '' %><%== $document->{lines} %> line<%== $document->{lines} == 1 ? '' : 's' %><%== $unexplained ? ", $unexplained unknown" : '' %>
 %   }
 %   if (my $dropped = $legal_documents->{dropped}) {
-* ... <%= $dropped %> more not listed
+* ... <%== $dropped %> more not listed
 %   }
 % }
 % if ($components->{total}) {
@@ -273,7 +273,7 @@ those lines: the auto-resolved snippet counts can hide them.
 ## Vendored Components
 
 %   if (my $tally = $components->{tally}) {
-<%= $components->{total} %> components. By license: <%== join ', ', map {"$_->[1] $_->[0]"} @$tally %><%== $components->{tally_dropped} ? ", and $components->{tally_dropped} more licenses" : '' %>.
+<%== $components->{total} %> components. By license: <%== join ', ', map {"$_->[1] $_->[0]"} @$tally %><%== $components->{tally_dropped} ? ", and $components->{tally_dropped} more licenses" : '' %>.
 
 %     if (@{$components->{listed}}) {
 Not plainly permissive (risk above 2, or a license without a Cavil pattern), the rest are not listed:
@@ -287,6 +287,6 @@ All of them are plainly permissive, so none are listed.
 * `<%== $c->{name} %><%== length($c->{version} // '') ? '@' . $c->{version} : '' %>` (<%== $c->{type} %>)<%== length($c->{license} // '') ? ': ' . $c->{license} : '' %>
 %   }
 %   if (my $dropped = $components->{unusual_dropped}) {
-* ... <%= $dropped %> more not listed
+* ... <%== $dropped %> more not listed
 %   }
 % }

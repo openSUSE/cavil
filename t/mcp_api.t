@@ -126,7 +126,7 @@ subtest 'MCP' => sub {
         'snippets',
         {
           hash         => 'zzmcp-1',
-          text         => "ZZMCP snippet body licensed under the GPL",
+          text         => qq{ZZMCP snippet body licensed under the "GPL" (it's AT&T's)},
           package      => 1,
           classified   => 1,
           license      => 1,
@@ -153,9 +153,20 @@ subtest 'MCP' => sub {
         my $result = $client->call_tool('cavil_search_snippets', {package_id => 1, group => 'none', search => 'ZZMCP'});
         ok !$result->{isError}, 'not an error';
         my $text = $result->{content}[0]{text};
-        like $text, qr/# Snippets \(group=none\)/, 'header';
-        like $text, qr/snippet $sid .+unresolved/, 'per-occurrence header';
-        like $text, qr/text \@10-13 \(verbatim\)/, 'verbatim line-numbered body';
+        like $text, qr/# Snippets \(group=none\)/,       'header';
+        like $text, qr/snippet $sid .+unresolved/,       'per-occurrence header';
+        like $text, qr/text \@10-13 \(verbatim\)/,       'verbatim line-numbered body';
+        like $text, qr/under the "GPL" \(it's AT&T's\)/, 'body is not HTML-escaped';
+      };
+
+      subtest 'snippet_id lists one snippet' => sub {
+        my $result
+          = $client->call_tool('cavil_search_snippets', {package_id => 1, group => 'none', snippet_id => $sid});
+        ok !$result->{isError}, 'not an error';
+        my $text = $result->{content}[0]{text};
+        like $text,   qr/package_id=1, snippet_id=$sid/, 'echoes snippet_id filter';
+        like $text,   qr/text \@10-13 .+text \@20-23/s,  'both occurrences';
+        unlike $text, qr/snippet (?!$sid\b)\d+ /,        'no other snippets';
       };
 
       subtest 'resolution=reported surfaces snippets with a missing-license report' => sub {
@@ -1060,10 +1071,13 @@ subtest 'MCP' => sub {
         $t->app->minion->enqueue(unpack => [1]);
         $t->app->minion->perform_jobs;
 
-        subtest 'Maximum file list size exceeded' => sub {
+        subtest 'Large file list is truncated' => sub {
           my $result = $client->call_tool('cavil_list_files', {package_id => 1, file_glob => 'mcp_many_files/*'});
-          ok $result->{isError}, 'is error';
-          is $result->{content}[0]{text}, 'Maximum file list size exceeded', 'file list limit message';
+          ok !$result->{isError}, 'not an error';
+          my @lines = split /\n/, $result->{content}[0]{text};
+          is $lines[0],     '1001 files match, showing the first 1000; narrow file_glob for the rest', 'total and hint';
+          is scalar @lines, 1001, 'header plus first 1000 files';
+          like $lines[1], qr{^mcp_many_files/file_\d+\.txt$}, 'file path';
         };
 
         subtest 'Glob prevents file limit from being reached' => sub {

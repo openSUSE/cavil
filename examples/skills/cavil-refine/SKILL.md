@@ -79,10 +79,11 @@ Only a snippet with *no* license name and *no* pointer is a Note.
 
 Your worklist is `cavil_search_snippets(package_id=…, group=text, order=occurrences)` - the
 package's **distinct** unresolved snippets, most-repeated first, each with a `snippet_id`,
-occurrence count, verbatim body, and `keywords`. **Act on each `snippet_id` once** - one
-pattern/ignore clears all its occurrences on re-index. Never page through `group=none` to collect
-occurrences (thousands of duplicate rows); fetch the next page only if `next_offset` is set and the
-rows are still worth acting on.
+occurrence count and a preview. Read one snippet's verbatim body, `keywords` and files with
+`cavil_search_snippets(group=none, package_id, snippet_id)`, with the worklist's `resolution`. **Act
+on each `snippet_id` once** - one pattern/ignore clears all its occurrences on re-index. Never page
+through `group=none` without a `snippet_id` to collect occurrences (thousands of duplicate rows);
+fetch the next worklist page only if `next_offset` is set and the rows are still worth acting on.
 
 **Sweep SPDX/manifest tags first** (add `search="SPDX-License-Identifier"`, then `License:` /
 `license: '`) - safest, highest-volume, and Cavil never resolves them itself. Then for **each**
@@ -95,6 +96,8 @@ worklist snippet, take the **first** action that applies:
    wording in HTML/XML or doxygen/javadoc/groff comments is still license text.
 2. **Pure fixtures / reference catalog** (2+ files share the path) → `cavil_propose_ignore_glob`
    (GLOBS). Never glob bundled-component licenses (`3rd-party/`, `lib/<vendor>/`) - those are Mode A.
+   License copies for code the tarball does not contain (package-manager recipe catalogs such as
+   vcpkg `ports/`) are a reference catalog, not bundled components.
 3. **Standalone notice / reference / generic grant** → pattern with a pseudo-license (PSEUDO-LICENSES).
 4. **Mode A** → `cavil_create_snippet` for the whole body, then pattern it once. Check this before
    step 5.
@@ -145,10 +148,12 @@ skipped a check, so never answer it by adding `broad_ok` and retrying.
    search=<identifier>)`).
 2. **Real reach:** if the dry run says `candidate cap reached`, its count is only a lower bound. Get
    the real reach from `cavil_search_snippets(resolution=any, search=<literal identifier>)`, which
-   lists every package holding the load-bearing token. Use `broad_ok` only when that evidence
-   supports it, and cite the evidence in the reason by naming the packages, not "about N".
+   lists every snippet holding the load-bearing token with its package count. Use `broad_ok` only when
+   that evidence supports it, and cite it in the reason as snippet ids with their package counts, not
+   "about N".
 3. **Coverage:** dry-run with `package_id` to confirm that every worklist variant (`#`, `//`, one-line
-   and two-line headers) matches.
+   and two-line headers) matches. For a Mode A body the dry run counts only your created snippet. That
+   is expected: a whole body cannot over-match, and the fragments inside it clear on re-index.
 
 **DATA FIXES.** When the checks or the precedent step show a mistake in Cavil's own data, **hold the
 proposals it affects** and tell the user how to correct it. Keep working on everything else. Typical
@@ -260,7 +265,7 @@ grab-bag step 2).
 | The notice… | Class | Allowed `license` | Risk |
 | --- | --- | --- | --- |
 | grants use/copying/redistribution, maybe with conditions | grant | named license, `Any Permissive`, `Any specification license` (spec documents only) | per tool levels |
-| only reserves rights ("may not be reproduced", "strictly prohibited", "does not convey any rights") | reservation only | a new license (NEW LICENSES) if it covers shipped code; otherwise the closest restrictive pseudo-license (none at risk 7 → Note + DATA FIXES) | **7** |
+| only reserves rights ("may not be reproduced", "strictly prohibited", "does not convey any rights") | reservation only | on code in the package: a new license (NEW LICENSES), the vendor's own terms; on a reference document only: Note | **7** |
 | marks confidentiality ("Confidential", "Proprietary and Confidential") with no terms | marker | include the surrounding notice (grab-bag step 3), then re-classify | - |
 | only disclaims warranty | disclaimer | `Any floating warranty` / `Any no warranty` | per tool levels |
 | is metadata ("IP Status: …", a license field in a catalog) | metadata | ignore, unless it names a license (Mode B) | - |
@@ -274,7 +279,9 @@ rejected. Before using any `Any …` value:
    name that cannot exist (e.g. `license="Khronos spec notice probe"`, no `risk`) and your full draft
    pattern (a short phrase trips the reach check first). A miss submits
    nothing and returns the closest existing names; that is how `Any specification license` was
-   found. An exact hit **does** submit, so never probe with a real name.
+   found. An exact hit **does** submit, so never probe with a real name. Names are matched by
+   spelling, so probe with the generic words such a name would use (`Any ... notice`), not the
+   vendor's name; an empty list means no similar *name*, not no similar license.
 3. Never pattern a bare marker line (`X Proprietary and Confidential`) with no context. Include the
    surrounding notice so the pattern shows what kind of document it belongs to.
 4. **Risk lives on each pattern, not on the license name.** Most `Any …` names have patterns at
@@ -310,6 +317,9 @@ these hold. Otherwise report missing (in `reported` mode: leave it for a human):
    the steward's published text; the card says which, and whether the text ships in the package.
 2. You confirmed it against a primary source with `WebFetch` (sources below): the steward's canonical
    text or the SPDX list, never only a project's re-hosted copy. No web access means no new license.
+   Exception: a vendor's own terms that exist only as the notice in the package (a Broadcom header, the
+   TPC benchmark Legal Notice) have no canonical text to fetch. The body in the package is the primary
+   source; say so under **Sources**.
 3. You can quote the **single clause** that fixes its risk tier, and you looked up the closest license
    Cavil already rates (the one it derives from, or its nearest sibling) with `cavil_search_patterns(license=…)`.
    Match its risk or say why not; a comparator outside its own tier goes to DATA FIXES.
@@ -416,7 +426,9 @@ affects shipping the package (terms on built/installed code, vendor licenses). T
 ## TOOLS
 
 - `cavil_search_snippets(package_id, group=text, order=occurrences)` - the worklist (DECISION
-  PROCEDURE); `resolution=reported` for the `reported` worklist.
+  PROCEDURE); `resolution=reported` for the `reported` worklist; `group=none, snippet_id` for one
+  snippet's body and files. `search` covers snippet bodies only: every word must appear, `"quoted"` for
+  an exact phrase.
 - `cavil_search_patterns(package_id, snippet_id)` - precedent verdict. Also takes `text` (a draft or an
   excerpt), `pattern_id` (similar patterns) and filters (`license`, `risk`, `flag`, `catch_all`,
   `search`, `min_skip`).

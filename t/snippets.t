@@ -511,12 +511,11 @@ subtest 'snippet_search embargo gates' => sub {
     is $occ[0]{file}, 'clean/public.txt', 'embargoed file path is not revealed';
   };
 
-  subtest 'group=text detail never enriches from an embargoed occurrence' => sub {
-    my ($row)
-      = grep { $_->{snippet_id} == $mix }
-      @{$app->snippets->snippet_search({group => 'text', search => 'ZZEMBARGO', detail => 1})->{snippets}};
-    ok $row, 'mixed snippet present with detail';
-    ok !(grep { $_->{license} eq 'Apache-2.0' } @{$row->{overlaps} || []}),
+  subtest 'snippet_id never lists an embargoed occurrence' => sub {
+    my $rows = $app->snippets->snippet_search({group => 'none', snippet_id => $mix})->{snippets};
+    is scalar(@$rows),         1,    'only the unembargoed occurrence of that snippet';
+    is $rows->[0]{snippet_id}, $mix, 'right snippet';
+    ok !(grep { $_->{license} eq 'Apache-2.0' } @{$rows->[0]{overlaps} || []}),
       'the embargoed-file Apache overlap is not surfaced';
   };
 };

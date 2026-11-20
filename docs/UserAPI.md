@@ -155,8 +155,11 @@ snippets by impact; or list individual occurrences with per-snippet detail.
   overlaps/keywords/covered-by detail). (string, optional)
 - `order`: For `group=text`, one of `occurrences` (default), `packages`, `risk`, `recent`. (string, optional)
 - `package_id`: Scope to one package; omit for fleet-wide. (number, optional)
+- `snippet_id`: Only this snippet; with `group=none` it lists the snippet's verbatim text and every occurrence.
+  (number, optional)
 - `license`: Filter by the snippet's closest license name. (string, optional)
-- `search`: Full-text search over snippet bodies. (string, optional)
+- `search`: Full-text search over snippet bodies only, not the surrounding file text. Every word must appear; a
+  `"quoted phrase"` matches the exact wording. (string, optional)
 - `limit`: Maximum number of rows to return. Defaults to `20`, maximum `100`. (number, optional)
 - `offset`: Number of rows to skip for pagination. Defaults to `0`. (number, optional)
 
@@ -182,7 +185,9 @@ the close variants classified differently (dissent). Without a subject it lists 
 Dry-run a pattern: how many snippets and packages it would match, up to 5 samples with the words each `$SKIPn`
 swallowed, and the most similar existing patterns. Candidates are prefiltered by full-text search on the pattern's
 longest words (at most 1000 candidates). Occurrence and package counts stop at 10000 and 1000, and the whole dry run
-has a 10 second statement timeout, so it is safe on a production-sized database; a `+` marks a lower bound.
+has a 10 second statement timeout, so it is safe on a production-sized database; a `+` marks a lower bound. Only
+snippets containing the whole pattern count, so a pattern longer than the snippets it targets (a whole license body)
+shows few matches here but matches every file holding the text on re-index.
 
 - **Required Roles**: `user` (read-only)
 - `pattern`: Draft pattern text. (string, optional)
@@ -202,7 +207,7 @@ Get content of a specific file in the package. Lines longer than 8000 bytes are 
 
 #### cavil_list_files
 
-List files in the package.
+List files in the package. Past 1000 matching files it returns the total and the first 1000.
 
 - **Required Roles**: `user` (read-only)
 - `package_id`: ID of package to list files from. (number, required)

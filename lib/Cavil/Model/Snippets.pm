@@ -513,6 +513,7 @@ sub _snippet_search ($self, $db, $options) {
 
   my $extra = '';
   if ($options->{package_id}) { $extra .= ' AND fs.package = ?'; push @binds, $options->{package_id}; }
+  if ($options->{snippet_id}) { $extra .= ' AND s.id = ?';       push @binds, $options->{snippet_id}; }
 
   # The report's legal-text rule, or counts drift from unresolved_matches. "reported" skips it: a missing-license
   # report asserts the snippet IS a license, so it must surface whatever its resolution or classifier verdict.
@@ -588,28 +589,18 @@ sub _snippet_search ($self, $db, $options) {
   for my $r (@$rows) { $r->{similarity} = int(($r->{similarity} // 0) * 100 + 0.5) }
 
   # Tier-2 detail (bounded by page size): overlaps / covered-by / keywords, for agent decisions.
-  my $detail = !$options->{skip_detail} && ($options->{detail} || $group eq 'none');
+  my $detail = !$options->{skip_detail} && $group eq 'none';
   $self->_enrich_snippet_detail($db, $_) for $detail ? @$rows : ();
 
   return {has_more => $has_more, offset => $offset, limit => $limit, group => $group, snippets => $rows};
 }
 
-# Tier-2 detail for one snippet_search row: the decision context the human report trims away via
+# Tier-2 detail for one group=none row: the decision context the human report trims away via
 # minimal_snippet. Adds `overlaps` (curated matches on/adjacent to the snippet's lines, with position),
 # `keywords` (the literal keyword tokens that tripped it), and `covered_by` (concrete non-catch_all
 # licenses established in the file / its directory). Bounded - called once per returned page row.
 sub _enrich_snippet_detail ($self, $db, $row) {
-  my $sid = $row->{snippet_id};
-
-  # Describe the row's own occurrence (group=none) or a representative one (group=text). The
-  # group=none row already comes from an unembargoed occurrence, but the group=text fallback must
-  # not pick one in an embargoed package - that would leak an embargoed file path/context.
   my ($file_id, $sline, $eline, $package) = @{$row}{qw(file_id line eline package)};
-  unless ($file_id) {
-    my $occ = _visible_occurrence($db, $sid) or return;
-    ($file_id, $sline, $eline, $package) = @{$occ}{qw(file sline eline package)};
-  }
-  return unless $file_id;
 
   # Curated matches intersecting or abutting [sline, eline] in this file. License matches become
   # `overlaps` (with position vs the snippet); empty-license keyword patterns become `keywords`.
@@ -690,17 +681,6 @@ sub _occurrence ($db, $id, $file_id) {
   # real fix; this just keeps the fallback stable.
   $sql .= ' ORDER BY fs.file LIMIT 1';
   return $db->query($sql, @bind)->hash;
-}
-
-# A representative occurrence for detail enrichment, from a package that is neither embargoed nor
-# obsolete - so detail never leaks an embargoed file path or describes dead (superseded) work.
-sub _visible_occurrence ($db, $id) {
-  return $db->query(
-    'SELECT fs.package, fs.file, fs.sline, fs.eline
-       FROM file_snippets fs JOIN bot_packages p ON p.id = fs.package
-      WHERE fs.snippet = ? AND fs.generation = 0 AND p.embargoed = false AND p.obsolete = false
-        AND p.ephemeral = false LIMIT 1', $id
-  )->hash;
 }
 
 sub with_context ($self, $id, $file_id = undef) {

@@ -95,7 +95,8 @@ sub register ($self, $app, $config) {
     name        => 'cavil_get_report',
     description =>
       'Get legal report for a specific package. Unresolved snippets are summarised as a top-by-impact rollup; use'
-      . ' cavil_search_snippets(package_id=...) for the full list and per-snippet detail. url_limit/email_limit cap'
+      . ' cavil_search_snippets(package_id=...) for the full list, with group=none and snippet_id for one snippet\'s'
+      . ' verbatim text and detail. url_limit/email_limit cap'
       . ' those occurrence-ordered lists (default 10, 0 = omit the section). Past components_limit (default 50, 0 ='
       . ' omit) vendored components are summarised as a license tally plus the ones that are not plainly permissive',
     input_schema => {
@@ -129,8 +130,9 @@ sub register ($self, $app, $config) {
     code => \&tool_cavil_get_file
   );
   $mcp->tool(
-    name         => 'cavil_list_files',
-    description  => 'List files in the package (optionally filtered by glob), up to 1000 files',
+    name        => 'cavil_list_files',
+    description => 'List files in the package (optionally filtered by glob), the first 1000 and a total when there'
+      . ' are more',
     input_schema => {
       type       => 'object',
       properties => {package_id => {type => 'integer', minimum => 1}, file_glob => {type => 'string', default => '*'}},
@@ -330,9 +332,10 @@ sub register ($self, $app, $config) {
       . 'package_id scope (omit for fleet-wide), closest license, and full-text search. Two shapes via "group": '
       . '"text" (default) aggregates identical snippets and ranks by impact (occurrences / distinct packages) so one '
       . 'pattern or glob clears many - use it to triage the highest-value work; "none" lists individual occurrences '
-      . 'with file+line and, per snippet, the decision context the report trims away: overlaps (curated license '
-      . 'matches on/adjacent to the lines, with position), the literal keywords that tripped it, and covered-by '
-      . '(concrete licenses already established in the file/directory). Returns snippet_id + package for the '
+      . 'with file+line, the verbatim body and the decision context the report trims away: overlaps (curated '
+      . 'license matches on/adjacent to the lines, with position), the literal keywords that tripped it, and '
+      . 'covered-by (concrete licenses already established in the file/directory); add snippet_id to see one '
+      . 'snippet\'s occurrences. Returns snippet_id + package for the '
       . 'cavil_propose_* tools. Read-only; embargoed packages are excluded',
     input_schema => {
       type       => 'object',
@@ -348,11 +351,12 @@ sub register ($self, $app, $config) {
         },
         order => {type => 'string', description => 'occurrences (default) | packages | risk | recent (group=text)'},
         package_id => {type => 'integer', minimum     => 1, description => 'scope to one package (omit = fleet-wide)'},
+        snippet_id => {type => 'integer', minimum     => 1, description => 'only this snippet'},
         license    => {type => 'string',  description => 'filter by the snippet\'s closest license name'},
-        search     => {type => 'string',  description => 'full-text search over snippet bodies'},
-        detail     => {
-          type        => 'boolean',
-          description => 'include per-snippet overlaps/keywords/covered-by (implied by group=none)'
+        search     => {
+          type        => 'string',
+          description => 'full-text search over snippet bodies only, not the surrounding file text: every word must'
+            . ' appear, "quoted phrase" for exact wording'
         },
         limit  => {type => 'integer', minimum => 1, maximum => 100, default => 20},
         offset => {type => 'integer', minimum => 0, default => 0}
@@ -402,7 +406,9 @@ sub register ($self, $app, $config) {
       . 'many snippets, occurrences and packages it would match (unresolved = what it would newly resolve), up '
       . 'to 5 samples with file, current resolution and the words each $SKIP swallowed there, and the existing '
       . 'patterns with the most similar wording (duplicates and conflicting classifications). Use it to check a '
-      . 'pattern is neither too broad (matches unrelated text) nor too narrow. Read-only',
+      . 'pattern is neither too broad (matches unrelated text) nor too narrow. Counts only snippets that contain '
+      . 'the whole pattern, so a pattern longer than the snippets it targets (a whole license body) shows few '
+      . 'matches here but matches every file holding the text on re-index. Read-only',
     input_schema => {
       type       => 'object',
       properties => {
@@ -634,9 +640,9 @@ sub tool_cavil_search_snippets ($tool, $args) {
       limit      => $limit,
       offset     => $offset,
       package_id => $package_id,
+      snippet_id => $args->{snippet_id},
       license    => $args->{license},
       search     => $args->{search},
-      detail     => ($args->{detail} ? 1 : 0),
       timeout    => SNIPPET_SEARCH_TIMEOUT
     }
   );
@@ -649,6 +655,7 @@ sub tool_cavil_search_snippets ($tool, $args) {
     resolution => $resolution,
     order      => $order,
     package_id => $package_id,
+    snippet_id => $args->{snippet_id},
     license    => $args->{license},
     search     => $args->{search},
     limit      => $result->{limit},
@@ -691,9 +698,13 @@ sub tool_cavil_list_files ($tool, $args) {
   # The unpack manifest, never a walk of the tree: stat-ing all files of a big checkout takes minutes on a cold cache
   return $tool->text_result('Package is not yet unpacked', 1) unless -f $dir->child('.postprocessed.json');
   my @files = map { decode_name($_) } grep {/$regex/} @{Cavil::Checkout->new($dir)->listed_names};
-  return $tool->text_result('Maximum file list size exceeded', 1) if @files > 1000;
-  return $tool->text_result('No files found',                  1) unless @files;
-  return $tool->text_result(join("\n", @files));
+  return $tool->text_result('No files found', 1) unless @files;
+  return $tool->text_result(join("\n", @files)) if @files <= 1000;
+  return $tool->text_result(
+    join("\n",
+      "@{[scalar @files]} files match, showing the first 1000; narrow file_glob for the rest",
+      @files[0 .. 999])
+  );
 }
 
 sub tool_cavil_create_note ($tool, $args) {
