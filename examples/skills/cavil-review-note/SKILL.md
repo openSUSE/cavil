@@ -66,14 +66,38 @@ The checks below are the common cases, not a closed list and not a form to fill 
 it from the evidence, and confirm anything that might drive the recommendation with `cavil_get_file`. Do not read
 low-risk boilerplate exhaustively on a large report; note the limitation instead.
 
+#### Packages that are not RPMs
+The checks below assume an RPM. When `## Package Declarations` lists one of these formats and no `(spec)` file, read
+them through this table:
+
+| Format | The package is | Its license declaration covers | What ships |
+|---|---|---|---|
+| `obsprj` | A project repository (`workflow.config` is build service configuration) | Nothing | Nothing of its own; each directory, at any depth, with a spec named after it directly inside (`OS/hauler/hauler.spec`, not `OS/`) is a member package shipped by that spec and reviewed here |
+| `dockerfile` | A container image recipe | Only the `Dockerfile` itself | The image: the packages it installs (`zypper install`, `FROM`), reviewed as their own packages, plus checkout files it copies in (`COPY`, `ADD`; not `COPY --from` a build stage) or builds |
+| `kiwi` | An image recipe | Nothing in the checkout: its `org.opencontainers.image.licenses` label describes the built image | The image: the packages it lists, reviewed as their own packages, plus checkout overlays (`root/`, an `<archive>`) |
+| `helm` | A Helm chart | Only `Chart.yaml` itself | The chart's files as they are |
+
+- None of these has a package-wide declared license: say so. Never compare a `Declared-License:` from one of these files
+  with other files, and never call a missing one a finding.
+- Every other check still applies to the code the package carries. Check a project repository's member against the
+  `License:` of its own spec (`cavil_list_files(package_id, file_glob="*.spec")`) and report a mismatch against that
+  spec; members meeting each other are an aggregation. Texts that must accompany every copy must be in the image or
+  chart itself.
+- A fix must name something the package has: never ask for a spec, a `License:` tag, a `%license` line or a license in
+  `workflow.config` where there is none. When there is nothing for the packager to change, say so.
+- A recipe or project repository whose checkout holds only configuration (the recipe, `workflow.config`, build service
+  files such as `_service`, `_multibuild` or kiwi's `config.sh`), with nothing copied in, overlaid, built or held as a
+  member package, is ACCEPT.
+
 #### The declared license - must appear in every note
 The most common reason a package needs human attention is that the license **declared in the packaging** does not match
 what the files say. The `Declared-License:` line near the top shows the declared value verbatim with the file that
 declares it, plus a `(not a valid SPDX expression)` marker when applicable. `## Package Declarations` lists every
 packaging file and project manifest at the package root with its declaration, so the packager's value sits next to
 upstream's own (`package.json`, `Cargo.toml`, ...). No `Declared-License:` line means nothing declares a license
-(nothing listed under `## Package Declarations` means plain upstream source): say so and lean NEEDS HUMAN REVIEW. Do not
-judge from the tag alone; first read the legal documents with unknown lines, and any NOTICE (`## Legal Documents`).
+(nothing listed under `## Package Declarations` means plain upstream source): say so and lean NEEDS HUMAN REVIEW,
+unless the package is one of the formats in "Packages that are not RPMs". Do not judge from the tag alone; first read
+the legal documents with unknown lines, and any NOTICE (`## Legal Documents`).
 
 The one exception is an **empty repository**: a package repository that was just created and holds no code yet, only
 the version-control settings files its hosting service adds. All three must hold:
@@ -173,9 +197,9 @@ A `[flags: ...]` suffix is a curated marker a human attached to the pattern:
 - **CLA** - business risk only (upstream could relicense later); note it, never change the recommendation on it alone.
 - **Patent** / **Export restricted** - a non-license compliance consideration (patent clauses; cryptography/export
   control); surface it, and rely on the flag rather than guessing from file names.
-- **EULA** - read the matched file to see whose EULA it is and say which in the note. A SUSE-owned EULA is distributable
-  (NEEDS HUMAN REVIEW, as is one whose owner you cannot tell); a third-party one is proprietary code (see "Proprietary
-  code" in the declared-license check).
+- **EULA** - read the matched file to see whose EULA it is and say which in the note. A SUSE-owned EULA is no finding;
+  one whose owner you cannot tell is NEEDS HUMAN REVIEW; a third-party one is proprietary code (see "Proprietary code"
+  in the declared-license check).
 - **Trademark** - note for awareness.
 
 #### Legal documents with unknown lines
@@ -342,7 +366,8 @@ beyond the standard checks" is a valid and common outcome; do not manufacture is
 ### Step 5 - Choose a recommendation
 ACCEPT means: the declaration is consistent with the report, the licenses are acceptable, their text obligations are
 checked and met, unresolved matches are low-risk or non-license text, and any pair that met the compatibility check was
-opened and found separate. An empty repository (see the declared-license check) is ACCEPT.
+opened and found separate. An empty repository (see the declared-license check) and a recipe or project repository with
+only configuration (see "Packages that are not RPMs") are ACCEPT.
 
 **REJECT** if any of these applies:
 - A license change to non-open-source terms. It is the headline of the note.
@@ -355,12 +380,13 @@ opened and found separate. An empty repository (see the declared-license check) 
 
 Otherwise **NEEDS HUMAN REVIEW** if any of these applies (never ACCEPT around them):
 - Risk 6 or 7 only in license catalog or build files, or not shipped, or you could not establish that it ships; say
-  which.
+  which. A SUSE-owned EULA is the exception, no finding.
 - A System Notice starting with "Limitation noted", or a `[limitation]` note: a lawyer set conditions for every version
   that the report cannot check. Quote them.
-- Risk 5, a Patent / Export restricted flag, a SUSE-owned EULA or one of unknown owner.
-- No declared license (unless it is an empty repository), or a mismatch that is only fixable metadata (including a
-  declaration broader than reality), with the correction as the next step.
+- Risk 5, a Patent / Export restricted flag, or an EULA of unknown owner.
+- No declared license (unless it is an empty repository or a format without a package-wide declaration), or a
+  mismatch that is only fixable metadata (including a declaration broader than reality), with the correction as the
+  next step.
 - License-text obligations that could not be checked, were checked only partly, or are unmet only for vendored
   components.
 - A combination you could not resolve, or an additional risk that does not clearly block.
@@ -498,6 +524,35 @@ Issues for legal reviewer:
 **Suggested next step:** Human reviewer can accept; the first update with actual content gets a full review.
 
 **Confidence:** High - every file in the checkout was listed and read.
+```
+
+A container recipe with no code of its own:
+
+```markdown
+AI-assisted review recommendation: ACCEPT
+
+Issues for legal reviewer:
+- No package-wide declared license, none needed: the checkout holds only `Dockerfile` and `_service`. A `Dockerfile` license header would cover only that file.
+- What ships: the `akri-agent` package on a SUSE base image, both reviewed as their own packages; nothing from the checkout is copied in, so no license-text obligations here.
+
+**Suggested next step:** Human reviewer can accept; nothing for the packager to change.
+
+**Confidence:** High - every file in the checkout was read.
+```
+
+A project repository:
+
+```markdown
+AI-assisted review recommendation: NEEDS HUMAN REVIEW
+
+Issues for legal reviewer:
+- No package-wide declared license: a project repository. Its 12 member packages declare their own in their specs; `OS/erofs-utils/erofs-utils.spec` (GPL-2.0-or-later) and `OS/hauler/hauler.spec` (Apache-2.0) match their code.
+- License-text obligations checked for erofs-utils and hauler only; both ship their texts.
+- Any EULA (risk 6) only in `OS/hauler/hauler-2.1.2/testdata/`: a link to SUSE's own EULA, no finding.
+
+**Suggested next step:** Nothing for the packager to change. Reviewer can check the 10 unchecked members.
+
+**Confidence:** Medium - 2 of 12 members checked.
 ```
 
 No notable issues:
