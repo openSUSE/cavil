@@ -53,20 +53,20 @@ export function fileViewUrl(pkgId, path, line = 0) {
 export function licenseLink(license) {
   let name = license.license;
   if (name === '') name = '*Pattern without license*';
-  return `<a href='/licenses/${name}'>${name}</a>`;
+  return `<a href="/licenses/${encodeURIComponent(name)}">${name}</a>`;
 }
 
 export function packageLink(review) {
   const name = review.name;
-  return `<a href='/search?q=${encodeURIComponent(name)}'>${name}</a>`;
+  return `<a href="/search?q=${encodeURIComponent(name)}">${name}</a>`;
 }
 
 // In-page navigation by default (the product listing); the report metadata opens a new tab so a reviewer
 // keeps their place, matching the other report links, by passing {blank: true}
 export function productLink(product, {blank = false} = {}) {
   const name = product.name;
-  const attrs = blank ? " target='_blank' rel='noopener'" : '';
-  return `<a href='/products/${encodeURIComponent(name)}'${attrs}>${name}</a>`;
+  const attrs = blank ? ' target="_blank" rel="noopener"' : '';
+  return `<a href="/products/${encodeURIComponent(name)}"${attrs}>${name}</a>`;
 }
 
 export function reportLink(review) {

@@ -1149,6 +1149,24 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       t.equal(await page.inputValue('#edit-pattern input[name=license]'), 'Vue-Create-Test-License');
     });
 
+    await t.test('Licenses list links names with quotes', async t => {
+      const name = "Monkey's Audio License";
+      await page.goto(`${url}/licenses/new_pattern?${new URLSearchParams({'license-name': name})}`);
+      await page.waitForSelector('#edit-pattern .cm-editor');
+      await page.evaluate(() => {
+        const view = document.querySelector('#edit-pattern .cm-editor').cmView;
+        view.dispatch({changes: {from: 0, insert: 'unique-monkeys-audio-test-pattern-body'}});
+      });
+      await Promise.all([
+        page.waitForURL(/\/licenses\/edit_pattern\/\d+/),
+        page.locator('#edit-pattern button[type=submit]').click()
+      ]);
+
+      await page.goto(`${url}/licenses`);
+      await page.click(`text=${name}`);
+      t.equal(await page.innerText('title'), `License details of ${name}`);
+    });
+
     await t.test('License details page (Vue) - inline edit updates pattern card', async t => {
       await page.goto(`${url}/licenses/Vue-Create-Test-License`);
       t.equal(await page.innerText('title'), 'License details of Vue-Create-Test-License');
