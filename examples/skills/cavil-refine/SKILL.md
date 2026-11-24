@@ -199,7 +199,7 @@ Capturing a body is a **copy** job, not an authoring job - that is why it is rel
 2. `cavil_create_snippet(package_id, file_path, first_line, last_line)` → returns a new
    `snippet_id` and the captured text. Verify it covers the whole license and nothing extraneous
    (no second license title, no separator line past the end).
-3. Propose against the **new** `snippet_id`: the captured body **verbatim**, with the **whole
+3. Propose against the **new** `snippet_id`: the captured body **verbatim**, line breaks included, with the **whole
    variable copyright/holder/year clause collapsed into a single `$SKIPn`**. Do not paraphrase.
 
 Example: for jython's PSF license, snippet the entire `PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2`
@@ -228,6 +228,8 @@ separate action once both blocks are patterned.
   pattern the underlying wording; a `$SKIP` sized to jump tags also matches any other words there.
 - **No leading/trailing `$SKIP`**, no line-number prefixes from `cavil_get_file`, no invented or
   paraphrased text. The pattern must match the snippet it is proposed against, or it is rejected.
+- **Keep the snippet's line breaks**, never join it into one line. Lawyers read the pattern, and Cavil
+  ignores whitespace when matching.
 - **Do not pattern a single bare keyword** (`guarantees`, `attribution`, `permission to`); Cavil
   maintains those separately.
 - **`license` must be a known Cavil value** - an SPDX id, an SPDX expression (`GPL-2.0-only OR MIT`

@@ -235,9 +235,9 @@ sub register ($self, $app, $config) {
     input_schema => {
       type       => 'object',
       properties => {
-        package_id => {type => 'integer', minimum => 1},
-        snippet_id => {type => 'integer', minimum => 1},
-        pattern    => {type => 'string'},
+        package_id => {type => 'integer', minimum     => 1},
+        snippet_id => {type => 'integer', minimum     => 1},
+        pattern    => {type => 'string',  description => 'keep the line breaks of the snippet'},
         license    => {type => 'string'},
         reason     => $PROPOSAL_REASON,
         risk       => {
