@@ -91,12 +91,15 @@ sub known_licenses ($self) {
   $v->optional('limit')->num;
   $v->optional('offset')->num;
   $v->optional('filter');
+  $v->optional('unrated');
   return $self->reply->json_validation_error if $v->has_error;
-  my $limit  = $v->param('limit')  // 10;
-  my $offset = $v->param('offset') // 0;
-  my $search = $v->param('filter') // '';
+  my $limit   = $v->param('limit')  // 10;
+  my $offset  = $v->param('offset') // 0;
+  my $search  = $v->param('filter') // '';
+  my $unrated = ($v->param('unrated') // 'false') eq 'true';
 
-  my $page = $self->patterns->paginate_known_licenses({limit => $limit, offset => $offset, search => $search});
+  my $page = $self->patterns->paginate_known_licenses(
+    {limit => $limit, offset => $offset, search => $search, unrated => $unrated});
   $self->render(json => $page);
 }
 

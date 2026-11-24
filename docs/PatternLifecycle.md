@@ -166,9 +166,10 @@ if the recommendation is wrong. This is the common case, and it is meant to be a
 
 When the AI could not place the license on the risk scale, it proposes risk **8 (Unrated)** and names the level it
 believes in the reason. Approving the pattern at risk 8 is safe without a lawyer: no package is accepted automatically
-because of an unrated license's risk, and every report that contains it shows a grey "Risk 8" section. Lawyers see a **Rate** link there,
-which opens the license page, where the **Risk** field sets the real level for all its patterns and reindexes the
-affected packages.
+because of an unrated license's risk, and every report that contains it shows a grey "Risk 8" section. Admins and
+lawyers see a **Rate** link there, which opens the license page, where the **Risk** field sets the real level for all
+its patterns and reindexes the affected packages. The **Unrated** toggle on the Licenses page lists every license still
+waiting for a rating.
 
 **Unidentified reports (needs your judgement).** When the license could not be confidently identified, the entry is a
 plain report and **this is where the real pattern-authoring happens**, so it gives you the full pattern editor inline:

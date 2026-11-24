@@ -256,7 +256,7 @@
                     {{ obligationsLabel(lic.classification) }}
                   </button>
                   <a
-                    v-if="hasLawyerRole === true && Number(risk) === 8"
+                    v-if="(hasAdminRole === true || hasLawyerRole === true) && Number(risk) === 8"
                     :href="'/licenses/' + encodeURIComponent(lic.name)"
                     target="_blank"
                     class="risk-license-rate"

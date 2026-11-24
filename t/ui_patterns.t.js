@@ -1409,7 +1409,7 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       await waitForInlineSnippetEditorClosed(page);
     });
 
-    await t.test('Unrated license: grey in the report, lawyers rate it on the license page', async t => {
+    await t.test('Unrated license: grey in the report, curators rate it on the license page', async t => {
       const saveRisk = async (target, risk) => {
         await target.locator('#license-edit-risk').selectOption(risk);
         target.once('dialog', dialog => dialog.accept());
@@ -1432,6 +1432,33 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       );
       await saveRisk(page, '8');
 
+      await page.goto(`${url}/licenses`);
+      await page.waitForSelector('#cavil-licenses-unrated');
+      await Promise.all([
+        page.waitForResponse(
+          resp => /\/pagination\/licenses\/known/.test(resp.url()) && resp.url().includes('unrated=true')
+        ),
+        page.click('#cavil-licenses-unrated')
+      ]);
+      await page.waitForSelector('.known-licenses-list tbody tr td.cavil-list-primary');
+      t.same(
+        await page.locator('.known-licenses-list td.cavil-list-primary').allInnerTexts(),
+        ['Apache-2.0'],
+        'only licenses with unrated patterns'
+      );
+      await page.reload();
+      await page.waitForSelector('.known-licenses-list td.cavil-list-primary');
+      t.equal(await page.getAttribute('#cavil-licenses-unrated', 'aria-pressed'), 'true', 'kept across a reload');
+      await page.click('#cavil-licenses-unrated');
+      await page.reload();
+      await page.waitForSelector('.known-licenses-list td.cavil-list-primary');
+      t.notMatch(
+        await page.getAttribute('#cavil-licenses-unrated', 'class'),
+        /is-active/,
+        'off stays off after a reload'
+      );
+      t.ok((await page.locator('.known-licenses-list td.cavil-list-primary').count()) > 1, 'all licenses again');
+
       const reportUrl = `${url}/reviews/details/2`;
       await page.goto(reportUrl);
       await page.waitForSelector('#risk-8');
@@ -1439,7 +1466,12 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       const section = page.locator('.risk-license-section').filter({has: page.locator('#risk-8')});
       t.match(await section.locator('.risk-license-heading').innerText(), /Unrated, waiting for a lawyer/);
       t.match(await section.locator('.risk-license-heading .badge').getAttribute('class'), /cavil-risk-unknown-badge/);
-      t.equal(await section.locator('.risk-license-rate').count(), 0, 'only lawyers are asked to rate');
+      t.equal(await section.locator('.risk-license-rate').count(), 1, 'admins can rate');
+
+      await page.goto(`${url}/login_as_contributor`);
+      await page.goto(reportUrl);
+      await page.waitForSelector('#risk-8');
+      t.equal(await page.locator('.risk-license-rate').count(), 0, 'contributors cannot');
 
       await page.goto(`${url}/login_as_lawyer`);
       await page.goto(reportUrl);
@@ -1455,6 +1487,10 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       await page.waitForSelector('#risk-5');
       t.match(await page.innerText('#risk-5'), /Apache-2\.0/, 'rated license back in its tier');
       t.equal(await page.locator('#risk-8').count(), 0, 'nothing unrated left');
+
+      await page.goto(`${url}/licenses?unrated=true`);
+      await page.waitForSelector('#all-done');
+      t.match(await page.innerText('#all-done'), /No licenses found/, 'no unrated licenses left');
     });
 
     t.test('Console errors', t => {

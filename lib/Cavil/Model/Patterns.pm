@@ -1071,6 +1071,7 @@ sub paginate_known_licenses ($self, $options) {
           $where
         ) AS licenses
         GROUP BY license, spdx
+        @{[$options->{unrated} ? 'HAVING bool_or(risk = 8)' : '']}
       ) AS licenses
       ORDER BY $order
       LIMIT ? OFFSET ?

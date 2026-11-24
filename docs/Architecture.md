@@ -468,8 +468,8 @@ These are the standard risk levels used for license patterns included with Cavil
                         customers can use the software.
 * 8 - `Unrated`: A new license whose patterns were approved as sound, but whose risk no lawyer has rated yet. It ranks
                  above every rated level, so a report with an unrated license shows risk 8 even next to a risk 7
-                 license, never passes the risk levels for automatic acceptance, and the report links lawyers to
-                 the license page to rate it. Rating it there reindexes every affected package.
+                 license, never passes the risk levels for automatic acceptance, and the report links admins and
+                 lawyers to the license page to rate it. Rating it there reindexes every affected package.
 * 9 - `Unknown`: Keywords and phrases used to identify potential candidates for new license patterns.
 
 ## Command-line / CI review

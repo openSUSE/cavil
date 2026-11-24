@@ -13,7 +13,7 @@ export function genParamWatchers(...names) {
 export function getParams(defaults = {}) {
   const params = defaults;
   for (const [key, value] of new URLSearchParams(window.location.search)) {
-    params[key] = value;
+    params[key] = typeof defaults[key] === 'boolean' ? value === 'true' : value;
   }
   return params;
 }

@@ -26,6 +26,20 @@
       @goto-page="gotoPage"
       @update:filter="filter = $event"
     >
+      <template #controls>
+        <button
+          id="cavil-licenses-unrated"
+          @click="toggleFilter('unrated')"
+          :aria-pressed="params.unrated.toString()"
+          :class="{'is-active': params.unrated}"
+          type="button"
+          class="cavil-list-toggle"
+        >
+          <i v-if="params.unrated" class="fa-solid fa-check" aria-hidden="true"></i>
+          Unrated
+        </button>
+      </template>
+
       <template #per-page>
         <label class="cavil-list-control">
           <span>Per page</span>
@@ -94,6 +108,7 @@ export default {
     const params = getParams({
       limit: 10,
       offset: 0,
+      unrated: false,
       filter: ''
     });
 
@@ -144,10 +159,14 @@ export default {
       this.cancelApiRefresh();
       this.licenses = null;
       this.doApiRefresh();
+    },
+    toggleFilter(name) {
+      this.params[name] = !this.params[name];
+      this.gotoPage(1);
     }
   },
   watch: {
-    ...genParamWatchers('limit', 'offset'),
+    ...genParamWatchers('limit', 'offset', 'unrated'),
     filter: function (val) {
       this.params.filter = val;
       this.params.offset = 0;

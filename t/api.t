@@ -771,6 +771,19 @@ subtest 'Pagination' => sub {
       ->json_is('/page/0/license', 'MIT')
       ->json_is('/page/1/license', 'MIT-CMU')
       ->json_hasnt('/page/2');
+
+    $t->get_ok('/pagination/licenses/known?unrated=true')->json_is('/total', 0)->json_hasnt('/page/0');
+    my $db   = $t->app->pg->db;
+    my $risk = $db->query(q{SELECT risk FROM license_patterns WHERE license = 'MIT'})->hash->{risk};
+    $db->query(q{UPDATE license_patterns SET risk = 8 WHERE license = 'MIT'});
+    $t->get_ok('/pagination/licenses/known?unrated=true')
+      ->json_is('/total',          1)
+      ->json_is('/page/0/license', 'MIT')
+      ->json_is('/page/0/risks',   [8])
+      ->json_hasnt('/page/1');
+    $t->get_ok('/pagination/licenses/known?unrated=true&filter=CMU')->json_is('/total', 0);
+    $t->get_ok('/pagination/licenses/known?unrated=false')->json_is('/total', 6);
+    $db->query(q{UPDATE license_patterns SET risk = ? WHERE license = 'MIT'}, $risk);
   };
 
   subtest 'Reviews' => sub {
