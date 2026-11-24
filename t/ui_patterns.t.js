@@ -9,6 +9,7 @@ import {
   openCreatePatternEditor,
   replaceInlineEditorDoc,
   skipUnlessOnline,
+  submitPendingActions,
   waitForInlineSnippetEditor,
   waitForInlineSnippetEditorClosed
 } from './lib/ui_helpers.js';
@@ -70,14 +71,8 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       // Expand the widget and submit the batch
       await page.locator('#pending-actions-widget .pending-actions-toggle').click();
       t.match(await page.innerText('#pending-actions-widget'), /Made-Up-License-1.0/);
-      const [decisionResp] = await Promise.all([
-        page.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
-        page.locator('#pending-actions-submit').click()
-      ]);
+      const decisionResp = await submitPendingActions(page);
       t.equal(decisionResp.status(), 200);
-
-      // Reload triggers automatically after success; then run reindex
-      await page.waitForLoadState('load');
       const drainPage = await context.newPage();
       await drainPage.goto(performJobs, {timeout: 120000});
       await drainPage.close();
@@ -243,15 +238,8 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       await waitForInlineSnippetEditorClosed(page);
 
       await page.locator('#pending-actions-widget .pending-actions-toggle').click();
-      const [proposeResp] = await Promise.all([
-        page.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
-        page.locator('#pending-actions-submit').click()
-      ]);
+      const proposeResp = await submitPendingActions(page);
       t.equal(proposeResp.status(), 200, 'propose-pattern submission succeeds');
-
-      // A successful submit reloads the report page; let that navigation settle before leaving, otherwise
-      // the goto below races it and aborts (net::ERR_ABORTED).
-      await page.waitForLoadState('load');
 
       // Proposal arrives on the change proposals page with CLA/EULA pre-checked
       await page.goto(`${url}/licenses/proposed`);
@@ -348,14 +336,8 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       t.notMatch(await page.innerText('#pending-actions-widget'), /Zzz-Batch-License-A/);
 
       // Submit the remaining action
-      const [decisionResp] = await Promise.all([
-        page.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
-        page.locator('#pending-actions-submit').click()
-      ]);
+      const decisionResp = await submitPendingActions(page);
       t.equal(decisionResp.status(), 200);
-
-      // Reload + reindex; only the surviving license should show up
-      await page.waitForLoadState('load');
       const drainPage = await context.newPage();
       await drainPage.goto(performJobs, {timeout: 120000});
       await drainPage.close();
@@ -814,12 +796,8 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       await page.waitForSelector('#pending-actions-widget');
       await page.locator('#pending-actions-widget .pending-actions-toggle').click();
       t.match(await page.innerText('#pending-actions-widget'), /Propose missing license/);
-      const [decisionResp] = await Promise.all([
-        page.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
-        page.locator('#pending-actions-submit').click()
-      ]);
+      const decisionResp = await submitPendingActions(page);
       t.equal(decisionResp.status(), 200);
-      await page.waitForLoadState('load');
 
       // Navigate to the Missing Licenses page from the user menu
       await openAccountMenu(page);
@@ -861,12 +839,8 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       await waitForInlineSnippetEditorClosed(page);
       await page.waitForSelector('#pending-actions-widget');
       await page.locator('#pending-actions-widget .pending-actions-toggle').click();
-      const [proposeResp] = await Promise.all([
-        page.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
-        page.locator('#pending-actions-submit').click()
-      ]);
+      const proposeResp = await submitPendingActions(page);
       t.equal(proposeResp.status(), 200);
-      await page.waitForLoadState('load');
 
       // 2. License editing: open the inline editor on the Missing Licenses page.
       await openAccountMenu(page);

@@ -26,6 +26,17 @@ export async function waitForInlineSnippetEditorClosed(page) {
   await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
 }
 
+// Arm the load wait before clicking: waitForLoadState() resolves at once on the old page if the success reload
+// has not started yet, and the next goto then aborts it (net::ERR_ABORTED).
+export async function submitPendingActions(page) {
+  const [resp] = await Promise.all([
+    page.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
+    page.waitForEvent('load'),
+    page.locator('#pending-actions-submit').click()
+  ]);
+  return resp;
+}
+
 export async function expandFileDetails(page, fileId) {
   await page.waitForSelector('.cavil-reveal-leave-active', {state: 'detached'});
   if (!(await page.isVisible(`#file-details-${fileId}`))) {
