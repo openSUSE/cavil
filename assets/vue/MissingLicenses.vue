@@ -36,7 +36,9 @@
                   Proposed license by <b>{{ change.login }}</b>
                   <span class="cavil-meta-badges change-meta-badges">
                     <span class="cavil-meta-badge cavil-meta-badge-success">{{ change.data.license }}</span>
-                    <span class="cavil-meta-badge cavil-meta-badge-warning">risk {{ change.data.risk }}</span>
+                    <span class="cavil-meta-badge cavil-meta-badge-warning">
+                      risk {{ change.data.risk }} - {{ riskName(change.data.risk) }}
+                    </span>
                     <span v-if="change.data.ai_assisted" class="cavil-meta-badge cavil-meta-badge-info">
                       <i class="fa-solid fa-robot"></i> AI assisted
                     </span>
@@ -145,6 +147,7 @@ import {PATTERN_FLAGS} from './components/PatternFlags.vue';
 import ProposalReason from './components/ProposalReason.vue';
 import SnippetEditor from './components/SnippetEditor.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
+import {riskName} from './helpers/riskLevels.js';
 import UserAgent from '@mojojs/user-agent';
 
 export default {
@@ -170,6 +173,7 @@ export default {
     window.removeEventListener('scroll', this.handleScroll);
   },
   methods: {
+    riskName,
     async getChanges() {
       const query = this.params;
       const ua = new UserAgent({baseURL: window.location.href});

@@ -27,7 +27,7 @@
             ><b>{{ formatCount(totalPackages, totalPackagesCapped, countsPending) }}</b>
             {{ totalPackages === 1 && !totalPackagesCapped ? 'package' : 'packages' }}</span
           >
-          <span v-for="risk in risks" :key="risk" class="badge" :class="riskClass(risk)">Risk {{ risk }}</span>
+          <span v-for="risk in risks" :key="risk" class="badge" :class="riskBadgeClass(risk)">Risk {{ risk }}</span>
         </div>
         <form
           v-if="canCurate && details.license"
@@ -44,7 +44,9 @@
               <span class="form-label">Risk</span>
               <select v-model="riskChoice" id="license-edit-risk" class="form-select">
                 <option value="">Keep current</option>
-                <option v-for="r in 10" :key="r - 1" :value="String(r - 1)">{{ r - 1 }}</option>
+                <option v-for="option in riskOptions" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
               </select>
             </label>
             <label class="license-edit-field" for="license-edit-spdx">
@@ -92,7 +94,7 @@
         <header class="license-pattern-header">
           <div class="license-pattern-heading">
             <span class="license-pattern-id">#{{ pattern.id }}</span>
-            <span class="badge" :class="riskClass(pattern.risk)">Risk {{ pattern.risk }}</span>
+            <span class="badge" :class="riskBadgeClass(pattern.risk)">Risk {{ pattern.risk }}</span>
             <span v-for="flag in flagsFor(pattern)" :key="flag" class="license-chip license-chip-flag">{{ flag }}</span>
           </div>
           <div class="license-pattern-actions">
@@ -181,6 +183,7 @@ import LegalLoading from './components/LegalLoading.vue';
 import PatternEditor from './components/PatternEditor.vue';
 import {PATTERN_FLAGS} from './components/PatternFlags.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
+import {RISK_OPTIONS, riskBadgeClass} from './helpers/riskLevels.js';
 import UserAgent from '@mojojs/user-agent';
 import moment from 'moment';
 
@@ -198,6 +201,7 @@ export default {
       spdx: '',
       newLicense: '',
       riskChoice: '',
+      riskOptions: RISK_OPTIONS,
       saving: false,
       editingId: null,
       editorVersion: 0,
@@ -293,13 +297,7 @@ export default {
         }
       }
     },
-    riskClass(risk) {
-      const value = Number(risk);
-      if (value >= 1 && value <= 4) return 'text-bg-success';
-      if (value === 5) return 'text-bg-warning';
-      if (value === 6 || value === 7) return 'text-bg-danger';
-      return 'cavil-risk-unknown-badge';
-    },
+    riskBadgeClass,
     flagsFor(pattern) {
       return PATTERN_FLAGS.filter(flag => pattern[flag.name]).map(flag => flag.label);
     },

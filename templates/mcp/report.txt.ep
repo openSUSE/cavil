@@ -178,7 +178,7 @@ similarity drops.
 % for my $risk (reverse sort keys %$risks) {
 %   my $current = $risks->{$risk};
 
-### Risk <%== $risk %>
+### Risk <%== $risk %><%== $risk == 8 ? ' (Unrated)' : '' %>
 
 %   for my $lic (sort keys %$current) {
 %     my $matches = $current->{$lic};

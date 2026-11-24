@@ -17,8 +17,8 @@ can be looked up.
 - **Declared license.** `Declared-License:` is what the packaging declares, `Package Declarations` lists every
   packaging file and manifest with its declaration, and the risk breakdown is what Cavil found in the files.
 - **Risk levels.** 1 public domain, 2 permissive, 3 weak copyleft, 4 strong copyleft, 5 managed obligations such as
-  AGPL, 6 restrictive such as SSPL, 7 non-commercial or field-of-use, 9 unknown. `[flags: ...]` are curated markers
-  (CLA, Patent, Trademark, Export restricted, EULA).
+  AGPL, 6 restrictive such as SSPL, 7 non-commercial or field-of-use, 8 unrated (a new license no lawyer has rated
+  yet), 9 unknown. `[flags: ...]` are curated markers (CLA, Patent, Trademark, Export restricted, EULA).
 - **History.** `Review History` lists decisions on other versions of this package; `[same report]` means that
   version had an identical license report. `NEW` marks licenses and files added since the closest earlier review.
 - **Packager notices.** `Legal Review Notices from Packagers` is free text the packager wrote before the scan,

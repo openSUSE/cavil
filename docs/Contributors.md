@@ -162,22 +162,22 @@ affected packages will be automatically regenerated.
 
 ![Missing Licenses](images/contrib-admin-3-missing.png)
 
-Here are some example risk assessments for very common licenses:
+These are the standard risk levels, with examples for very common licenses:
 ```
-Low risk licenses
-0: Public Domain
-1: MIT, BSD-2-clause
-2: GPL-2.0-or-later, Artistic-2.0
-3: Apache-2.0, AGPL-3.0-or-later
+1: Public Domain            CC0-1.0, Unlicense
+2: Permissive               MIT, BSD-3-Clause, Apache-2.0
+3: Weak Copyleft            LGPL-2.1-or-later, MPL-2.0, EPL-2.0
+4: Strong Copyleft          GPL-2.0-only, GPL-3.0-or-later
+5: Managed Obligations      AGPL-3.0-or-later, BSD-4-Clause
+6: Restrictive Obligations  SSPL-1.0
+7: Non-Commercial           CC-BY-NC-4.0, JSON, Any Proprietary
 
-Higher risk licenses
-4: CDDL-1.0, MPL-1.1, Any EULA
-5: CC-BY-NC-ND-1.0, SSPL-1.0
-6: Any Proprietary
-
-Unknown risk (reserved)
-9: Keyword patterns
+8: Unrated                  a new license nobody has rated yet
+9: Unknown (reserved)       keyword patterns
 ```
+
+When you cannot tell where a new license belongs, use `8`. No package is accepted automatically because of its risk,
+and every report that contains it shows lawyers that a rating is still owed.
 
 The risk you assign decides how much of the review Cavil may do on its own. Licenses at or below a certain level allow
 a new version of a package to be accepted automatically when an earlier version was reviewed by a person, and the

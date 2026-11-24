@@ -106,6 +106,15 @@ $app->routes->get(
 );
 
 $app->routes->get(
+  '/login_as_lawyer' => sub ($c) {
+    my $user
+      = $c->users->find_or_create(login => 'lawyer_tester', email => 'lawyer_tester@example.com', roles => ['lawyer']);
+    $c->session(user => $user->{login});
+    $c->redirect_to('dashboard');
+  }
+);
+
+$app->routes->get(
   '/login_as_uploader' => sub ($c) {
     my $user = $c->users->find_or_create(
       login => 'uploader_tester',

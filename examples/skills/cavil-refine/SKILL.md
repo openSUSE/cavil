@@ -290,8 +290,8 @@ rejected. Before using any `Any …` value:
    several risk levels; the tool then refuses a call without `risk` and lists each level with an
    example. Pick the level whose example is **legally closest** to your text - never the lowest or
    most common by default. Terms restricting redistribution, modification or use never go in a
-   low-risk bucket. If no level fits, the license is wrong; go back to step 2. **Unsure → risk 7** (see
-   RISK 7 DEFAULT).
+   low-risk bucket. If no level fits, the license is wrong; go back to step 2. **Unsure → the highest
+   level the tool lists.**
 
 **Weigh importance before effort.** Ask whether the text changes the decision to ship the package in
 openSUSE/SLE. Reference documents in a source tarball that are never built or installed (spec
@@ -322,8 +322,9 @@ these hold. Otherwise report missing (in `reported` mode: leave it for a human):
    Exception: a vendor's own terms that exist only as the notice in the package (a Broadcom header, the
    TPC benchmark Legal Notice) have no canonical text to fetch. The body in the package is the primary
    source; say so under **Sources**.
-3. You can quote the **single clause** that fixes its risk tier, and you looked up the closest license
-   Cavil already rates (the one it derives from, or its nearest sibling) with `cavil_search_patterns(license=…)`.
+3. You can quote the **single clause** that fixes its risk tier (or the clause that leaves the tier open,
+   then risk 8, see RISK 8 DEFAULT), and you looked up the closest license Cavil already rates (the one it
+   derives from, or its nearest sibling) with `cavil_search_patterns(license=…)`.
    Match its risk or say why not; a comparator outside its own tier goes to DATA FIXES.
 4. No closest match the tool offers is that license, and no pseudo-license fits (`Any Proprietary`
    and, for a full body, `Any EULA` never count).
@@ -348,12 +349,15 @@ resolve).
 | 5 | Managed Obligations | Copyleft + a network-use trigger, or a legacy advertising clause | AGPL-3.0, 4-clause BSD |
 | 6 | Restrictive | Source-available terms that can force whole-stack disclosure | SSPL |
 | 7 | Non-Commercial / field-of-use / ethical | Limits *how the software may be used* | CC-BY-NC, JSON "Good not Evil" |
+| 8 | Unrated | You cannot place it on 1-7 with confidence | a new license whose tier is unclear |
 
-**RISK 7 DEFAULT.** When a new license or a catch-all pattern without precedent does not clearly
-belong to a lower tier, use risk 7. Any legal reviewer can accept a pattern at the top of the scale,
-while a lower tier needs a lawyer's check; a lawyer can lower it later. Name the tier you think is real
-in the reason's **Double-check** line ("likely 6 if …"). Clear-cut cases (MIT-style grant, GPL
-variant) keep their real tier.
+**RISK 8 DEFAULT.** When a new license does not clearly belong to one tier, use risk 8 (Unrated). It
+means "no lawyer has rated this yet": Cavil never accepts a package on its risk, any legal reviewer can
+approve the pattern, and every report using it shows lawyers that the rating is still owed. Name the
+tier you think is real in the reason's **Double-check** line ("likely 2, attribution only"). Never
+park an unsure license at 7: that claims non-commercial terms and pushes reviewers to reject the
+package. Clear-cut cases (MIT-style grant, GPL variant) keep their real tier. Risk 8 is for new
+licenses only; an existing license accepts only the levels the tool lists.
 
 Rate by obligations, not badges: AGPL-3.0 is OSI-approved and still risk 5. **Never use risk 9** - that
 is Cavil's keyword-only Unknown bucket, never for a license you named.

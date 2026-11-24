@@ -672,7 +672,7 @@ export default {
         return 'cavil-green-ribbon';
       }
       if (this.pkgRisk === '5') return 'cavil-orange-ribbon';
-      if (this.pkgRisk === '6' || this.pkgRisk === '7' || this.pkgRisk === '8') return 'cavil-red-ribbon';
+      if (this.pkgRisk === '6' || this.pkgRisk === '7') return 'cavil-red-ribbon';
       return 'cavil-gray-ribbon';
     },
     ribbonDescription() {

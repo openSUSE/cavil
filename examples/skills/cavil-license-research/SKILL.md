@@ -98,8 +98,9 @@ that fixes the tier - rather than a general impression. Cavil's scale:
 | 7 | Non-Commercial / field-of-use / ethical | The license limits *how the software may be used* (not just how it is distributed) | CC-BY-NC, JSON "Good not Evil", Hippocratic, "personal use only" |
 
 Risk 9 is Cavil's **Unknown** bucket for keyword-only matches; it is **never** the answer for a license you
-have identified. If you have identified the license but cannot place it on the 1–7 scale, recommend NEEDS HUMAN
-REVIEW.
+have identified. Risk 8 is Cavil's **Unrated** placeholder for a license no lawyer has rated yet; it is never a
+research result either. If you have identified the license but cannot place it on the 1–7 scale, recommend
+NEEDS HUMAN REVIEW.
 
 Rules of thumb that trip people up:
 

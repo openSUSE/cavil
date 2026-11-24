@@ -164,16 +164,9 @@
                   <div class="snippet-editor-attribute snippet-editor-attribute-risk">
                     <label for="risk" class="form-label">Risk</label>
                     <select v-model="licenseOptions.risk" name="risk" id="risk" class="form-control form-select">
-                      <option>0</option>
-                      <option>1</option>
-                      <option>2</option>
-                      <option>3</option>
-                      <option>4</option>
-                      <option>5</option>
-                      <option>6</option>
-                      <option>7</option>
-                      <option>8</option>
-                      <option>9</option>
+                      <option v-for="option in riskOptions" :key="option.value" :value="option.value">
+                        {{ option.label }}
+                      </option>
                     </select>
                   </div>
                   <div class="snippet-editor-attribute snippet-editor-attribute-flags">
@@ -256,6 +249,7 @@ import PatternFlags, {LICENSE_FLAGS, PATTERN_FLAGS} from './PatternFlags.vue';
 import {rankLicenses} from '../helpers/licenseAutocomplete.js';
 import {displayName, fileViewUrl, setupPopoverDelayed} from '../helpers/links.js';
 import {renderPatternTooltip, showPatternTooltip} from '../helpers/patternTooltip.js';
+import {RISK_OPTIONS} from '../helpers/riskLevels.js';
 import {EditorState, StateEffect, StateField} from '@codemirror/state';
 import {Decoration, EditorView, hoverTooltip} from '@codemirror/view';
 import UserAgent from '@mojojs/user-agent';
@@ -298,6 +292,7 @@ export default {
       patternTooltip: null,
       patternText: null,
       results: [],
+      riskOptions: RISK_OPTIONS,
       smartEditBusy: false,
       riskHtml:
         '<b>Low risk licenses</b><br>' +
@@ -310,6 +305,8 @@ export default {
         '<b>High risk licenses</b><br>' +
         '<b>6:</b> SSPL-1.0<br>' +
         '<b>7:</b> Non-Commercial<br>' +
+        '<b>Not rated yet</b><br>' +
+        '<b>8:</b> New license waiting for a lawyer<br>' +
         '<b>Unknown risk (reserved)</b><br>' +
         '<b>9:</b> Keyword patterns',
       startLine: null,
@@ -914,7 +911,7 @@ export default {
   gap: 24px;
 }
 .snippet-editor .snippet-editor-attribute-risk {
-  width: 140px;
+  width: 220px;
 }
 .snippet-editor .snippet-editor-attribute-flag-list {
   align-items: center;

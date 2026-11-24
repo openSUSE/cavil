@@ -231,6 +231,7 @@
           <div v-for="risk in sortedRisks" :key="risk" class="risk-license-section">
             <h4 class="risk-license-heading">
               <div :class="['badge', riskBadgeClass(risk)]">Risk {{ risk }}</div>
+              <span v-if="Number(risk) === 8" class="risk-license-summary">Unrated, waiting for a lawyer</span>
             </h4>
             <ul :id="'risk-' + risk" class="risk-license-list">
               <li
@@ -254,6 +255,13 @@
                   >
                     {{ obligationsLabel(lic.classification) }}
                   </button>
+                  <a
+                    v-if="hasLawyerRole === true && Number(risk) === 8"
+                    :href="'/licenses/' + encodeURIComponent(lic.name)"
+                    target="_blank"
+                    class="risk-license-rate"
+                    >Rate</a
+                  >
                   <span class="risk-license-count">
                     {{ lic.files.length }} {{ lic.files.length === 1 ? 'file' : 'files' }}
                   </span>
@@ -525,6 +533,7 @@ import ReportFileActions from './ReportFileActions.vue';
 import ReportMatchPanel from './ReportMatchPanel.vue';
 import ReportNotes from './ReportNotes.vue';
 import {displayName, fileViewUrl} from '../helpers/links.js';
+import {riskBadgeClass} from '../helpers/riskLevels.js';
 import {
   ignorePendingAction,
   resolveMatchChecksum,
@@ -809,13 +818,7 @@ export default {
       if (kinds.length === 1) return `${kinds[0]} files`;
       return `${kinds.slice(0, -1).join(', ')} and ${kinds[kinds.length - 1]} files`;
     },
-    riskBadgeClass(risk) {
-      const r = Number(risk);
-      if (r === 9) return 'cavil-risk-unknown-badge';
-      if (r <= 4) return 'text-bg-success';
-      if (r === 5) return 'text-bg-warning';
-      return 'text-bg-danger';
-    },
+    riskBadgeClass,
     refreshData(data) {
       this.prefetch = null;
       if (data.obsolete) this.packageObsolete = true;
@@ -1620,7 +1623,8 @@ export default {
   grid-auto-flow: column;
   grid-template-columns: minmax(0, 1fr);
 }
-.license-obligations-toggle {
+.license-obligations-toggle,
+.risk-license-rate {
   align-items: center;
   appearance: none;
   background: transparent;
@@ -1633,9 +1637,12 @@ export default {
   gap: 0.4rem;
   letter-spacing: 0.01em;
   padding: 0.1rem 0;
+  text-decoration: none;
 }
 .license-obligations-toggle:hover,
-.license-obligations-toggle:focus-visible {
+.license-obligations-toggle:focus-visible,
+.risk-license-rate:hover,
+.risk-license-rate:focus-visible {
   color: var(--cavil-accent);
 }
 .risk-license-label {

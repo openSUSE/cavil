@@ -286,7 +286,8 @@ license; that proposal lands on the lawyers' **Missing Licenses** page to ratify
 - `license`: License expression or SPDX identifier. (string, required)
 - `reason`: Why this is the license (shown as the proposal's rationale). (string, required)
 - `risk`: For an existing license, one of its existing risk levels (0-9); required when it has more than one. For a new
-  (unknown) license, the researched risk level 1-9; required. (number, optional)
+  (unknown) license, the researched risk level 1-7, or 8 (Unrated) when it cannot be placed on the scale; required.
+  (number, optional)
 - `patent`, `trademark`, `export_restricted`, `cla`, `eula`: Flags describing a new license. (boolean, optional)
 
 #### cavil_propose_ignore_glob
@@ -954,8 +955,9 @@ While the package is still being unpacked, indexed or analyzed the endpoint retu
 `200`. For the JSON format the `408` body carries a `stage` field (`queued`, `unpacking`, `indexing`,
 `analyzing` or `finalizing`) so a client can show progress. Once ready, the JSON includes two top-level fields
 for gating a CI run without a second request: `risk`, the report's maximum license risk on the 1-9 scale (the
-same number the web report shows, forced to `9` when there are unresolved matches), and `acceptable_risk`, the
-threshold at or below which a report is considered acceptable, as admins have set it on the Settings page.
+same number the web report shows, `8` for a license nobody has rated yet, forced to `9` when there are unresolved
+matches), and `acceptable_risk`, the threshold at or below which a report is considered acceptable, as admins have
+set it on the Settings page.
 
 **Request:**
 

@@ -370,6 +370,15 @@ subtest 'License risk annotations (Cavil legal assessment)' => sub {
   like $statement{'Artistic-2.0'}, qr/risk: 5/, 'primary component license carries its Cavil risk level';
   like $statement{'LicenseRef-scancode-apache-2.0'}, qr/Cavil legal assessment.*risk: \d/,
     'detected licenses carry their Cavil risk level';
+
+  my $db = $t->app->pg->db;
+  $db->query(q{UPDATE license_patterns SET risk = 8 WHERE license = 'Artistic-2.0'});
+  my $unrated = gen_doc();
+  my $g2      = graph_index($unrated);
+  my %again   = map { $g2->{$_->{subject}}{simplelicensing_licenseExpression} => $_->{statement} }
+    @{of_type($unrated, 'Annotation')};
+  like $again{'Artistic-2.0'}, qr/risk: unrated/, 'an unrated license is not given a number';
+  $db->query(q{UPDATE license_patterns SET risk = 5 WHERE license = 'Artistic-2.0'});
 };
 
 subtest 'License match evidence (snippets)' => sub {

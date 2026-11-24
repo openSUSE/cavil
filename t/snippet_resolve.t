@@ -174,6 +174,12 @@ subtest 'covered: a concrete license already on the file/directory clears the fr
   $match->($file_b, $anyperm);
   my $weak = $cocc->($file_b, $snip->(score_version => $V, like_pattern => $mit));
 
+  # An unrated license (risk 8) is concrete, but nothing is known to be no riskier than it
+  my $unrated = $app->patterns->create(pattern => 'a distinct unrated cover marker', license => 'Unrated-L', risk => 8);
+  my $file_u  = $mkfile->('coverage-unrated/new.txt');
+  $match->($file_u, $unrated->{id});
+  my $unrated_only = $cocc->($file_u, $snip->(score_version => $V, like_pattern => $mit));
+
   # Directory scope: the concrete match lives in a sibling file in the same directory
   my $file_c = $mkfile->('coverage/dir/source.js');
   $match->($file_c, $apache);
@@ -208,6 +214,7 @@ subtest 'covered: a concrete license already on the file/directory clears the fr
     is $res->($cov),          'covered', 'lower-risk fragment in a concretely-licensed file -> covered';
     is $res->($high),         undef,     'higher-risk fragment than the coverage -> kept';
     is $res->($weak),         undef,     'only a catch_all marker covers the file -> kept';
+    is $res->($unrated_only), undef,     'only an unrated license covers the file -> kept';
     is $res->($sibling),      undef,     'file scope does not reach a sibling file -> kept';
     is $res->($catchclosest), undef,     'low-similarity catch_all-closest in a LICENSE file -> kept';
     is $res->($catchfiller),  'covered', 'high-similarity catch_all-closest boilerplate -> still covered';
@@ -221,6 +228,7 @@ subtest 'covered: a concrete license already on the file/directory clears the fr
     is $res->($sibling),      'covered', 'directory scope reaches a concrete match in a sibling file -> covered';
     is $res->($high),         undef,     'directory scope still keeps a higher-risk fragment';
     is $res->($weak),         undef,     'directory scope still ignores catch_all-only coverage';
+    is $res->($unrated_only), undef,     'directory scope still ignores unrated-only coverage';
     is $res->($catchclosest), undef, 'directory scope still keeps a low-similarity catch_all-closest in a LICENSE file';
     is $res->($catchcode),    'covered', 'directory scope still clears the same weak match in a non-license file';
   };

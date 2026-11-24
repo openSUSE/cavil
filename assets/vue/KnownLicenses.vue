@@ -58,7 +58,7 @@
             <td class="cavil-list-primary" v-html="license.link"></td>
             <td v-html="license.textHtml"></td>
             <td>
-              <span v-for="risk in license.risks" :key="risk" class="badge me-1" :class="badgeClass(risk)">{{
+              <span v-for="risk in license.risks" :key="risk" class="badge me-1" :class="riskBadgeClass(risk)">{{
                 risk
               }}</span>
             </td>
@@ -83,6 +83,7 @@ import EmptyState from './components/EmptyState.vue';
 import LegalLoading from './components/LegalLoading.vue';
 import {licenseLink} from './helpers/links.js';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
+import {riskBadgeClass} from './helpers/riskLevels.js';
 import Refresh from './mixins/refresh.js';
 
 export default {
@@ -115,12 +116,7 @@ export default {
     }
   },
   methods: {
-    badgeClass(risk) {
-      if (risk === 1 || risk === 2 || risk === 3 || risk === 4) return 'text-bg-success';
-      if (risk === 5) return 'text-bg-warning';
-      if (risk === 6 || risk === 7) return 'text-bg-danger';
-      return 'cavil-risk-unknown-badge';
-    },
+    riskBadgeClass,
     gotoPage(num) {
       this.cancelApiRefresh();
       const limit = this.params.limit;

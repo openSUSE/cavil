@@ -183,10 +183,13 @@ its heading and flags, not by its name.
 | 5 | Managed Obligations | AGPL, legacy advertising clauses |
 | 6 | Restrictive Obligations | SSPL |
 | 7 | Non-Commercial / field-of-use / ethical / proprietary | JSON "Good not Evil", Any Proprietary |
+| 8 | Unrated | a new license no lawyer has rated yet |
 | 9 | Unknown | keyword / unresolved matches |
 
 Risk 1-4 is the acceptable band (strong copyleft is acceptable for SUSE's distribution model); escalation begins at risk
-5. Acceptability is still product-dependent, so treat these as leans. A license line marked
+5. Risk 8 is not a tier: the license is known but not rated yet, so read its text and say which tier you expect. An
+"estimated risk 8" on an unresolved file under `### Risk 9` is a guess for an unmatched snippet, not an unrated
+license. Acceptability is still product-dependent, so treat these as leans. A license line marked
 `(only in license catalog files)` matches only a license text kept in a catalog directory such as `LICENSES/`, or an
 index such as `debian/copyright` or linux-firmware's `WHENCE` that lists each file's license. Neither is code, but an
 index entry still names the license of a file that ships. A line marked `(only in build files)` matches only build machinery, such as configure scripts, m4
@@ -384,6 +387,7 @@ Otherwise **NEEDS HUMAN REVIEW** if any of these applies (never ACCEPT around th
 - A System Notice starting with "Limitation noted", or a `[limitation]` note: a lawyer set conditions for every version
   that the report cannot check. Quote them.
 - Risk 5, a Patent / Export restricted flag, or an EULA of unknown owner.
+- Risk 8 (Unrated), naming the license and the tier you expect from its text. Never REJECT on the number alone.
 - No declared license (unless it is an empty repository or a format without a package-wide declaration), or a
   mismatch that is only fixable metadata (including a declaration broader than reality), with the correction as the
   next step.

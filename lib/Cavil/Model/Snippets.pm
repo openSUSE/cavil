@@ -53,8 +53,10 @@ sub resolve_snippets ($self, $package_id, $generation = 0) {
     )
   {
     push @{$spans{$m->{file}}}, [$m->{sline}, $m->{eline}, $m->{license}];
-    next unless $cover;
     my $risk = $m->{risk};
+
+    # An unrated license (risk 8) cannot vouch for anything being no riskier than itself
+    next unless $cover && $risk != 8;
     $file_cover{$m->{file}} = $risk if !defined $file_cover{$m->{file}} || $risk > $file_cover{$m->{file}};
     my $dir = $m->{filename} =~ s{/[^/]*$}{}r;
     $dir_cover{$dir} = $risk if !defined $dir_cover{$dir} || $risk > $dir_cover{$dir};

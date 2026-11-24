@@ -97,10 +97,12 @@
 
             <div class="col mb-3">
               <div class="row">
-                <div class="col-lg-2 mb-3">
+                <div class="col-lg-3 mb-3">
                   <div class="form-floating">
                     <select v-model="form.risk" name="risk" id="risk" class="form-control">
-                      <option v-for="r in 10" :key="r - 1" :value="String(r - 1)">{{ r - 1 }}</option>
+                      <option v-for="option in riskOptions" :key="option.value" :value="option.value">
+                        {{ option.label }}
+                      </option>
                     </select>
                     <label for="risk" class="form-label">Risk</label>
                   </div>
@@ -149,6 +151,7 @@ import LegalLoading from './LegalLoading.vue';
 import PatternCodeMirror from './PatternCodeMirror.vue';
 import PatternFlags, {LICENSE_FLAGS, PATTERN_FLAGS} from './PatternFlags.vue';
 import {rankLicenses} from '../helpers/licenseAutocomplete.js';
+import {RISK_OPTIONS} from '../helpers/riskLevels.js';
 import UserAgent from '@mojojs/user-agent';
 
 export default {
@@ -163,6 +166,7 @@ export default {
   emits: ['saved', 'deleted', 'cancel'],
   data() {
     return {
+      riskOptions: RISK_OPTIONS,
       form: this.formFromPattern(this.pattern),
       activeTab: 'edit',
       closest: null,

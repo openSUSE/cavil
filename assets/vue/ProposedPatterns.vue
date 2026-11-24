@@ -143,19 +143,12 @@
                   </div>
                 </div>
                 <div class="row">
-                  <div class="col-lg-2 mb-3">
+                  <div class="col-lg-3 mb-3">
                     <div class="form-floating">
                       <select v-model="change.data.risk" class="form-control">
-                        <option>0</option>
-                        <option>1</option>
-                        <option>2</option>
-                        <option>3</option>
-                        <option>4</option>
-                        <option>5</option>
-                        <option>6</option>
-                        <option>7</option>
-                        <option>8</option>
-                        <option>9</option>
+                        <option v-for="option in riskOptions" :key="option.value" :value="option.value">
+                          {{ option.label }}
+                        </option>
                       </select>
                       <label for="risk" class="form-label">Risk</label>
                     </div>
@@ -246,6 +239,7 @@ import PatternFlags, {PATTERN_FLAGS} from './components/PatternFlags.vue';
 import ProposalReason from './components/ProposalReason.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
 import {genParamWatchers, getParams} from './helpers/params.js';
+import {RISK_OPTIONS} from './helpers/riskLevels.js';
 import UserAgent from '@mojojs/user-agent';
 
 // Accept/reject removes changes from the top without firing a scroll event, so refill the
@@ -268,6 +262,7 @@ export default {
     const params = getParams({createIgnore: true, createPattern: true, createGlob: true, filter: ''});
 
     return {
+      riskOptions: RISK_OPTIONS,
       changes: null,
       changeUrl: '/licenses/proposed/meta',
       ignoreForPackage: true,

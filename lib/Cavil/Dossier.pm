@@ -136,7 +136,9 @@ sub _high_risk ($ctx) {
       push @evidence,
         _evidence(
         $pick, 'risk',
-        "risk $risk: $name"
+        "risk $risk"
+          . ($risk == 8 ? ' (unrated)' : '')
+          . ": $name"
           . (@flags ? ' [flags: ' . join(', ', map { $label{$_} } @flags) . ']' : '')
           . ", matched in $files file"
           . ($files == 1             ? ''           : 's')

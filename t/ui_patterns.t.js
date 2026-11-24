@@ -1391,6 +1391,54 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       await waitForInlineSnippetEditorClosed(page);
     });
 
+    await t.test('Unrated license: grey in the report, lawyers rate it on the license page', async t => {
+      const saveRisk = async (target, risk) => {
+        await target.locator('#license-edit-risk').selectOption(risk);
+        target.once('dialog', dialog => dialog.accept());
+        await Promise.all([
+          target.waitForResponse(resp => /\/licenses\/meta\//.test(resp.url()) && resp.request().method() === 'POST'),
+          target.locator('#license-edit-form button[type="submit"]').click()
+        ]);
+        const drainPage = await context.newPage();
+        await drainPage.goto(performJobs, {timeout: 120000});
+        await drainPage.close();
+      };
+
+      await page.goto(`${url}/login`);
+      await page.goto(`${url}/licenses/Apache-2.0`);
+      await page.waitForSelector('#license-edit-form');
+      t.equal(
+        await page.locator('#license-edit-risk option[value="8"]').innerText(),
+        '8 - Unrated',
+        'risk options carry their names'
+      );
+      await saveRisk(page, '8');
+
+      const reportUrl = `${url}/reviews/details/2`;
+      await page.goto(reportUrl);
+      await page.waitForSelector('#risk-8');
+      t.match(await page.innerText('#risk-8'), /Apache-2\.0/, 'unrated license in its own section');
+      const section = page.locator('.risk-license-section').filter({has: page.locator('#risk-8')});
+      t.match(await section.locator('.risk-license-heading').innerText(), /Unrated, waiting for a lawyer/);
+      t.match(await section.locator('.risk-license-heading .badge').getAttribute('class'), /cavil-risk-unknown-badge/);
+      t.equal(await section.locator('.risk-license-rate').count(), 0, 'only lawyers are asked to rate');
+
+      await page.goto(`${url}/login_as_lawyer`);
+      await page.goto(reportUrl);
+      await page.waitForSelector('#risk-8');
+      const rate = page.locator('.risk-license-rate');
+      t.equal(await rate.getAttribute('href'), '/licenses/Apache-2.0', 'links to the license page');
+      const [licensePage] = await Promise.all([context.waitForEvent('page'), rate.click()]);
+      await licensePage.waitForSelector('#license-edit-form');
+      await saveRisk(licensePage, '5');
+      await licensePage.close();
+
+      await page.goto(reportUrl);
+      await page.waitForSelector('#risk-5');
+      t.match(await page.innerText('#risk-5'), /Apache-2\.0/, 'rated license back in its tier');
+      t.equal(await page.locator('#risk-8').count(), 0, 'nothing unrated left');
+    });
+
     t.test('Console errors', t => {
       assertNoUnexpectedConsoleErrors(t, errorLogs);
       t.end();

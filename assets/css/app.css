@@ -872,9 +872,13 @@ textarea.mono-textarea {
 .source tr.risk-0 .linenumber {
   color: var(--cavil-fg-muted);
 }
-.source tr.risk-6,
-.source tr.risk-7,
+/* Neutral like an unresolved snippet, but with the thinner rule of a license match */
 .source tr.risk-8 {
+  background-color: var(--cavil-neutral-bg);
+  box-shadow: inset 3px 0 0 var(--cavil-fg-muted);
+}
+.source tr.risk-6,
+.source tr.risk-7 {
   background-color: var(--cavil-danger-tint-1);
   box-shadow: inset 3px 0 0 var(--cavil-danger);
 }
@@ -882,7 +886,7 @@ textarea.mono-textarea {
   background-color: var(--cavil-attention-bg);
   box-shadow: inset 3px 0 0 var(--cavil-attention);
 }
-/* Match the popover risk palette: 0-4 green, 5 yellow, 6-8 red, 9 dark. */
+/* Match the badge palette: 0-4 green, 5 yellow, 6-7 red, 8-9 grey. */
 .source tr.risk-0,
 .source tr.risk-1,
 .source tr.risk-2,

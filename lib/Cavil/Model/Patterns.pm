@@ -1566,6 +1566,24 @@ sub update_license_meta ($self, $old_license, %args) {
   $db->query('UPDATE license_patterns SET license = ?, catch_all = ? WHERE id = ANY(?)', $new, $catch_all, $ids);
   $db->query('UPDATE license_patterns SET risk = ? WHERE id = ANY(?)', $risk, $ids) if defined $risk;
 
+  # Approving a pending proposal would otherwise bring the old name or risk back, and its stored precedent would
+  # contradict the license it now matches
+  if ($renamed || defined $risk) {
+    for my $proposal ($db->query(q{SELECT id, data FROM proposed_changes WHERE data->>'license' = ?}, $old_license)
+      ->expand->hashes->each)
+    {
+      my $data      = $proposal->{data};
+      my $precedent = ($data->{evidence} // {})->{precedent} // {};
+      my $verdict   = $precedent->{verdict}                  // {};
+      for my $entry ($data, @{$precedent->{rows} // []}, map { @{$verdict->{$_} // []} } qw(classes dissent)) {
+        next unless ($entry->{license} // '') eq $old_license;
+        $entry->{license} = $new;
+        $entry->{risk}    = 0 + $risk if defined $risk && exists $entry->{risk};
+      }
+      $db->update('proposed_changes', {data => {-json => $data}}, {id => $proposal->{id}});
+    }
+  }
+
   # spdx and catch_all are per-license properties: normalize them across the whole destination so a merge
   # cannot leave the pre-existing rows with a different identifier than the ones just moved in.
   $db->query('UPDATE license_patterns SET spdx = ?, catch_all = ? WHERE license = ?', $spdx, $catch_all, $new);

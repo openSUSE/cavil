@@ -630,8 +630,8 @@ sub generate_to_file ($self, $id, $file, $stamp = undef) {
     my $meta  = $license_meta{$lid};
     my @flags = sort keys %{$meta->{flags}};
     my @parts;
-    push @parts, "risk: $meta->{risk}"          if defined $meta->{risk};
-    push @parts, 'flags: ' . join(', ', @flags) if @flags;
+    push @parts, 'risk: ' . ($meta->{risk} == 8 ? 'unrated' : $meta->{risk}) if defined $meta->{risk};
+    push @parts, 'flags: ' . join(', ', @flags)                              if @flags;
     next unless @parts;
     $graph->add(
       {

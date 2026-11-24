@@ -346,11 +346,12 @@ package family.
                    does.
 
 The two risk levels and the three lists are the parts of this an organisation may reasonably see differently, so
-admins change them on the Settings page instead of in the configuration file. Each control is labelled with the
-condition it governs, risk levels are shown with their names, and every change is recorded in the audit log. A value
-nobody has changed follows the default that ships with Cavil, which is marked as such on the page. Saving a looser
-setting checks the open reviews it could now accept again right away, rather than leaving them to the next weekly
-reindex. A stricter setting never takes back a decision that was already made.
+admins change them on the Settings page instead of in the configuration file. The page offers levels up to 7, so an
+unrated license (risk 8) never passes them; a level of 8 or higher set through the API would let it pass.
+Each control is labelled with the condition it governs, risk levels are shown with their names, and every change is
+recorded in the audit log. A value nobody has changed follows the default that ships with Cavil, which is marked as
+such on the page. Saving a looser setting checks the open reviews it could now accept again right away, rather than
+leaving them to the next weekly reindex. A stricter setting never takes back a decision that was already made.
 
 Admins can also pause automatic acceptance as a whole, for example while a bad pattern import is being cleaned up.
 While it is paused every review that would have been accepted waits for a person instead, with a notice saying why it
@@ -465,6 +466,10 @@ These are the standard risk levels used for license patterns included with Cavil
                                  disclosure for the entire stack.
 * 7 - `Non-Commercial`: field-of-use, or ethical restrictions (e.g., "JSON License - Good not Evil"). They limit how
                         customers can use the software.
+* 8 - `Unrated`: A new license whose patterns were approved as sound, but whose risk no lawyer has rated yet. It ranks
+                 above every rated level, so a report with an unrated license shows risk 8 even next to a risk 7
+                 license, never passes the risk levels for automatic acceptance, and the report links lawyers to
+                 the license page to rate it. Rating it there reindexes every affected package.
 * 9 - `Unknown`: Keywords and phrases used to identify potential candidates for new license patterns.
 
 ## Command-line / CI review
@@ -923,7 +928,7 @@ There are two kinds of patterns, and this is the "two phase" matching referred t
 [Report Creation](#report-creation):
 
 * **License patterns** are named after a license (for example MIT or GPL-2.0-or-later) and carry a risk level from 1 to
-  7. When one matches, that license is added to the report.
+  7, or 8 while the license is still unrated. When one matches, that license is added to the report.
 * **Keyword patterns** have no license name and always carry risk level 9. Rather than identifying a license, they flag a
   region of a file as *potential* legal text that no license pattern has recognised. These regions become **snippets**
   (see [AI Text Classification](#ai-text-classification)) - the candidates from which experts propose new license
@@ -1146,7 +1151,8 @@ Three guards make this safe, and they are the whole point:
   not the "genuine license declaration already on the report" that overlap-clear is premised on.
 - **Risk-monotonic.** A fragment is only covered when the established license is at least as risky as the fragment's own
   closest license. A snippet that resembles a *higher*-risk license than anything already on the file is kept - it might
-  be a genuinely new, riskier license (a GPL fragment in an otherwise-MIT file) and must not be swept away.
+  be a genuinely new, riskier license (a GPL fragment in an otherwise-MIT file) and must not be swept away. An unrated
+  license (risk 8) never counts as coverage: nothing is known to be no riskier than a license nobody has rated.
 - **In a license file, a grab-bag closest match needs high similarity to clear.** A `catch_all` grab-bag has no
   reliable risk (`Any CLA` spans risks 0–5; the scorer just picks the member the text most resembles), so
   risk-monotonicity cannot be trusted for it. Inside a `LICENSE`/`COPYING` file, then, a grab-bag-closest fragment is

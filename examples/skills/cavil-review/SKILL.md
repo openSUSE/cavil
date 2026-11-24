@@ -151,7 +151,12 @@ authoritative Cavil risk scale:
 | 5 | Managed Obligations | AGPL, legacy advertising clauses |
 | 6 | Restrictive Obligations | SSPL |
 | 7 | Non-Commercial / field-of-use / ethical / proprietary | JSON "Good not Evil", Any Proprietary |
+| 8 | Unrated | a new license no lawyer has rated yet |
 | 9 | Unknown | keyword / unresolved matches |
+
+**Risk 8 (Unrated)** is not a tier: the license is known, but nobody has rated it yet. Read its text
+and say which tier you expect. An "estimated risk 8" on an unresolved file under `### Risk 9` is
+something else: a guess for an unmatched snippet, not an unrated license.
 
 **Risk 1–4 is the acceptable band** - risk 4 (strong copyleft, e.g. GPL) is acceptable for SUSE's
 distribution model, so risk 4 does **not** by itself need escalation. **Escalation begins at risk
@@ -366,6 +371,7 @@ Let the risk levels and flags from 3b steer the lean:
 - **An unmet license-text obligation (3c)** → REJECT, naming the missing text or, for a text that must accompany every copy, the `%license` line to add; obligations that could not be checked → NEEDS HUMAN REVIEW.
 - **EULA flag** → NEEDS HUMAN REVIEW for a SUSE-owned EULA or one whose owner you cannot tell; a third-party one is proprietary code.
 - **Risk 5** (managed obligations - AGPL network copyleft, advertising clauses), **or a Patent / Export restricted flag** → NEEDS HUMAN REVIEW.
+- **Risk 8** (Unrated) → NEEDS HUMAN REVIEW, naming the license and the tier you expect from its text. Never ACCEPT around it, and never REJECT on the number alone.
 - **CLA or Trademark flag** → note it, but do not change the recommendation on that alone.
 - **An empty repository (3a)** → ACCEPT; there is nothing to license and nothing to declare.
 - **Several apply** → the most severe outcome wins: REJECT over NEEDS HUMAN REVIEW over ACCEPT.

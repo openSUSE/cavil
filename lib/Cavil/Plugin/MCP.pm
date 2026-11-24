@@ -224,7 +224,8 @@ sub register ($self, $app, $config) {
       . 'proposal lands on the admin Change Proposals page with risk/flags inherited from the license; when the '
       . 'license\'s patterns span several risk levels (common for "Any ..." catch-alls) you must pick one of them '
       . 'with "risk", and the error lists them with examples. If the '
-      . 'license is unknown, this is a request to INTRODUCE a new license: pass an integer "risk" (1-9) and it '
+      . 'license is unknown, this is a request to INTRODUCE a new license: pass an integer "risk" (1-8, 8 = Unrated '
+      . 'when you cannot place it on the scale) and it '
       . 'lands on the lawyers\' Missing Licenses page for ratification. Optional patent/trademark/'
       . 'export_restricted/cla/eula flags describe a new license. Cavil attaches the precedent, impact and '
       . '$SKIP alignment to the proposal for the reviewer, and refuses a license/risk that contradicts curated '
@@ -245,7 +246,7 @@ sub register ($self, $app, $config) {
           minimum     => 0,
           maximum     => 9,
           description => 'existing license: required when its patterns span several risk levels, and must be one of'
-            . ' them; new (unknown) license: required, the researched risk level (1-9)'
+            . ' them; new (unknown) license: required, the researched risk level (1-7), or 8 (Unrated) when unsure'
         },
         patent            => {type => 'boolean', description => 'new-license flag (optional)'},
         trademark         => {type => 'boolean', description => 'new-license flag (optional)'},
@@ -945,9 +946,9 @@ sub tool_cavil_propose_license_pattern ($tool, $args) {
       1
     ) if $license =~ /LicenseRef-/i;
     my $risk = $args->{risk};
-    unless (defined $risk && $risk =~ /^[1-9]$/) {
+    unless (defined $risk && $risk =~ /^[1-8]$/) {
       my $intro = 'License expression is not in the list of known licenses. To introduce it as a new license,'
-        . ' call again with an integer "risk" (1-9).';
+        . ' call again with an integer "risk" (1-8, 8 = Unrated when you cannot place it).';
       my $closest = $matches->{closest};
       return $tool->text_result($intro, 1) unless @$closest;
       my $closest_list

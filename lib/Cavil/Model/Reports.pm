@@ -37,6 +37,9 @@ sub dig_report {
   my ($self, $id, $limit_to_file, $generation, $scope) = @_;
   $generation //= 0;
 
+  # Web workers keep this model for their whole life, so a pattern edited since must not come from the cache
+  delete $self->{license_cache};
+
   my $db  = $self->pg->db;
   my $pkg = $db->query('SELECT * FROM bot_packages WHERE id = ?', $id)->hash;
   my ($family, @binds) = family_match('packname', $pkg->{name});
@@ -720,10 +723,8 @@ sub _lines {
 
 # Populate the pattern cache for a batch of pattern ids with one query, so the per-match lookups in
 # _register_matches all hit instead of firing a single-row SELECT each. Only the license identity, risk
-# and flag columns are ever read - never the (large) pattern text: this cache lives on the reports
-# helper, a state singleton, so in a long-running web process it would otherwise accumulate the full
-# pattern text of every pattern any report touches (tens of MB across the corpus, growing with it) for no
-# benefit. Ids already cached are skipped, so a warm cache narrows the batch to just the new ids.
+# and flag columns are read, never the (large) pattern text. Ids already cached are skipped, so later
+# batches of the same report fetch only the new ids.
 sub _prime_pattern_cache {
   my ($self, $db, $pids) = @_;
 

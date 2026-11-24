@@ -882,6 +882,19 @@ subtest 'MCP' => sub {
         note $text;
       };
 
+      subtest 'An unrated license is labelled' => sub {
+        my $rebuild = sub ($risk) {
+          $t->app->pg->db->query(q{UPDATE license_patterns SET risk = ? WHERE license = 'MPL-2.0'}, $risk);
+          $t->app->packages->analyze(1);
+          $t->app->minion->perform_jobs;
+        };
+        my $risk = $t->app->pg->db->query(q{SELECT risk FROM license_patterns WHERE license = 'MPL-2.0'})->hash->{risk};
+        $rebuild->(8);
+        my $text = $client->call_tool('cavil_get_report', {package_id => 1})->{content}[0]{text};
+        like $text, qr/^### Risk 8 \(Unrated\)\n\n\* MPL-2\.0: 1 file/m, 'unrated heading';
+        $rebuild->($risk);
+      };
+
       subtest 'Unmatched snippets are an impact rollup, not full previews' => sub {
         my $result = $client->call_tool('cavil_get_report', {package_id => 1});
         my $text   = $result->{content}[0]{text};
@@ -2293,7 +2306,7 @@ subtest 'MCP' => sub {
         ok $result->{isError}, 'is an error';
         is $result->{content}[0]{text},
           'License expression is not in the list of known licenses. To introduce it as a new license, call again'
-          . ' with an integer "risk" (1-9).', 'unknown license message';
+          . ' with an integer "risk" (1-8, 8 = Unrated when you cannot place it).', 'unknown license message';
       };
 
       subtest 'Propose license pattern (unknown license with suggestions)' => sub {
@@ -2309,9 +2322,9 @@ subtest 'MCP' => sub {
         );
         ok $result->{isError}, 'is an error';
         is $result->{content}[0]{text},
-          "License expression is not in the list of known licenses. To introduce it as a new license, call again"
-          . " with an integer \"risk\" (1-9). Closest existing matches:\n* Artistic-2.0 (69% match)",
-          'unknown license message';
+            "License expression is not in the list of known licenses. To introduce it as a new license, call again"
+          . " with an integer \"risk\" (1-8, 8 = Unrated when you cannot place it). Closest existing matches:\n"
+          . '* Artistic-2.0 (69% match)', 'unknown license message';
       };
 
       subtest 'Introduce a new license and keep its missing-license report as a fallback' => sub {
@@ -2338,6 +2351,21 @@ subtest 'MCP' => sub {
         );
         ok $ref->{isError}, 'LicenseRef name refused';
         like $ref->{content}[0]{text}, qr/not as a "LicenseRef-\*" identifier/, 'plain name requested';
+
+        # Risk 9 is the keyword bucket, never the risk of a license somebody named
+        my $unknown = $client->call_tool(
+          'cavil_propose_license_pattern',
+          {
+            package_id => 1,
+            snippet_id => 5,
+            pattern    => 'terms of the Artistic License version 2.0',
+            license    => 'Artistic-9.9-only',
+            risk       => 9,
+            reason     => 'Researched: a brand new license'
+          }
+        );
+        ok $unknown->{isError}, 'risk 9 refused';
+        like $unknown->{content}[0]{text}, qr/"risk" \(1-8, 8 = Unrated/, 'risk range explained';
 
         # An unknown license plus an explicit risk files a new_license proposal (not an error) ...
         my $result = $client->call_tool(

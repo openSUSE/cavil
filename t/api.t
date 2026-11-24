@@ -238,6 +238,22 @@ subtest 'Notes in plain text report' => sub {
     ->content_unlike(qr/Pinned but lawyer-only/);
 };
 
+subtest 'Unrated license in plain text report' => sub {
+  my $app     = $t->app;
+  my $rebuild = sub {
+    my $risk = shift;
+    $app->pg->db->query(q{UPDATE license_patterns SET risk = ? WHERE license = 'Apache-2.0'}, $risk);
+    $app->packages->analyze(1);
+    $app->minion->perform_jobs;
+  };
+  $rebuild->(8);
+  $t->get_ok('/package/1/report.txt' => {Authorization => 'Token test_token'})
+    ->status_is(200)
+    ->content_like(qr/### Risk 8 \(Unrated\)\n\n\* Apache-2.0: 2 files/);
+  $rebuild->(5);
+  $t->get_ok('/package/1/report.txt' => {Authorization => 'Token test_token'})->content_like(qr/### Risk 5 \(Medium\)/);
+};
+
 subtest 'Update priority' => sub {
   $t->patch_ok('/package/1' => {Authorization => 'Token test_token'} => form => {priority => 7})->status_is(200);
   $t->get_ok('/package/1' => {Authorization => 'Token test_token'})

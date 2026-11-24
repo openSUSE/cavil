@@ -168,6 +168,67 @@ subtest 'Bulk edit model: merging two full-license-text patterns does not violat
     ->hash->{c}, 1, 'exactly one full-license-text pattern survives in the destination';
 };
 
+subtest 'Bulk edit: pending proposals and their precedent follow the risk and the name' => sub {
+  $minion->perform_jobs;
+  $db->query(q{UPDATE license_patterns SET risk = 8 WHERE license = 'Apache-Unspecified'});
+  my $precedent = {
+    verdict =>
+      {status => 'consensus', classes => [{license => 'Apache-Unspecified', risk => 8, ids => [1]}], dissent => []},
+    rows => [{id => 1, license => 'Apache-Unspecified', risk => 8}, {id => 2, license => 'MIT', risk => 2}]
+  };
+  is_deeply $patterns->propose_create(
+    pattern  => 'Apache unrated proposal wording',
+    license  => 'Apache-Unspecified',
+    risk     => 8,
+    owner    => 1,
+    evidence => {precedent => $precedent}
+    ),
+    {}, 'pending proposal at risk 8';
+  is_deeply $patterns->propose_create(
+    pattern => 'Apache unrated proposal without evidence',
+    license => 'Apache-Unspecified',
+    risk    => 8,
+    owner   => 1
+    ),
+    {}, 'and one without evidence';
+  my $proposal = sub ($pattern = 'Apache unrated proposal wording') {
+    $db->query(q{SELECT data FROM proposed_changes WHERE data->>'pattern' = ?}, $pattern)->expand->hash->{data};
+  };
+  my $affected = [
+    map { $_->{package} } $db->query(
+      q{SELECT DISTINCT package FROM pattern_matches WHERE pattern IN
+        (SELECT id FROM license_patterns WHERE license = 'Apache-Unspecified') ORDER BY package}
+    )->hashes->each
+  ];
+  ok scalar @$affected > 0, 'unrated license matched at least one package';
+  ok $app->reports->dig_report($affected->[0])->{risks}{8}{'Apache-Unspecified'}, 'report shows it unrated';
+
+  $t->post_ok('/licenses/meta/Apache-Unspecified' => form => {license => 'Apache-Unspecified', risk => 2, spdx => ''})
+    ->status_is(200);
+  is_deeply [map { $_->{risk} } @{rows_for('Apache-Unspecified')}], [2, 2], 'rated';
+  ok $app->reports->dig_report($affected->[0])->{risks}{2}{'Apache-Unspecified'}, 'same process sees the new risk';
+  is_deeply inactive_reindex_ids(), $affected, 'matched packages rebuilt';
+  my $data = $proposal->();
+  is $data->{risk}, 2, 'pending proposal follows';
+  is_deeply $data->{evidence}{precedent}{verdict}{classes}, [{license => 'Apache-Unspecified', risk => 2, ids => [1]}],
+    'so does its precedent';
+  is_deeply $data->{evidence}{precedent}{rows},
+    [{id => 1, license => 'Apache-Unspecified', risk => 2}, {id => 2, license => 'MIT', risk => 2}],
+    'other licenses untouched';
+  my $bare = $proposal->('Apache unrated proposal without evidence');
+  is $bare->{risk}, 2, 'proposal without evidence follows';
+  ok !exists $bare->{evidence}, 'and gains none';
+
+  $t->post_ok('/licenses/meta/Apache-Unspecified' => form =>
+      {license => 'Apache-Unspecified', new_license => 'Apache-Renamed', spdx => ''})->status_is(200);
+  $data = $proposal->();
+  is $data->{license},                                           'Apache-Renamed', 'renamed with the license';
+  is $data->{risk},                                              2,                'risk kept';
+  is $data->{evidence}{precedent}{verdict}{classes}[0]{license}, 'Apache-Renamed', 'precedent renamed too';
+  $t->post_ok('/licenses/meta/Apache-Renamed' => form =>
+      {license => 'Apache-Renamed', new_license => 'Apache-Unspecified', spdx => ''})->status_is(200);
+};
+
 # Drain any reindex jobs the bulk-edit subtests queued so the removal assertions below start from a clean
 # queue (they count enqueued reindex jobs).
 $minion->perform_jobs;

@@ -34,6 +34,7 @@ $app->patterns->create(
   risk    => 7
 );
 $app->patterns->create(pattern => 'Building requires a walrus license', license => 'Walrus-Build', risk => 6);
+$app->patterns->create(pattern => 'Hatching requires a puffin license', license => 'Puffin-Terms', risk => 8);
 $db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_)
   for qw(GPL-2.0-only Apache-2.0 GPL-2.0-or-later MPL-1.1 MIT);
 my $pkg = $app->packages->find(1);
@@ -46,6 +47,9 @@ $dir->child('src')->make_path->child('patented.c')->spew("/* Code */\n/* The pen
 # Custom terms kept in a REUSE catalog, the only place the license is matched
 $dir->child('LICENSES')->make_path->child('LicenseRef-Penguin-Commercial.txt')
   ->spew("Commercial use requires a penguin license.\n");
+
+# A new license nobody has rated yet
+$dir->child('src')->make_path->child('puffin.c')->spew("/* Hatching requires a puffin license */\n");
 
 # Restrictive terms that only build machinery carries, which never ends up in the binary package
 $dir->child('m4')->make_path->child('ax_walrus.m4')->spew("dnl Building requires a walrus license\n");
@@ -210,6 +214,11 @@ subtest 'A license only in the catalog says so' => sub {
   my ($reasons) = evidence(dossier(), 'LICENSES/LicenseRef-Penguin-Commercial.txt');
   like $reasons, qr/^- risk 7: Penguin-Commercial, matched in 1 file, only in license catalog files, first match/m,
     'the catalog context travels with the risk';
+};
+
+subtest 'An unrated license says so' => sub {
+  my ($reasons) = evidence(dossier(), 'src/puffin.c');
+  like $reasons, qr/^- risk 8 \(unrated\): Puffin-Terms, matched in 1 file, first match at line 1$/m, 'unrated';
 };
 
 subtest 'A license only in build files is no evidence of what ships, unless the package is a build tool' => sub {
