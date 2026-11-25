@@ -157,23 +157,24 @@ sub should_cover_snippet ($cfg, $snippet, $cover_risk) {
 
 # A blocklist avoids misclassifying open-ended names such as LICENSE.docs.
 # Keep it testable as data rather than embedding it in the regex.
-our @SOURCE_EXTENSIONS = qw(
+our @NON_DOCUMENT_EXTENSIONS = qw(
   asm awk bash c cc cjs cpp cs cxx dart el go gradle groovy h hh hpp java jl js jsx kt lua mjs mm
   php pl pm py rb rs scala sh sql swift tcl ts tsx vim
+  csv json toml yaml yml
 );
-my $SOURCE_EXTENSIONS = join '|', @SOURCE_EXTENSIONS;
-my $LICENSE_NAMES     = 'LICEN[CS]E|LICENSEREF|COPYING|COPYRIGHT|NOTICE|EULA|LEGAL|UNLICENSE|THIRD[_-]?PARTY';
+my $NON_DOCUMENT_EXTENSIONS = join '|', @NON_DOCUMENT_EXTENSIONS;
+my $LICENSE_NAMES           = 'LICEN[CS]E|LICENSEREF|COPYING|COPYRIGHT|NOTICE|EULA|LEGAL|UNLICENSE|THIRD[_-]?PARTY';
 
 # The classifier misjudges unusual licenses written in plain language, so in a license file only a human verdict
 # (approved, which includes ignores) can mark a snippet as not legal text. Needs the aliases s and mf.
 our $LEGAL_SNIPPET_SQL
   = "(s.license OR NOT s.classified OR (NOT s.approved AND mf.filename ~* '(^|/)($LICENSE_NAMES)([.-][^/]*)?\$'"
-  . " AND mf.filename !~* '[.]($SOURCE_EXTENSIONS)\$'))";
+  . " AND mf.filename !~* '[.]($NON_DOCUMENT_EXTENSIONS)\$'))";
 
 # Match the basename so license-named directories do not classify every child as legal text.
 sub is_license_filename ($path) {
   my ($basename) = $path =~ m{([^/]*)$};
-  return 0 if $basename =~ m{[.](?:$SOURCE_EXTENSIONS)$}i;
+  return 0 if $basename =~ m{[.](?:$NON_DOCUMENT_EXTENSIONS)$}i;
   return $basename =~ m{^(?:$LICENSE_NAMES)(?:[.\-]|$)}i ? 1 : 0;
 }
 

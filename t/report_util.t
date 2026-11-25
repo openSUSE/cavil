@@ -1977,6 +1977,9 @@ subtest 'is_license_filename' => sub {
   ok !is_license_filename('foo/MIT-LICENSE.txt'),
     'not start-anchored: MIT-LICENSE is deliberately excluded (matches the corpus estimate)';
   ok !is_license_filename('foo/NOTICE_TO_USERS'), 'NOTICE followed by "_" is not a boundary';
+  ok !is_license_filename('rustc-1.100.0-src/license-metadata.json'),
+    'machine-readable license metadata is not a document';
+  ok is_license_filename('foo/LICENSE-MIT'), 'but a dash-suffixed license text is';
 
   # Only the basename counts. Anchoring on the whole path used to match any segment, so a package or
   # directory that merely happens to be named after a license word turned every file under it into a
@@ -1994,10 +1997,10 @@ subtest 'is_license_filename' => sub {
   ok !is_license_filename('src/licence.rb'),         'nor a Ruby one, British spelling included';
 };
 
-# The source-extension blocklist is hand-maintained, so it is walked rather than sampled: a typo in one
+# The non-document extension blocklist is hand-maintained, so it is walked rather than sampled: a typo in one
 # entry, a stray space, or a duplicate would otherwise sit in the middle of the alternation unnoticed.
-subtest 'is_license_filename source extension blocklist' => sub {
-  my @extensions = @Cavil::ReportUtil::SOURCE_EXTENSIONS;
+subtest 'is_license_filename non-document extension blocklist' => sub {
+  my @extensions = @Cavil::ReportUtil::NON_DOCUMENT_EXTENSIONS;
   ok @extensions > 20, 'the list is populated';
 
   subtest 'the list itself stays clean' => sub {
@@ -2011,7 +2014,7 @@ subtest 'is_license_filename source extension blocklist' => sub {
 
   subtest 'every entry is actually rejected' => sub {
     for my $extension (@extensions) {
-      ok !is_license_filename("pkg/LICENSE.$extension"),   "LICENSE.$extension is source, not a document";
+      ok !is_license_filename("pkg/LICENSE.$extension"),   "LICENSE.$extension is code or data, not a document";
       ok !is_license_filename("pkg/license.\U$extension"), "and case does not smuggle it back in (.\U$extension)";
     }
   };

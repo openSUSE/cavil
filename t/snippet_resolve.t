@@ -265,7 +265,7 @@ subtest 'a classifier rejection in a license file is not trusted' => sub {
     qw(LICENSE pkg/LICENCE pkg/COPYING.LESSER pkg/NOTICE pkg/EULA.md pkg/THIRD-PARTY-NOTICES.md),
     qw(foo/LICENSE-2.0.txt foo/license.processed pkg/LICENSES/LicenseRef-Qt-Commercial.txt),
     qw(pkg/LICENSES/GPL-3.0-or-later.txt src/main.rs doc/RELICENSE.md foo/LICENSEE.txt foo/MIT-LICENSE.txt),
-    qw(foo/NOTICE_TO_USERS license-decl-1.0/src/engine.c agent/utils/license.go src/licence.RB)
+    qw(foo/NOTICE_TO_USERS license-decl-1.0/src/engine.c agent/utils/license.go src/licence.RB rustc-1.100.0-src/license-metadata.json)
   );
   for my $name (@names) {
     my $legal = $db->query(
