@@ -797,7 +797,7 @@ sub package_family ($name, $listed = {}) {
   my %separate = map { lc() => 1 } keys %$listed;
   return $name if $separate{lc $name};
   $name =~ s/\.(?=[^.-]*[A-Z])(?=[^.-]*_)[A-Za-z].*$//;
-  $name =~ s/(?:\.(?:imported_)?\d{3,})+$//a;
+  $name =~ s/(?:(?<!\d)\.\d{3}|\.(?:imported_\d{3,}|\d{4,}))(?:\.(?:imported_)?\d{3,})*$//a;
   return $name if $separate{lc $name};
 
   my ($first, @rest) = split /-/, $name, -1;

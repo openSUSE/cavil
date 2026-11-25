@@ -906,6 +906,10 @@ subtest 'package_family: Open Build Service suffixes' => sub {
   is package_family('openoffice.org-dict-cs_CZ.12345'),     'openoffice.org-dict-cs_cz', 'and its incident copy';
   is package_family('python-backports.ssl_match_hostname'), 'python-backports.ssl_match_hostname', 'lower case kept';
   is package_family('keybinder-3.0'),                       'keybinder', 'short dotted number is a version';
+  is package_family($_),                                    'rust',      $_ for qw(rust1.99 rust1.100);
+  is package_family('icu.691'),                             'icu',       'three digits after a letter are cut';
+  is package_family('freetype2.imported_792'),              'freetype2', 'imported needs only three digits';
+  is package_family('curl.17566.123'),                      'curl',      'three digits later in a chain';
 };
 
 subtest 'package_family: versioned names' => sub {
@@ -957,7 +961,7 @@ subtest 'package_family: never group these packages' => sub {
   is package_family('curl.17566',     {'curl.17566' => 1}), 'curl.17566', 'listed build service name';
   is package_family('curl',           {'curl.17566' => 1}), 'curl',       'leaves the rest of the family alone';
   is package_family('gst123',         {gst => 1}), 'gst123', 'names that would fold into a listed name keep their own';
-  is package_family('gst123.555',     {gst => 1}), 'gst123', 'with their build service copies';
+  is package_family('gst123.12345',   {gst => 1}), 'gst123', 'with their build service copies';
   is package_family('gst.555',        {gst => 1}), 'gst',    'copies of the listed name stay with it';
 
   is package_family('OpenH323', $separate),       'OpenH323', 'listed in any letter case, keeping its spelling';

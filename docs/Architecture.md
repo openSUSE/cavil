@@ -265,7 +265,8 @@ found among the 46,000 package names of a large production instance:
 * **Only the first word loses an attached version.** Numbers further into a name usually tell variants apart:
   `perl-MIME-Base32` and `perl-MIME-Base64`, or `python-h2` and `python-h11`.
 * **A number after a dot needs at least three digits** to count as a build suffix, so that a short version is not
-  mistaken for one.
+  mistaken for one. Right after a name that ends in a digit it needs four, since `rust1.100` is a version of `rust` and not a copy of
+  `rust1`. The older `imported_` copies always count, also when the name ends in a digit (`freetype2.imported_792`).
 
 With these rules about a third of all names share a family with at least one other name. A few pairs of different
 projects still end up together, because a number in their names looks exactly like a version: standard numbers in
