@@ -42,8 +42,15 @@ sub _analyze ($job, $id, $generation = 0) {
       unless $pkgs->is_building($id, $generation);
   }
   else {
-    return $job->finish("Package $id is not indexed yet")         unless $pkgs->is_indexed($id);
-    return $job->finish("Package $id is already being processed") unless $guard = $pkgs->claim_guard($id, $job->id);
+    return $job->finish("Package $id is not indexed yet") unless $pkgs->is_indexed($id);
+
+    # Nothing re-analyzes after a short holder (another analyze, or the "analyzed" job this races right after a
+    # build), so dropping the work leaves the report stale. A holder outlasting the retries is a build, and its own
+    # analyze re-resolves everything at the promote.
+    unless ($guard = $pkgs->claim_guard($id, $job->id)) {
+      return $job->retry({delay => 30}) if $job->retries < 10;
+      return $job->finish("Package $id is already being processed");
+    }
   }
 
   $app->plugins->emit_hook('before_task_analyze');

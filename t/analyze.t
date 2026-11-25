@@ -95,15 +95,31 @@ subtest 'Re-analyze refreshes notice on already-reviewed packages' => sub {
 
 subtest 'Prevent analyze race condition' => sub {
   my $minion = $t->app->minion;
+  my $pkgs   = $t->app->packages;
   ok my $job_id = $minion->enqueue('analyze', [1]);
-  ok my $guard  = $t->app->packages->claim_guard(1, 999999), 'package claimed by another job';
+  ok my $guard  = $pkgs->claim_guard(1, 999999), 'package claimed by another job';
   my $worker = $minion->worker->register;
   ok my $job = $worker->dequeue(0, {id => $job_id}), 'job dequeued';
   is $job->execute, undef, 'no error';
-  like $minion->job($job_id)->info->{result}, qr/Package \d+ is already being processed/, 'race condition prevented';
+  my $info = $minion->job($job_id)->info;
+  is $info->{state},   'inactive', 'waiting for the claim';
+  is $info->{retries}, 1,          'retried';
+  undef $guard;
+  $minion->job($job_id)->retry({delay => 0});
+  $minion->perform_jobs;
+  $info = $minion->job($job_id)->info;
+  is $info->{state}, 'finished', 'analyzed once the claim was released';
+  unlike $info->{result} // '', qr/already being processed/, 'did the work';
+
+  ok $job_id = $minion->enqueue('analyze', [1]), 'analyze again';
+  $guard = $pkgs->claim_guard(1, 999999);
+  $minion->job($job_id)->retry({delay => 0}) for 1 .. 10;
+  ok $job = $worker->dequeue(0, {id => $job_id}), 'job dequeued';
+  is $job->execute, undef, 'no error';
+  like $minion->job($job_id)->info->{result}, qr/Package \d+ is already being processed/, 'gave up waiting';
   $worker->unregister;
   undef $guard;
-  is $t->app->packages->find(1)->{processing_job}, undef, 'package no longer claimed';
+  is $pkgs->find(1)->{processing_job}, undef, 'package no longer claimed';
 };
 
 subtest 'dig_report tolerates pattern_matches in files covered by an ignored_files glob' => sub {
