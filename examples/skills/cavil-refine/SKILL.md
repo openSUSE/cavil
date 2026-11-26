@@ -84,6 +84,8 @@ occurrence count and a preview. Read one snippet's verbatim body, `keywords` and
 on each `snippet_id` once** - one pattern/ignore clears all its occurrences on re-index. Never page
 through `group=none` without a `snippet_id` to collect occurrences (thousands of duplicate rows);
 fetch the next worklist page only if `next_offset` is set and the rows are still worth acting on.
+Afterwards, read the **Legal Documents** section of `cavil_get_report`: a license file with unknown
+lines and no worklist snippet is a Mode A gap; no license name but 0 unknown lines means covered.
 
 **Sweep SPDX/manifest tags first** (add `search="SPDX-License-Identifier"`, then `License:` /
 `license: '`) - safest, highest-volume, and Cavil never resolves them itself. Then for **each**
@@ -114,9 +116,12 @@ under two licenses gives two risks for one legal fact, which is worse than eithe
 
 - **consensus** → file with exactly that license and risk, even `Any Proprietary` (a lawyer already
   made that call). If a **Dissent** line lists close variants classified differently, still follow
-  the consensus and list the dissenting ids under DATA FIXES.
+  the consensus and list the dissenting ids under DATA FIXES. If the curated pattern misses your
+  snippet only through a hard-coded package version, year or holder, propose the same license with
+  that token `$SKIP`ped and name the pattern it generalises.
 - **conflict** → do **not** pattern the snippet; a lawyer has to settle it first. Hold it under DATA
-  FIXES.
+  FIXES. Exception: when both sides share one risk and one side is a catch-all (`Any …`), propose the
+  specific id and list the catch-all patterns under DATA FIXES.
 - **partial** → curated patterns match only part of the text (the `CONTAINED` rows). Pattern the
   uncovered part; if your pattern must include the covered part, classify it consistently with them or
   explain in the reason why the whole text differs.
@@ -128,18 +133,17 @@ identifier is obvious, use it - check the closest matches first, Cavil has many 
 `VMWare EULA`, `Opera EULA`, …), else propose one under NEW LICENSES.
 
 If you believe a precedent is wrong, never propose a contrary pattern (lawyers reject it and the
-snippet stays open); list it under DATA FIXES.
+snippet stays open; conflict exception aside); list it under DATA FIXES.
 
 Then **dry-run the draft** with `cavil_test_pattern(pattern)`. Check that every sample is the same
 legal text, that each `$SKIP` swallowed only variable words (holder, year, product name - never a
 license name or an operative clause), and that it would not match unrelated packages. The propose call
-refuses a license/risk contradicting curated precedent for the text your pattern covers, and a pattern
-reaching more than 20 other packages (or whose reach the dry run could not fully count) unless you pass
-`broad_ok=true` and explain the breadth in the reason. Set the same `family` on every proposal about
-one legal text (e.g. `"Khronos spec notice"`) so the lawyer sees they belong together.
+refuses a license/risk contradicting curated precedent for the text your pattern covers, and a broad
+pattern without `broad_ok` (check 2 below). Set the same `family` on every proposal about one legal
+text (e.g. `"Khronos spec notice"`) so the lawyer sees they belong together.
 
 **Checks before any propose call.** Do all of these first. A refusal from the propose call means you
-skipped a check, so never answer it by adding `broad_ok` and retrying.
+skipped one: run it before retrying.
 
 1. **License identity:** find how the package's own license file (or the file a pointer/LicenseRef
    refers to) is already classified (`cavil_search_snippets(resolution=any, search=<phrase from that
@@ -148,19 +152,21 @@ skipped a check, so never answer it by adding `broad_ok` and retrying.
    search=<identifier>)`).
 2. **Real reach:** if the dry run says `candidate cap reached`, its count is only a lower bound. Get
    the real reach from `cavil_search_snippets(resolution=any, search=<literal identifier>)`, which
-   lists every snippet holding the load-bearing token with its package count. Use `broad_ok` only when
-   that evidence supports it, and cite it in the reason as snippet ids with their package counts, not
-   "about N".
+   lists every snippet holding the load-bearing token with its package count. Past 20 other packages,
+   narrow the pattern or pass `broad_ok`: only when the reach is fully counted (an uncapped dry run, or
+   this search if it does not time out) and every matched snippet is the same legal text, cited in the
+   reason as snippet ids with their package counts, not "about N".
 3. **Coverage:** dry-run with `package_id` to confirm that every worklist variant (`#`, `//`, one-line
    and two-line headers) matches. For a Mode A body the dry run counts only your created snippet. That
    is expected: a whole body cannot over-match, and the fragments inside it clear on re-index.
 
 **DATA FIXES.** When the checks or the precedent step show a mistake in Cavil's own data, **hold the
-proposals it affects** and tell the user how to correct it. Keep working on everything else. Typical
-mistakes: one legal text under two license names, a misspelled or duplicate name (`Nividia Software
-License Agreement` vs `NVIDIA SOFTWARE LICENSE`), a wrong or non-canonical SPDX id (`GPL-2.0` for a
-text that says "or any later version"), identical wording at different risks, a risk outside the
-license's tier (NEW LICENSES table). Report only what your checks turned up; do not go hunting.
+proposals it affects** (unless the PRECEDENT STEP says otherwise) and tell the user how to correct it.
+Keep working on everything else. Typical mistakes: one legal text under two license names, a misspelled
+or duplicate name (`Nividia Software License Agreement` vs `NVIDIA SOFTWARE LICENSE`), a wrong or
+non-canonical SPDX id (`GPL-2.0` for a text that says "or any later version"), identical wording at
+different risks, a risk outside the license's tier (NEW LICENSES table). Report only what your checks
+turned up; do not go hunting.
 
 You cannot make these corrections yourself; an admin or lawyer makes them in the Cavil web UI, which
 offers exactly these actions (never suggest any other):
@@ -267,7 +273,7 @@ grab-bag step 2).
 | The notice… | Class | Allowed `license` | Risk |
 | --- | --- | --- | --- |
 | grants use/copying/redistribution, maybe with conditions | grant | named license, `Any Permissive`, `Any specification license` (spec documents only) | per tool levels |
-| only reserves rights ("may not be reproduced", "strictly prohibited", "does not convey any rights") | reservation only | on code in the package: a new license (NEW LICENSES), the vendor's own terms; on a reference document only: Note | **7** |
+| only reserves rights ("may not be reproduced", "strictly prohibited", "does not convey any rights") | reservation only | on code in the package: a new license (NEW LICENSES), the vendor's own terms; a third-party copy of a known license's header with the grant stripped: report missing, naming the upstream license; on a reference document only: Note | **7** |
 | marks confidentiality ("Confidential", "Proprietary and Confidential") with no terms | marker | include the surrounding notice (grab-bag step 3), then re-classify | - |
 | only disclaims warranty | disclaimer | `Any floating warranty` / `Any no warranty` | per tool levels |
 | is metadata ("IP Status: …", a license field in a catalog) | metadata | ignore, unless it names a license (Mode B) | - |
@@ -291,7 +297,8 @@ rejected. Before using any `Any …` value:
    example. Pick the level whose example is **legally closest** to your text - never the lowest or
    most common by default. Terms restricting redistribution, modification or use never go in a
    low-risk bucket. If no level fits, the license is wrong; go back to step 2. **Unsure → the highest
-   level the tool lists.**
+   level the tool lists.** A reference takes the risk of the license it names; one to unnamed
+   licenses gets the highest level, or 2 if the text says the files are not built or installed.
 
 **Weigh importance before effort.** Ask whether the text changes the decision to ship the package in
 openSUSE/SLE. Reference documents in a source tarball that are never built or installed (spec
