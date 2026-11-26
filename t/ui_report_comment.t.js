@@ -231,6 +231,11 @@ t.test('Cavil UI - review comment editor', skipUnlessOnline, async t => {
       );
       t.equal(await decision.locator('.review-timeline-when').count(), 1, 'decision carries its time');
       t.equal(
+        await page.locator('#review-timeline .review-timeline-step').last().locator('.review-timeline-gap').count(),
+        0,
+        'no duration across the untimed scan step'
+      );
+      t.equal(
         await page.locator('#review-timeline .review-timeline-point.is-pending').count(),
         0,
         'nothing pending after the decision'

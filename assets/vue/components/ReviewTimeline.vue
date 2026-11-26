@@ -54,6 +54,7 @@ export default {
   computed: {
     items() {
       let previous = null;
+      let adjacent = false;
       let firstPending = true;
       return this.steps.map(step => {
         const item = {...step};
@@ -64,7 +65,10 @@ export default {
           firstPending = false;
           return item;
         }
-        if (step.epoch === null) return item;
+        if (step.epoch === null) {
+          adjacent = false;
+          return item;
+        }
 
         const time = moment(step.epoch * 1000);
         item.when = time.calendar({
@@ -76,13 +80,15 @@ export default {
           }
         });
         item.title = time.format('YYYY-MM-DD HH:mm');
-        if (previous !== null) {
+        // A duration only between two neighbouring times, across an untimed step it would read as that step's
+        if (adjacent) {
           const seconds = Math.max(0, step.epoch - previous);
           item.gap = duration(seconds);
           // Log scale, so weeks of waiting read longer than a minute of unpacking without crushing the rest
           item.width = `${(2.5 + 1.3 * Math.log10(1 + seconds)).toFixed(2)}rem`;
         }
         previous = step.epoch;
+        adjacent = true;
         return item;
       });
     }
