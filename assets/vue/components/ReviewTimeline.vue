@@ -3,7 +3,7 @@
     <span v-for="(item, index) in items" :key="item.label" class="review-timeline-step">
       <span
         v-if="index > 0"
-        :class="['review-timeline-connector', {'is-pending': item.pending}]"
+        :class="['review-timeline-connector', {'is-pending': item.pending, 'has-gap': item.gap}]"
         :style="item.width ? {flexBasis: item.width} : null"
       >
         <span v-if="item.gap" class="review-timeline-gap">{{ item.gap }}</span>
@@ -36,8 +36,12 @@ const UNITS = [
 ];
 
 function duration(seconds) {
-  const [unit, size] = UNITS.find(([, size]) => seconds >= size) ?? UNITS[3];
-  const count = Math.max(1, Math.round(seconds / size));
+  let index = UNITS.findIndex(([, size]) => seconds >= size);
+  if (index === -1) index = UNITS.length - 1;
+  let count = Math.max(1, Math.round(seconds / UNITS[index][1]));
+  // Rounding up can reach the next unit, 23.6 hours is "1 day" and not "24 hours"
+  if (index > 0 && count * UNITS[index][1] >= UNITS[index - 1][1]) [index, count] = [index - 1, 1];
+  const [unit, size] = UNITS[index];
   return `${count} ${unit}${count > 1 && size >= 3600 ? 's' : ''}`;
 }
 
@@ -90,7 +94,6 @@ export default {
 .review-timeline {
   align-items: flex-start;
   display: flex;
-  flex-wrap: wrap;
   padding-top: 0.15rem;
 }
 .review-timeline-step {
@@ -168,14 +171,18 @@ export default {
   color: var(--cavil-fg-disabled);
   font-size: 12px;
 }
+/* Never wraps, connectors shrink in proportion instead, down to what their gap label needs */
 .review-timeline-connector {
-  flex: none;
-  flex-basis: 2.5rem;
+  flex: 0 1 2.5rem;
   margin-top: 6px;
+  min-width: 1.5rem;
   position: relative;
 }
+.review-timeline-connector.has-gap {
+  min-width: 3.25rem;
+}
 .review-timeline-connector.is-pending {
-  flex-basis: 1.5rem;
+  flex: 0 0 1.5rem;
 }
 .review-timeline-gap {
   bottom: 3px;
