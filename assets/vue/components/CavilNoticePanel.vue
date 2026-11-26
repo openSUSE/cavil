@@ -10,7 +10,7 @@
       <div class="cavil-notice-panel-intro-text"><slot></slot></div>
       <div v-if="$slots.actions" class="cavil-notice-panel-intro-actions"><slot name="actions"></slot></div>
     </template>
-    <slot v-else>
+    <slot v-else-if="$slots.default || items.length > 0">
       <ul class="cavil-notice-list">
         <li v-for="item in items" :key="item" class="cavil-notice-item">{{ item }}</li>
       </ul>
@@ -94,6 +94,9 @@ export default {
   gap: 0.45rem;
   line-height: 1.35;
   padding: 0.65rem 0.85rem;
+}
+.cavil-notice-heading:last-child {
+  border-bottom: 0;
 }
 .cavil-notice-heading i {
   color: var(--cavil-fg-subtle);

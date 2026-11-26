@@ -292,7 +292,7 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await panel.waitFor();
       t.match(await panel.innerText(), /Remote service in _service file: download_files \(mode: trylocal\)/);
       t.equal(await page.locator('.cavil-package-format-icon').count(), 0, 'no format icon');
-      t.equal(await page.locator('#pkg-declarations').count(), 0, 'no license row');
+      t.equal((await page.locator('#pkg-declarations').innerText()).trim(), 'No license declared', 'license row');
 
       await page.unroute('**/reviews/meta/1');
     });

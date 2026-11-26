@@ -304,6 +304,54 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       t.equal(await copied.locator('[data-no-license-text]').count(), 0, 'with nothing else to say');
     });
 
+    // Reviewers look for these on every report, a slot that vanishes when empty makes them keep searching
+    await t.test('what the package does not have is answered where it would be', async t => {
+      let patch = {};
+      await page.route('**/reviews/meta/2', async route => {
+        const response = await route.fetch();
+        await route.fulfill({response, json: {...(await response.json()), ...patch}});
+      });
+      const load = async (overrides, ready) => {
+        patch = overrides;
+        await page.goto(`${url}/reviews/details/2`);
+        await page.locator(ready).waitFor();
+      };
+      const notices = page.locator('#spec-legal-review-notices');
+      const documents = page.locator('#legal-documents');
+      const copied = page.locator('#copied-files');
+      const note = panel => panel.locator('.cavil-notice-heading-note').innerText();
+
+      const empty = {
+        legal_review_notices: [],
+        legal_documents: {documents: [], dropped: 0},
+        copied_files: {'%doc': [], '%license': ['COPYING']}
+      };
+      await load(empty, '#legal-documents');
+      t.equal(await note(notices), 'None', 'no packager notice');
+      t.equal(await notices.locator('.cavil-notice-list').count(), 0, 'in a single line');
+      t.equal(await note(documents), 'None', 'no legal documents');
+      t.equal(await documents.locator('.cavil-notice-list').count(), 0, 'in a single line too');
+      t.match(await copied.innerText(), /%doc\s+none/, 'no %doc files');
+
+      await load({...empty, legal_documents: null}, '#copied-files');
+      t.equal(await documents.count(), 0, 'documents not computed yet are not claimed to be absent');
+
+      // Only what the format can carry has a slot, so a recipe never seems to be missing a notice or %license
+      for (const format of ['kiwi', 'debian']) {
+        const declarations = [{format, file: 'config', name: 'pkg', license: null, license_html: null, spdx: false}];
+        await load({...empty, declarations}, '#legal-documents');
+        t.equal(await notices.count(), 0, `${format} has no notices slot`);
+        t.equal(await copied.count(), 0, `${format} has no copied files slot`);
+        t.equal(await note(documents), 'None', `${format} still answers for legal documents`);
+      }
+      const declarations = [{format: 'dockerfile', file: 'Dockerfile', name: 'pkg', license: null, license_html: null}];
+      await load({...empty, declarations}, '#spec-legal-review-notices');
+      t.equal(await note(notices), 'None', 'a Dockerfile can carry a notice');
+      t.equal(await copied.count(), 0, 'but copies no files');
+
+      await page.unroute('**/reviews/meta/2');
+    });
+
     assertNoUnexpectedConsoleErrors(t, errorLogs);
   } finally {
     await ui.teardown();

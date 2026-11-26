@@ -11,18 +11,17 @@
           </span>
         </h2>
         <dl class="report-metadata-list">
-          <template v-if="declarations.length > 0">
-            <dt>License</dt>
-            <dd id="pkg-declarations" :class="{'metadata-declarations-named': namedDeclarations}">
-              <div v-for="(d, index) in declarations" :key="index" class="metadata-declaration">
-                <span v-if="namedDeclarations" class="metadata-declaration-name">{{ d.showName ? d.name : '' }}</span>
-                <span v-if="d.license_html !== null" v-html="d.license_html"></span>
-                <span v-else class="metadata-declaration-undeclared">No license declared</span>
-                <a :href="d.fileUrl" class="metadata-declaration-file" target="_blank">{{ displayName(d.file) }}</a>
-                <span class="metadata-declaration-format">{{ d.format }}</span>
-              </div>
-            </dd>
-          </template>
+          <dt>License</dt>
+          <dd id="pkg-declarations" :class="{'metadata-declarations-named': namedDeclarations}">
+            <div v-for="(d, index) in declarations" :key="index" class="metadata-declaration">
+              <span v-if="namedDeclarations" class="metadata-declaration-name">{{ d.showName ? d.name : '' }}</span>
+              <span v-if="d.license_html !== null" v-html="d.license_html"></span>
+              <span v-else class="metadata-declaration-undeclared">No license declared</span>
+              <a :href="d.fileUrl" class="metadata-declaration-file" target="_blank">{{ displayName(d.file) }}</a>
+              <span class="metadata-declaration-format">{{ d.format }}</span>
+            </div>
+            <span v-if="declarations.length === 0" class="metadata-declaration-undeclared">No license declared</span>
+          </dd>
           <dt>Embargoed</dt>
           <dd v-if="pkgEmbargoed === true" id="pkg-embargoed">
             <span class="badge text-bg-warning metadata-status-badge" title="Package is embargoed">
@@ -342,66 +341,70 @@
       </form>
     </div>
     <cavil-notice-panel
-      v-if="legalReviewNotices.length > 0"
+      v-if="hasNoticeFormat"
       id="spec-legal-review-notices"
       icon="fa-solid fa-user-pen"
       title="Legal review notices from packagers"
+      :note="legalReviewNotices.length > 0 ? null : 'None'"
     >
-      <ul class="cavil-notice-list">
-        <!-- eslint-disable-next-line vue/no-v-for-template-key -->
-        <template v-for="(text, index) in legalReviewNotices" :key="index">
-          <li
-            :class="['cavil-notice-item', {'legal-review-notice-clamped': noticeClamped(text, index)}]"
-            v-text="text"
-          ></li>
-          <li v-if="noticeLines(text) > NOTICE_PREVIEW_LINES" class="list-more-toggle">
-            <button type="button" @click="toggleNotice(index)">
-              <i :class="noticesExpanded.has(index) ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'"></i>
-              {{ noticesExpanded.has(index) ? 'Show less' : `Show full notice (${noticeLines(text)} lines)` }}
-            </button>
-          </li>
-        </template>
-      </ul>
+      <template v-if="legalReviewNotices.length > 0" #default>
+        <ul class="cavil-notice-list">
+          <!-- eslint-disable-next-line vue/no-v-for-template-key -->
+          <template v-for="(text, index) in legalReviewNotices" :key="index">
+            <li
+              :class="['cavil-notice-item', {'legal-review-notice-clamped': noticeClamped(text, index)}]"
+              v-text="text"
+            ></li>
+            <li v-if="noticeLines(text) > NOTICE_PREVIEW_LINES" class="list-more-toggle">
+              <button type="button" @click="toggleNotice(index)">
+                <i :class="noticesExpanded.has(index) ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'"></i>
+                {{ noticesExpanded.has(index) ? 'Show less' : `Show full notice (${noticeLines(text)} lines)` }}
+              </button>
+            </li>
+          </template>
+        </ul>
+      </template>
     </cavil-notice-panel>
     <cavil-notice-panel
-      v-if="documents.length > 0"
+      v-if="legalDocuments !== null"
       id="legal-documents"
       icon="fa-solid fa-scale-balanced"
       title="Legal documents"
-      :note="documentsDropped > 0 ? `${count(documentsDropped)} more not listed` : null"
+      :note="documentsNote"
     >
-      <ul class="cavil-notice-list">
-        <li v-for="document in shownDocuments" :key="document.path" class="cavil-notice-item legal-document-item">
-          <a :href="document.url" target="_blank" rel="noopener" class="legal-document-path"
-            ><FilePath :path="document.path"
-          /></a>
-          <span class="legal-document-lines" :title="documentShare(document)">
-            <!-- Absolute, not a percentage: 15 novel lines in a 312-line BSD file round away to "5%" -->
-            <span class="legal-document-tally">{{ documentTally(document) }}</span>
-            <span class="legal-document-meter" aria-hidden="true"
-              ><i
-                v-for="block in 5"
-                :key="block"
-                :class="['legal-document-block', {'is-covered': block <= documentBlocks(document)}]"
-              ></i
-            ></span>
-          </span>
-        </li>
-        <ListMoreToggle
-          v-if="documents.length > DOCUMENTS_PREVIEW"
-          :expanded="documentsExpanded"
-          :hidden="documents.length - DOCUMENTS_PREVIEW"
-          :preview="DOCUMENTS_PREVIEW"
-          @toggle="documentsExpanded = !documentsExpanded"
-        />
-      </ul>
+      <template v-if="documents.length > 0" #default>
+        <ul class="cavil-notice-list">
+          <li v-for="document in shownDocuments" :key="document.path" class="cavil-notice-item legal-document-item">
+            <a :href="document.url" target="_blank" rel="noopener" class="legal-document-path"
+              ><FilePath :path="document.path"
+            /></a>
+            <span class="legal-document-lines" :title="documentShare(document)">
+              <!-- Absolute, not a percentage: 15 novel lines in a 312-line BSD file round away to "5%" -->
+              <span class="legal-document-tally">{{ documentTally(document) }}</span>
+              <span class="legal-document-meter" aria-hidden="true"
+                ><i
+                  v-for="block in 5"
+                  :key="block"
+                  :class="['legal-document-block', {'is-covered': block <= documentBlocks(document)}]"
+                ></i
+              ></span>
+            </span>
+          </li>
+          <ListMoreToggle
+            v-if="documents.length > DOCUMENTS_PREVIEW"
+            :expanded="documentsExpanded"
+            :hidden="documents.length - DOCUMENTS_PREVIEW"
+            :preview="DOCUMENTS_PREVIEW"
+            @toggle="documentsExpanded = !documentsExpanded"
+          />
+        </ul>
+      </template>
     </cavil-notice-panel>
     <cavil-notice-panel v-if="hasSpec" id="copied-files" icon="fa-regular fa-copy" title="Copied files">
       <dl class="cavil-notice-definition-list">
-        <template v-if="copiedFiles['%doc'] !== null">
-          <dt>%doc</dt>
-          <dd>{{ copiedFiles['%doc'] }}</dd>
-        </template>
+        <dt>%doc</dt>
+        <dd v-if="copiedFiles['%doc'] !== null">{{ copiedFiles['%doc'] }}</dd>
+        <dd v-else class="text-muted">none</dd>
         <dt>%license</dt>
         <dd v-if="copiedFiles['%license'] !== null">{{ copiedFiles['%license'] }}</dd>
         <dd v-else>
@@ -455,6 +458,8 @@ const chatTime = time => ({
   timestamp: time.format('YYYY-MM-DD HH:mm')
 });
 
+// Only these declaration formats can carry a Legal-Review-Notice comment
+const NOTICE_FORMATS = ['spec', 'dockerfile', 'helm'];
 const FORMAT_ICONS = {
   spec: 'fa-brands fa-suse',
   debian: 'fa-brands fa-debian',
@@ -570,6 +575,9 @@ export default {
     hasSpec() {
       return this.declarations.some(d => d.format === 'spec');
     },
+    hasNoticeFormat() {
+      return this.declarations.some(d => NOTICE_FORMATS.includes(d.format));
+    },
     canReview() {
       if (this.hasAdminRole === true) return true;
       return this.hasManagerRole === true && (this.state === 'new' || this.state === 'acceptable');
@@ -583,8 +591,10 @@ export default {
       return this.documentsExpanded ? this.documents : this.documents.slice(0, this.DOCUMENTS_PREVIEW);
     },
 
-    documentsDropped() {
-      return this.legalDocuments?.dropped ?? 0;
+    documentsNote() {
+      const dropped = this.legalDocuments?.dropped ?? 0;
+      if (dropped > 0) return `${this.count(dropped)} more not listed`;
+      return this.documents.length > 0 ? null : 'None';
     },
 
     // A curator gets accept and reject, a manager only the fasttrack accept
@@ -1403,7 +1413,7 @@ export default {
   padding: 0.85rem 0.95rem;
   white-space: pre-wrap;
 }
-#spec-legal-review-notices .cavil-notice-heading i {
+#spec-legal-review-notices .cavil-notice-heading:not(:last-child) i {
   color: var(--cavil-success);
 }
 .ai-recommendation {
