@@ -123,12 +123,12 @@ this task, such as `Cavil-Qwen3.5-4B`. These models are usually deployed with a
 
 Cavil is designed for a human driven review process of RPM package sources. Package sources are imported (usually from
 OBS), recursively unpacked, and a legal report is created for them. This report is then reviewed by a human expert or
-lawyer and accepted or rejected. Under certain conditions the report may also be automatically accepted or rejected by
-Cavil.
+lawyer and accepted or rejected. Under certain conditions the report may also be automatically accepted by Cavil, it is
+never rejected automatically.
 
 ### States
 
-Legal reports can be in one of five states:
+Legal reports can be in one of four states:
 
 * `new`: Initial state, report ready for review.
 
@@ -138,7 +138,31 @@ Legal reports can be in one of five states:
 
 * `unacceptable`: Review by a lawyer that resulted in rejecting the report.
 
-* `obsolete`: Report no longer exists.
+Older versions of Cavil also had an `obsolete` state, which replaced the decision when a review was retired. Some old
+reviews still carry it, new ones keep their decision and are retired as described below.
+
+### Retired reviews
+
+A review nobody needs anymore is retired: it is marked obsolete, and the cleanup removes its sources and report data.
+The review itself and its decision stay. A retired decision still counts as a human review of the package and as a
+previous rejection, but it is no longer used to accept other versions automatically.
+
+A review is retired:
+
+* right away, when the last request of a review that is still open or was rejected is closed and the package is not part
+  of a product
+* by the nightly cleanup, when a package is not part of a product and was imported longer ago than the retention period
+  set on the Settings page (60 days by default): decided reviews, and open reviews once no request is waiting for them
+  anymore, such as product imports a product dropped again
+* by the nightly cleanup, sooner for older decided versions of a package once a newer version that is not part of a
+  product either was decided too (7 days by default)
+
+Open reviews of uploaded packages are never retired by the nightly cleanup. They have no request to wait for, and their
+sources could not be imported again.
+
+A retired review is reopened when a bot submits the same package again or adds a request for it, or when it is
+re-imported. Missing sources are imported again, as long as they still exist in the build service or Git hosting
+instance they came from.
 
 ### UI
 

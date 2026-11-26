@@ -2,10 +2,12 @@
   <section>
     <div class="cavil-settings-header">
       <h3>Data retention</h3>
-      <p>Decide how long the source code and reports of reviews are kept before cleanup removes them.</p>
       <p>
-        Changes take effect with the next scheduled cleanup. Reviews that are part of a product or still wait for a
-        decision are always kept.
+        Decide how long after their import the source code and reports of reviews are kept before cleanup removes them.
+      </p>
+      <p>
+        Changes take effect with the next scheduled cleanup. Reviews that are part of a product are always kept, open
+        ones also while a request is waiting for them or when they were uploaded.
       </p>
     </div>
 
@@ -53,8 +55,8 @@ export default {
         {
           name: 'days_to_keep_orphaned_packages',
           id: 'days-to-keep-orphaned-packages',
-          label: 'Keep finished reviews',
-          help: 'Reviews that have been decided and are not part of a product.',
+          label: 'Keep reviews outside of products',
+          help: 'Reviews that are not part of a product, open ones once no request is waiting for them anymore.',
           unit: 'days'
         },
         {

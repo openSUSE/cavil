@@ -65,6 +65,9 @@ my $five_id = $t->app->packages->add(
   priority        => 5
 );
 $t->app->packages->imported($five_id);
+
+# Cleanup only keeps an open review outside of products while a request is waiting for it
+$t->app->requests->add('obs#5', $five_id);
 my $one_id = $t->app->packages->add(
   name            => 'perl-Mojolicious',
   checkout_dir    => 'c7cfdab0e71b0bebfdf8b2dc3badfecd',

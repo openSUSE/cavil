@@ -72,7 +72,7 @@ sub update ($self, $login, $values, $reset = []) {
   $new{$_} = _default($_) for @$reset;
   $errors{auto_accept_risk} = 'Cannot be higher than the risk for packages reviewed before'
     if !%errors && $new{auto_accept_risk} > $new{acceptable_risk};
-  $errors{days_to_keep_orphaned_duplicate_packages} = 'Cannot be longer than finished reviews are kept'
+  $errors{days_to_keep_orphaned_duplicate_packages} = 'Cannot be longer than reviews outside of products are kept'
     if !%errors && $new{days_to_keep_orphaned_duplicate_packages} > $new{days_to_keep_orphaned_packages};
   return {errors => \%errors} if %errors;
 

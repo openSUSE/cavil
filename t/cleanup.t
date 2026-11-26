@@ -174,4 +174,61 @@ ok $t->app->packages->find($one_id)->{obsolete},    'still obsolete';
 ok !$t->app->packages->find($two_id)->{obsolete},   'old but part of product';
 ok !$t->app->packages->find($three_id)->{obsolete}, 'still not obsolete';
 
+subtest 'Open reviews nobody is waiting for anymore' => sub {
+  my $pkgs = $t->app->packages;
+  $t->app->settings->update('test_bot', {auto_accept => 0});
+
+  my @ids;
+  for my $n (4 .. 7) {
+    my $checkout = "d4cfdab0e71b0bebfdf8b2dc3badfe0$n";
+    my $target   = $dir->child('perl-Mojolicious', $checkout)->make_path;
+    copy "$_", $target->child($_->basename) for path(__FILE__)->dirname->child('legal-bot', @one)->list->each;
+    my $id = $pkgs->add(
+      name            => 'perl-Mojolicious',
+      checkout_dir    => $checkout,
+      api_url         => $n == 7 ? '' : 'https://api.opensuse.org',
+      requesting_user => $usr_id,
+      project         => 'devel:languages:perl',
+      package         => 'perl-Mojolicious',
+      srcmd5          => "bd91c36647a5d3dd883d490da214040$n",
+      priority        => 5
+    );
+    $pkgs->imported($id);
+    $t->app->minion->enqueue(unpack => [$id]);
+    push @ids, $id;
+  }
+  $t->app->minion->perform_jobs;
+  my ($abandoned, $requested, $in_product, $uploaded) = @ids;
+  is $pkgs->find($_)->{state}, 'new', 'open review' for @ids;
+
+  $t->app->requests->add('obs#4', $requested);
+  $t->app->products->update($product_id, [$two_id, $in_product]);
+  $db->query('UPDATE bot_packages SET imported = ? WHERE id = ANY(?)', '2017-12-24', \@ids);
+  $t->app->minion->enqueue('obsolete');
+  $t->app->minion->perform_jobs;
+  ok $pkgs->find($abandoned)->{obsolete}, 'abandoned open review retired';
+  ok $pkgs->find($abandoned)->{cleaned},  'cleanup done';
+  is $pkgs->find($abandoned)->{state}, 'new', 'state is left alone';
+  ok !$pkgs->find($requested)->{obsolete},         'open review with a request is kept';
+  ok !$pkgs->find($in_product)->{obsolete},        'open review in a product is kept';
+  ok !$pkgs->find($uploaded)->{obsolete},          'uploaded open review is kept';
+  ok $pkgs->has_manual_review('perl-Mojolicious'), 'family still counts as reviewed by a human';
+  is $pkgs->find($three_id)->{state}, 'acceptable_by_lawyer', 'decided package untouched';
+  ok !$pkgs->find($three_id)->{obsolete}, 'decided package not retired';
+
+  $t->app->products->update($product_id, [$two_id]);
+  $t->app->minion->enqueue('obsolete');
+  $t->app->minion->perform_jobs;
+  ok $pkgs->find($in_product)->{obsolete}, 'retired once the product dropped it';
+  ok !$pkgs->find($two_id)->{obsolete},    'decided package in the product is kept';
+  ok !$pkgs->find($requested)->{obsolete}, 'open review with a request is still kept';
+
+  $t->app->requests->add('obs#5', $abandoned);
+  ok !$pkgs->find($abandoned)->{obsolete}, 'reopened by a new request';
+  $t->app->requests->remove('obs#5');
+  $t->app->minion->enqueue('obsolete');
+  $t->app->minion->perform_jobs;
+  ok !$pkgs->find($abandoned)->{obsolete}, 'not retired again while its sources are still missing';
+};
+
 done_testing();

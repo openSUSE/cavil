@@ -344,7 +344,8 @@ subtest 'Data retention' => sub {
 
   $t->put_ok('/settings/retention.json' => json => {values => {days_to_keep_orphaned_duplicate_packages => 8}})
     ->status_is(400)
-    ->json_is('/errors/days_to_keep_orphaned_duplicate_packages', 'Cannot be longer than finished reviews are kept');
+    ->json_is('/errors/days_to_keep_orphaned_duplicate_packages',
+    'Cannot be longer than reviews outside of products are kept');
   $t->put_ok('/settings/retention.json' => json =>
       {values => {days_to_keep_orphaned_packages => 30, days_to_keep_orphaned_duplicate_packages => 8}})
     ->status_is(200)
@@ -353,8 +354,8 @@ subtest 'Data retention' => sub {
     ->status_is(400)
     ->json_is(
     '/errors/days_to_keep_orphaned_duplicate_packages',
-    'Cannot be longer than finished reviews are kept',
-    'also when shortening finished reviews'
+    'Cannot be longer than reviews outside of products are kept',
+    'also when shortening reviews outside of products'
     );
   $t->put_ok('/settings/retention.json' => json =>
       {values => {days_to_keep_orphaned_packages => 7, days_to_keep_orphaned_duplicate_packages => 1}})->status_is(200);

@@ -375,7 +375,8 @@ Content-Type: application/json
 `POST /packages/import/<package_id>`
 
 Re-import package. Usually used to reopen a review after it has already been obsoleted. If cleanup has already removed
-the package sources, reopening imports them again.
+the package sources, reopening imports them again. Submitting the same package with `POST /packages` or adding a request
+for it with `POST /requests` reopens a retired review too, and also imports removed sources again.
 
 **Request parameters:**
 
@@ -552,7 +553,8 @@ Content-Type: application/json
 `DELETE /requests`
 
 Close review requests. They are no longer listed by `GET /requests`, but stay recorded so reviewers can still look up
-a package by the request id. Adding the same request again reopens it.
+a package by the request id. Adding the same request again reopens it. When the last request of a review that is still
+open or was rejected is closed and the package is not part of a product, the review is retired right away.
 
 **Request parameters:**
 
@@ -593,7 +595,8 @@ Content-Type: application/json
 
 `PATCH /products/<product_name>`
 
-Update packages belonging to product.
+Update packages belonging to product. Packages that are no longer part of any product are retired by the nightly
+cleanup once their import is older than the retention period, open reviews once no request is waiting for them.
 
 **Request parameters:**
 
@@ -629,7 +632,7 @@ Content-Type: application/json
 
 `DELETE /products`
 
-Delete product.
+Delete product. Packages that are then no longer part of any product are retired the same way as with an update.
 
 **Request parameters:**
 

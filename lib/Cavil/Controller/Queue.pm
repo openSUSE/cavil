@@ -130,6 +130,9 @@ sub create_package ($self) {
   @$obj{keys %changes} = values %changes;
   $pkgs->update({id => $obj->{id}, %changes});
   $pkgs->add_tags($obj->{id}, $tags);
+
+  # A cleanup still running when the sources were checked above has removed them by now
+  $create ||= $pkgs->find($obj->{id})->{cleaned};
   if ($create) {
 
     # The import goes in at the incoming band, moved up or down within it by the review priority the
@@ -176,9 +179,13 @@ sub create_request ($self) {
   my $pkgs = $validation->every_param('package');
 
   my $requests = $self->requests;
+  my $packages = $self->packages;
   for my $id (@$pkgs) {
-    $self->packages->rereview_limited($id) if $requests->add($link, $id);
-    $self->packages->resolve_targets($id);
+    $packages->rereview_limited($id) if $requests->add($link, $id);
+    $packages->resolve_targets($id);
+
+    # A request reopens a retired review, and the cleanup may have removed its sources already
+    $packages->reimport($id) if $packages->find($id)->{cleaned};
   }
 
   $self->render(json => {created => $link});

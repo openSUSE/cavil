@@ -358,18 +358,19 @@ sub cleanup ($self, $id, $job_id) {
   # locked package row on two connections at once would be a deadlock waiting to happen.
   return unless my $guard = $self->claim_guard($id, $job_id);
 
-  my $pkg = $db->select('bot_packages', ['name', 'checkout_dir', 'obsolete'], {id => $id})->hash;
-  return if !$pkg || !$pkg->{obsolete};
-
-  my $dir = checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
-  if (-d $dir) {
-    $log->info("[$id] Removing checkout $pkg->{name}/$pkg->{checkout_dir}");
-    $dir->remove_tree;
-  }
-
-  # Scoped so the transaction is finished before the guard hands the package back, whichever way this ends
+  # Scoped so the transaction is finished before the guard hands the package back, whichever way this ends. The row
+  # lock makes a request or submission reopening the review meanwhile wait until it can see the review was cleaned.
   {
-    my $tx = $db->begin;
+    my $tx  = $db->begin;
+    my $pkg = $db->select('bot_packages', ['name', 'checkout_dir', 'obsolete'], {id => $id}, {for => 'update'})->hash;
+    return if !$pkg || !$pkg->{obsolete};
+
+    my $dir = checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
+    if (-d $dir) {
+      $log->info("[$id] Removing checkout $pkg->{name}/$pkg->{checkout_dir}");
+      $dir->remove_tree;
+    }
+
     $db->query('UPDATE bot_packages SET cleaned = NOW() WHERE id = ?', $id);
     _delete_package_rows($db, $id);
     $tx->commit;
@@ -1325,29 +1326,35 @@ sub obsolete_if_unused ($self, $id) {
 sub obsolete_old_packages ($self, $days_to_keep_orphaned, $days_to_keep_orphaned_duplicates) {
   my $db = $self->pg->db;
 
-  # Mark duplicate old packages not in products as obsolete
+  # Mark duplicate old packages not in products as obsolete. Neither query touches a reopened package that is still
+  # marked as cleaned: its sources are being imported again, and "imported" only moves once that is done.
   $db->query(
     "UPDATE bot_packages SET obsolete = true WHERE id IN (
        SELECT id FROM (
-         SELECT id, imported FROM (
-           SELECT id, imported, ROW_NUMBER() OVER (PARTITION BY name ORDER BY id DESC) AS row_no
+         SELECT id, imported, cleaned FROM (
+           SELECT id, imported, cleaned, ROW_NUMBER() OVER (PARTITION BY name ORDER BY id DESC) AS row_no
            FROM bot_packages LEFT JOIN bot_package_products ON bot_package_products.package = bot_packages.id
            WHERE state != 'new' AND checksum IS NOT NULL AND obsolete = false AND bot_package_products.product IS NULL
          ) AS a
          WHERE row_no > 1
        ) AS b
-       WHERE imported < NOW() - (INTERVAL '1 days' * ?)
+       WHERE imported < NOW() - (INTERVAL '1 days' * ?) AND cleaned IS NULL
      )", $days_to_keep_orphaned_duplicates
   );
 
-  # Mark all old packages not in products as obsolete
+  # Mark all old packages not in products as obsolete. Open reviews only once no request is waiting for them either,
+  # and never uploads: they have no request to wait for, and without a build service to import from again, their
+  # sources would be gone for good.
   $db->query(
     "UPDATE bot_packages SET obsolete = true WHERE id IN (
-       SELECT id
-       FROM bot_packages LEFT JOIN bot_package_products ON bot_package_products.package = bot_packages.id
-       WHERE state != 'new' AND obsolete != true AND checksum IS NOT NULL AND obsolete = false
+       SELECT bot_packages.id
+       FROM bot_packages JOIN bot_sources ON bot_sources.id = bot_packages.source
+         LEFT JOIN bot_package_products ON bot_package_products.package = bot_packages.id
+       WHERE obsolete = false AND cleaned IS NULL AND checksum IS NOT NULL
          AND imported < NOW() - (INTERVAL '1 days' * ?)
          AND bot_package_products.product IS NULL
+         AND (state != 'new' OR (bot_sources.api_url != ''
+           AND NOT EXISTS (SELECT 1 FROM bot_requests WHERE package = bot_packages.id AND removed IS NULL)))
      )", $days_to_keep_orphaned
   );
 }

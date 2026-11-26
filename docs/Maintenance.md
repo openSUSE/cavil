@@ -96,9 +96,12 @@ both. A changed cron expression is kept too.
 The `reindex_all` and `obsolete` tasks are exactly what the manual commands below enqueue, so scheduling them is the
 recommended way to run reindexing and cleanup.
 
-How long reviewed packages that are not part of a product, and ephemeral one-off reviews, are kept before cleanup is
-set on the **Data retention** section of the Settings page (60 days, 7 days for older duplicates, and 24 hours for
-ephemeral reviews by default). A changed value takes effect with the next scheduled cleanup.
+How long packages that are not part of a product, and ephemeral one-off reviews, are kept after their import before
+cleanup is set on the **Data retention** section of the Settings page (60 days, 7 days for older duplicates, and 24
+hours for ephemeral reviews by default). This includes open reviews once no request is waiting for them anymore, except
+for uploaded packages. See "Retired reviews" in
+[Architecture](Architecture.md) for the full rules and how a retired review is reopened. A changed value takes effect
+with the next scheduled cleanup.
 
 ### Applying shipped license patterns
 
@@ -139,7 +142,7 @@ To keep your reports and checksums fresh even after new license patterns have be
 reindexing in regular intervals (we do it every weekend). Schedule the `reindex_all` task as shown above, or trigger a
 one-off run manually with `script/cavil rindex`.
 
-### Weekly cleanup
+### Cleanup
 
 To free up space you can run cleanup in regular intervals. Schedule the `obsolete` task as shown above, or trigger a
 one-off run manually with `script/cavil cleanup`. It helps to organize reports into products to exclude them from

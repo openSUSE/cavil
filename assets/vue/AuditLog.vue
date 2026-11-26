@@ -142,7 +142,7 @@ const settingLabels = {
   sbom_creator_name: 'SBOM organisation',
   sbom_creator_email: 'SBOM email address',
   sbom_creator_url: 'SBOM web address',
-  days_to_keep_orphaned_packages: 'Keep finished reviews',
+  days_to_keep_orphaned_packages: 'Keep reviews outside of products',
   days_to_keep_orphaned_duplicate_packages: 'Keep older versions of finished reviews',
   hours_to_keep_ephemeral_packages: 'Keep one-off reviews'
 };

@@ -963,4 +963,26 @@ subtest 'Upload package' => sub {
   };
 };
 
+subtest 'Request reopens a retired review with its sources' => sub {
+  my $pkgs     = $t->app->packages;
+  my $auth     = {Authorization => 'Token test_token'};
+  my $checkout = $dir->child('perl-Mojolicious', '236d7b56886a0d2799c0d114eddbb7f1');
+
+  $t->delete_ok('/products' => $auth => form => {name => $_})->status_is(200)
+    for 'openSUSE:Factory', 'openSUSE:Leap:15.0';
+  $t->app->pg->db->query('UPDATE bot_packages SET imported = ? WHERE id = 1', '2017-12-24');
+  $t->app->minion->enqueue('obsolete');
+  $t->app->minion->perform_jobs;
+  ok $pkgs->find(1)->{obsolete}, 'retired';
+  ok $pkgs->find(1)->{cleaned},  'cleaned up';
+  ok !-d $checkout,              'sources removed';
+
+  $t->post_ok('/requests' => $auth => form => {external_link => 'obs#9', package => 1})->status_is(200);
+  ok !$pkgs->find(1)->{obsolete}, 'reopened';
+  $t->app->minion->perform_jobs;
+  ok !$pkgs->find(1)->{cleaned},                   'imported again';
+  ok -f $checkout->child('perl-Mojolicious.spec'), 'sources are back';
+  $t->get_ok('/package/1/report' => $auth)->status_is(200);
+};
+
 done_testing;
