@@ -223,6 +223,18 @@ t.test('Cavil UI - review comment editor', skipUnlessOnline, async t => {
       ]);
       await page.waitForFunction(() => document.querySelector('#pkg-state').innerText.trim() === 'unacceptable');
       t.equal(await page.innerText('#pkg-state'), 'unacceptable', 'state badge updated in place');
+      const decision = page.locator('#review-timeline .review-timeline-point.is-last');
+      t.equal(
+        await decision.locator('.review-timeline-label').innerText(),
+        'Rejected',
+        'progress ends with the decision'
+      );
+      t.equal(await decision.locator('.review-timeline-when').count(), 1, 'decision carries its time');
+      t.equal(
+        await page.locator('#review-timeline .review-timeline-point.is-pending').count(),
+        0,
+        'nothing pending after the decision'
+      );
       t.match(
         await page.innerText('.comment-editor-footer .metadata-review-status'),
         /Review finalized/i,
@@ -238,7 +250,11 @@ t.test('Cavil UI - review comment editor', skipUnlessOnline, async t => {
         1,
         'comment footer carries the single finalization checkmark'
       );
-      t.equal(await page.locator('#unacceptable .fa-circle-check').count(), 0, 'selected button does not repeat the checkmark');
+      t.equal(
+        await page.locator('#unacceptable .fa-circle-check').count(),
+        0,
+        'selected button does not repeat the checkmark'
+      );
       t.match(
         await page.innerText('.comment-editor-footer .metadata-review-status-detail'),
         /by tester\s+.*ago/i,
@@ -248,7 +264,11 @@ t.test('Cavil UI - review comment editor', skipUnlessOnline, async t => {
       t.notOk(metadataLabels.includes('Reviewed'), 'review time is not duplicated in metadata');
       t.notOk(metadataLabels.includes('Reviewing user'), 'reviewer is not duplicated in metadata');
       t.equal(await page.locator('#unacceptable').getAttribute('aria-pressed'), 'true', 'chosen decision is pressed');
-      t.equal(await page.locator('#acceptable').getAttribute('aria-pressed'), 'false', 'alternative decision is not pressed');
+      t.equal(
+        await page.locator('#acceptable').getAttribute('aria-pressed'),
+        'false',
+        'alternative decision is not pressed'
+      );
       t.equal(await docText(), 'Rejected <b>because</b> of\nthe bundled font', 'comment survives the refresh');
 
       await page.click('text=Recently Reviewed');

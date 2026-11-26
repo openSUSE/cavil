@@ -36,6 +36,22 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       // The size is a quiet aside next to the count, not a parenthesis after it
       t.match(await page.innerText('#unpacked-files'), /^[\d.]+ files \d[\d.]*\s?\w+$/, 'unpacked count and size');
 
+      // The life cycle reads in a fixed order, the scan time is only the last reindex so it stays in the tooltip
+      const timeline = page.locator('#review-timeline');
+      t.same(
+        await timeline.locator('.review-timeline-label').allInnerTexts(),
+        ['Requested', 'Fetched', 'Unpacked', 'Scanned', 'Awaiting review'],
+        'progress steps in life cycle order'
+      );
+      const scanned = timeline.locator('.review-timeline-point', {hasText: 'Scanned'});
+      t.equal(await scanned.locator('.review-timeline-when').count(), 0, 'no scan time on the track');
+      t.match(await scanned.getAttribute('title'), /^Last scanned \d{4}-\d\d-\d\d \d\d:\d\d$/, 'scan time in tooltip');
+      t.match(
+        await timeline.locator('.review-timeline-point.is-pending').innerText(),
+        /waiting/,
+        'pending review counts the wait'
+      );
+
       const [browserPage] = await Promise.all([context.waitForEvent('page'), page.locator('#checkout-url a').click()]);
       await browserPage.waitForLoadState('load');
       await browserPage.waitForSelector('.file-browser-table');

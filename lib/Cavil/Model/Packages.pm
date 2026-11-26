@@ -451,6 +451,7 @@ sub find ($self, $id) {
       \'extract(epoch from bot_packages.imported) as imported_epoch',
       \'extract(epoch from bot_packages.unpacked) as unpacked_epoch',
       \'extract(epoch from bot_packages.indexed)  as indexed_epoch',
+      \'extract(epoch from bot_packages.cleaned)  as cleaned_epoch',
       \'bot_users.login as login'
     ],
     {'bot_packages.id' => $id}

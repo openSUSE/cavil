@@ -124,9 +124,9 @@
             <dt>Priority</dt>
             <dd id="pkg-priority">{{ pkgPriority }}</dd>
           </template>
-          <template v-if="created !== null">
-            <dt>Created</dt>
-            <dd class="from-now">{{ created }}</dd>
+          <template v-if="timelineSteps.length > 0">
+            <dt>Timeline</dt>
+            <dd id="review-timeline"><ReviewTimeline :steps="timelineSteps" /></dd>
           </template>
         </dl>
       </div>
@@ -423,6 +423,7 @@ import LegalLoading from './LegalLoading.vue';
 import ListMoreToggle from './ListMoreToggle.vue';
 import PackageName from './PackageName.vue';
 import ReportDocuments from './ReportDocuments.vue';
+import ReviewTimeline from './ReviewTimeline.vue';
 import TagInput from './TagInput.vue';
 import TemplatePicker from './TemplatePicker.vue';
 import ToastNotifier from './ToastNotifier.vue';
@@ -483,6 +484,7 @@ export default {
     ListMoreToggle,
     PackageName,
     ReportDocuments,
+    ReviewTimeline,
     TagInput,
     TemplatePicker,
     ToastNotifier
@@ -497,7 +499,7 @@ export default {
       robotQuirk: null,
       checkoutUrl: null,
       copiedFiles: {'%doc': null, '%license': null},
-      created: null,
+      timestamps: null,
       declarations: [],
       DOCUMENTS_PREVIEW: 10,
       documentsExpanded: false,
@@ -677,6 +679,48 @@ export default {
     },
     ribbonDescription() {
       return riskName(this.pkgRisk);
+    },
+    // Fixed order, never sorted by time: every package is reindexed at least weekly, so "indexed" (and anything
+    // restamped after the decision) is a last-run time that keeps its place and only shows in the tooltip
+    timelineSteps() {
+      const t = this.timestamps;
+      if (t === null) return [];
+      const decided = this.selectedButtonId;
+      const step = (label, epoch, again) =>
+        again && epoch !== null
+          ? {
+              label,
+              epoch: null,
+              done: true,
+              title: `Last ${label.toLowerCase()} ${moment(epoch * 1000).format('YYYY-MM-DD HH:mm')}`
+            }
+          : {label, epoch};
+      const redone = epoch => decided !== null && t.reviewed !== null && epoch > t.reviewed;
+      const pipeline = [
+        step('Requested', t.created, false),
+        step('Fetched', t.imported, redone(t.imported)),
+        step('Unpacked', t.unpacked, redone(t.unpacked)),
+        step('Scanned', t.indexed, true),
+        decided === null
+          ? {label: 'Awaiting review', epoch: null, waiting: true}
+          : {
+              label: decided === 'acceptable' ? 'Accepted' : 'Rejected',
+              epoch: t.reviewed,
+              tone: decided === 'acceptable' ? 'success' : 'danger',
+              done: true
+            }
+      ];
+      const lastDone = pipeline.findLastIndex(step => step.epoch !== null || step.done);
+      const done = pipeline.slice(0, lastDone + 1).filter(step => step.epoch !== null || step.done);
+      const extras = [
+        this.aiRecommendation === null ? null : {label: 'AI recommended', epoch: this.aiRecommendation.created_epoch},
+        t.cleaned === null ? null : {label: 'Cleaned up', epoch: t.cleaned}
+      ];
+      for (const extra of extras.filter(extra => extra !== null)) {
+        const later = done.findIndex(step => step.epoch !== null && step.epoch > extra.epoch);
+        done.splice(later === -1 ? done.length : later, 0, extra);
+      }
+      return [...done, ...pipeline.slice(lastDone + 1).map(step => ({...step, pending: true}))];
     },
     stateBadgeClass() {
       if (this.state === 'new') return 'text-bg-secondary';
@@ -904,7 +948,14 @@ export default {
         this.copiedFiles[key] = copiedFiles[key].length > 0 ? copiedFiles[key].map(displayName).join(' ') : null;
       }
 
-      this.created = moment(data.created * 1000).fromNow();
+      this.timestamps = {
+        created: data.created,
+        imported: data.imported,
+        unpacked: data.unpacked,
+        indexed: data.indexed,
+        reviewed: data.reviewed,
+        cleaned: data.cleaned
+      };
       this.legalDocuments = data.legal_documents ?? null;
       this.derivedDocuments = data.documents;
       this.legalReviewNotices = data.legal_review_notices;

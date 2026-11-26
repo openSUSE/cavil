@@ -443,7 +443,11 @@ sub _package_summary ($c, $id) {
   return {
     related_reviews  => scalar @{$pkgs->actions($pkg->{external_link}, $id)},
     copied_files     => {'%doc' => [sort keys %docs], '%license' => [sort keys %lics]},
+    cleaned          => $pkg->{cleaned_epoch},
     created          => $pkg->{created_epoch},
+    imported         => $pkg->{imported_epoch},
+    indexed          => $pkg->{indexed_epoch},
+    unpacked         => $pkg->{unpacked_epoch},
     documents        => $state->{documents},
     legal_documents  => _legal_documents($c, $id),
     embargoed        => $pkg->{embargoed} ? true : false,

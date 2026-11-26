@@ -150,6 +150,12 @@ ok !$t->app->pg->db->select('matched_files', [\'count(*)'], {package => $one_id}
 ok !$t->app->pg->db->select('pattern_matches', [\'count(*)'], {package => $one_id})->array->[0], 'no pattern matches';
 ok !$t->app->pg->db->select('file_snippets', [\'count(*)'], {package => $one_id})->array->[0],   'no file snippets';
 
+# The report keeps its whole life cycle, ending with the cleanup
+$t->get_ok('/login')->status_is(302);
+$t->get_ok("/reviews/meta/$one_id")->status_is(200)->json_like('/cleaned', qr/^\d+/);
+$t->get_ok("/reviews/meta/$two_id")->status_is(200)->json_is('/cleaned', undef);
+$t->get_ok('/logout')->status_is(302);
+
 is $t->app->packages->find($two_id)->{state}, 'acceptable_by_lawyer', 'right state';
 is $t->app->packages->find($two_id)->{result}, 'Accepted because previously reviewed under the same license (1)',
   'right result';

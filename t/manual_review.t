@@ -77,7 +77,10 @@ subtest 'Details after import (indexing in progress)' => sub {
     ->json_is('/package_name',   'perl-Mojolicious')
     ->json_is('/state',          'new')
     ->json_is('/unpacked_files', undef)
-    ->json_is('/declarations',   []);
+    ->json_like('/imported', qr/^\d+/)
+    ->json_is('/unpacked',     undef)
+    ->json_is('/indexed',      undef)
+    ->json_is('/declarations', []);
 
   $t->get_ok('/reviews/report/1')->status_is(408)->json_is('/stage' => 'queued');
   $t->get_ok('/reviews/report_details/1')
@@ -107,6 +110,8 @@ subtest 'Details after indexing' => sub {
     ->json_like('/package_url',            qr!http://search\.cpan\.org/dist/Mojolicious/!)
     ->json_like('/state',                  qr!new!)
     ->json_like('/legal_review_notices/0', qr!Upstream project maintained by SUSE employee!)
+    ->json_like('/unpacked',               qr/^\d+/)
+    ->json_like('/indexed',                qr/^\d+/)
     ->json_is('/unpacked_files', 339)
     ->json_is('/unpacked_size',  '2.5MiB');
 
