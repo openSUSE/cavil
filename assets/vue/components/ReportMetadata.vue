@@ -18,8 +18,18 @@
         </div>
         <div v-if="pkgRisk !== null" :class="['report-risk', `is-${riskTone}`]">
           <span class="report-risk-grade">
-            <svg viewBox="0 0 40 46" aria-hidden="true">
-              <path d="M20 2 L37 8 V21 C37 32 30 40 20 44 C10 40 3 32 3 21 V8 Z" />
+            <svg viewBox="0 0 40 48" aria-hidden="true">
+              <path
+                class="report-risk-shield-ledge"
+                d="M20 2 L37 8 V21 C37 32 30 40 20 44 C10 40 3 32 3 21 V8 Z"
+                transform="translate(0 2)"
+              />
+              <path class="report-risk-shield-base" d="M20 2 L37 8 V21 C37 32 30 40 20 44 C10 40 3 32 3 21 V8 Z" />
+              <path class="report-risk-shield-facet" d="M20 2 L37 8 V21 C37 32 30 40 20 44 Z" />
+              <path
+                class="report-risk-shield-rim"
+                d="M20 6.5 L33.5 11.3 V21 C33.5 30 27.8 36.4 20 39.7 C12.2 36.4 6.5 30 6.5 21 V11.3 Z"
+              />
             </svg>
             <strong>{{ pkgRisk }}</strong>
           </span>
@@ -1236,13 +1246,32 @@ export default {
 .report-risk-grade strong {
   grid-area: 1 / 1;
 }
+/* A struck metal badge in flat colour only: a hard ledge below for thickness, the right half one shade darker
+   like a heraldic split, a fine rim stamped inside the edge, and the number pressed into it */
 .report-risk-grade svg {
-  fill: var(--risk-emphasis);
   height: 100%;
-  stroke: var(--risk-emphasis);
+  overflow: visible;
   stroke-linejoin: round;
-  stroke-width: 3;
   width: 100%;
+}
+.report-risk-shield-ledge,
+.report-risk-shield-base {
+  fill: var(--risk-emphasis);
+  stroke: var(--risk-emphasis);
+  stroke-width: 3;
+}
+/* A mixed colour, not a filter: filters rasterize SVG shapes and blur them when zoomed */
+.report-risk-shield-ledge {
+  fill: color-mix(in srgb, var(--risk-emphasis) 70%, black);
+  stroke: color-mix(in srgb, var(--risk-emphasis) 70%, black);
+}
+.report-risk-shield-facet {
+  fill: rgba(0, 0, 0, 0.12);
+}
+.report-risk-shield-rim {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.45);
+  stroke-width: 1.2;
 }
 /* Raised a little, the shield is widest above its middle */
 .report-risk-grade strong {
@@ -1250,7 +1279,10 @@ export default {
   font-size: 1.3rem;
   font-weight: 700;
   line-height: 1;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.35rem;
+  text-shadow:
+    0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 1px 0 rgba(255, 255, 255, 0.2);
 }
 .report-risk-description {
   color: var(--cavil-fg);
