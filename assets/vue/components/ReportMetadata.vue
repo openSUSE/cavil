@@ -301,31 +301,31 @@ Diff to closest match <strong>573150</strong>
       title="Checkout may be incomplete"
       tone="warning"
     />
-    <section v-if="tags.length > 0 || canEditTags" id="package-tags" class="package-tags-bar">
-      <span class="package-tags-label">Tags</span>
-      <div id="pkg-tags" class="package-tags-body">
-        <TagInput
-          v-if="canEditTags"
-          :model-value="tags"
-          :suggestions="knownTags"
-          data-key="pkg-tags"
-          @update:model-value="onTagsChanged"
-        />
-        <div v-else class="package-tags-readonly">
-          <span
-            v-for="tag in tags"
-            :key="tag"
-            class="report-note-tag"
-            :class="{'report-cve-tag': isCve(tag)}"
-            :title="`Tag: ${tag}`"
-            >{{ tag }}</span
-          >
+    <div class="report-review-box">
+      <section v-if="tags.length > 0 || canEditTags" id="package-tags" class="package-tags-bar">
+        <span class="package-tags-label">Tags</span>
+        <div id="pkg-tags" class="package-tags-body">
+          <TagInput
+            v-if="canEditTags"
+            :model-value="tags"
+            :suggestions="knownTags"
+            data-key="pkg-tags"
+            @update:model-value="onTagsChanged"
+          />
+          <div v-else class="package-tags-readonly">
+            <span
+              v-for="tag in tags"
+              :key="tag"
+              class="report-note-tag"
+              :class="{'report-cve-tag': isCve(tag)}"
+              :title="`Tag: ${tag}`"
+              >{{ tag }}</span
+            >
+          </div>
         </div>
-      </div>
-    </section>
-    <div class="metadata-review-section">
-      <form class="container metadata-review-form" id="pkg-review" @submit.prevent>
-        <div class="col metadata-review-editor">
+      </section>
+      <form class="metadata-review-form" id="pkg-review" @submit.prevent>
+        <div class="metadata-review-editor">
           <CommentEditor
             ref="commentEditor"
             v-model="result"
@@ -363,7 +363,7 @@ Diff to closest match <strong>573150</strong>
             </template>
           </CommentEditor>
         </div>
-        <div v-if="canReview" class="col mb-3 metadata-review-actions">
+        <div v-if="canReview" class="metadata-review-actions">
           <div class="metadata-review-actions-group">
             <!-- One accept button; the server derives acceptable vs acceptable_by_lawyer from the
                  reviewer's capability, so a non-lawyer can never post a lawyer sign-off.
@@ -1494,15 +1494,34 @@ export default {
   max-width: 100%;
   min-width: 0;
 }
-/* One bordered bar with a distinct-background "Tags" label segment on the left, mirroring the two-tone
-   ExternalLink idiom. TagInput brings its own bordered editor, so inside the bar that inner border is
-   neutralised: the bar is the single box, the label is a segment of it, not a box around a box. */
+/* Tags, comment and decision buttons share one box like the GitHub comment composer, so the inner
+   TagInput and CommentEditor borders are neutralised and become dividers */
+.report-review-box {
+  border: 1px solid var(--cavil-border);
+  border-radius: 8px;
+  margin: 1.25rem 0;
+}
+.report-review-box:has(.package-tags-bar:focus-within, .comment-editor:focus-within) {
+  border-color: var(--cavil-accent);
+  box-shadow: 0 0 0 3px rgba(var(--cavil-accent-rgb), 0.18);
+}
+#pkg-review .comment-editor {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+#pkg-review:first-child .comment-editor {
+  border-top-left-radius: 7px;
+  border-top-right-radius: 7px;
+}
+#pkg-review .metadata-review-editor:last-child .comment-editor {
+  border-bottom-left-radius: 7px;
+  border-bottom-right-radius: 7px;
+}
 .package-tags-bar {
   align-items: stretch;
-  border: 1px solid var(--cavil-border);
-  border-radius: 6px;
+  border-bottom: 1px solid var(--cavil-border);
   display: flex;
-  margin: 1.25rem 0;
   position: relative;
 }
 /* Anchor TagInput's autocomplete popover to the whole bar (not the input segment right of the label) so it
@@ -1510,16 +1529,10 @@ export default {
 .package-tags-body .tag-input {
   position: static;
 }
-.package-tags-bar:focus-within {
-  border-color: var(--cavil-accent);
-  box-shadow: 0 0 0 3px rgba(var(--cavil-accent-rgb), 0.18);
-}
-/* Matches the CommentEditor header label just below it (same bg, colour, size, weight) so the two
-   interactive elements read as a consistent pair. */
 .package-tags-label {
   align-items: center;
   background: var(--cavil-canvas-subtle);
-  border-radius: 6px 0 0 6px;
+  border-radius: 7px 0 0 0;
   border-right: 1px solid var(--cavil-border);
   color: var(--cavil-fg);
   display: flex;
@@ -2003,19 +2016,15 @@ export default {
 .ai-recommendation:hover .ai-recommendation-more {
   background: var(--cavil-accent-border);
 }
-.metadata-review-section {
-  margin: 1.25rem 0;
-}
-.metadata-review-form {
-  padding: 0;
-}
-/* The bordered box, its header bar and the focus ring now belong to CommentEditor */
 .metadata-review-actions {
   align-items: center;
+  background: var(--cavil-canvas-subtle);
+  border-radius: 0 0 7px 7px;
+  border-top: 1px solid var(--cavil-border);
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
-  margin-top: 0.75rem;
+  padding: 0.6rem 0.75rem;
 }
 .metadata-review-actions .btn {
   border-radius: 6px;
