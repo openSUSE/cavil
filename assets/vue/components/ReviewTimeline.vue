@@ -120,7 +120,7 @@ export default {
   align-items: center;
   align-self: stretch;
   display: flex;
-  height: 13px;
+  height: 10px;
 }
 .review-timeline-track::before,
 .review-timeline-track::after,
@@ -148,24 +148,24 @@ export default {
 .review-timeline-connector.is-pending {
   border-top-style: dashed;
 }
-/* Done steps are rings filled at the centre, pending ones hollow */
+/* Mostly decoration, so it stays quiet: done steps are small rings filled at the centre, pending ones
+   hollow, on the grey of the footer it sits in. Only the decision keeps its colour. */
 .review-timeline-dot {
-  --dot: var(--cavil-fg-muted);
+  --dot: var(--cavil-fg-subtle);
   background: var(--dot);
   border: 2px solid var(--dot);
   border-radius: 50%;
-  box-shadow: inset 0 0 0 2px var(--cavil-canvas);
+  box-shadow: inset 0 0 0 1.5px var(--cavil-canvas-subtle);
   flex: none;
-  height: 13px;
-  width: 13px;
+  height: 10px;
+  width: 10px;
 }
 .is-pending .review-timeline-dot {
   --dot: var(--cavil-border-strong);
-  background: var(--cavil-canvas);
+  background: var(--cavil-canvas-subtle);
 }
 .is-current .review-timeline-dot {
   --dot: var(--cavil-accent);
-  box-shadow: 0 0 0 3px rgba(var(--cavil-accent-rgb), 0.18);
 }
 .is-success .review-timeline-dot {
   --dot: var(--cavil-success);
@@ -174,18 +174,17 @@ export default {
   --dot: var(--cavil-danger);
 }
 .review-timeline-label {
-  color: var(--cavil-fg-muted);
+  color: var(--cavil-fg-subtle);
   font-size: 12px;
-  font-weight: 500;
-  margin-top: 0.2rem;
+  margin-top: 0.25rem;
 }
 .is-pending .review-timeline-label {
   color: var(--cavil-fg-disabled);
   font-weight: 400;
 }
 .is-current .review-timeline-label {
-  color: var(--cavil-fg);
-  font-weight: 600;
+  color: var(--cavil-fg-muted);
+  font-weight: 500;
 }
 .review-timeline-when {
   color: var(--cavil-fg-disabled);
@@ -194,7 +193,7 @@ export default {
 /* Spans the full width: connectors grow by their weight and never wrap, shrinking down to what their gap label needs */
 .review-timeline-connector {
   flex: 2.5 1 0;
-  margin-top: 6px;
+  margin-top: 5px;
   min-width: 1.5rem;
   position: relative;
 }
@@ -202,14 +201,12 @@ export default {
   min-width: 4rem;
 }
 .review-timeline-gap {
-  background: var(--cavil-canvas);
-  border: 1px solid var(--cavil-border);
-  border-radius: 2em;
-  color: var(--cavil-fg-muted);
+  background: var(--cavil-canvas-subtle);
+  color: var(--cavil-fg-subtle);
   font-size: 11px;
   left: 50%;
   line-height: 1;
-  padding: 0.15rem 0.45rem;
+  padding: 0 0.4rem;
   position: absolute;
   top: 0;
   transform: translate(-50%, -50%);
