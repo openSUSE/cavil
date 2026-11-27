@@ -39,7 +39,58 @@
           </dd>
         </div>
       </dl>
+      <dl v-if="pkgUrl !== null || links.length > 0 || relatedReviews > 0" class="report-metadata-list">
+        <div v-if="pkgUrl !== null" class="report-form-field is-wide">
+          <dt>URL</dt>
+          <dd id="pkg-url">
+            <a :href="pkgUrl" target="_blank">{{ pkgUrl }}</a>
+          </dd>
+        </div>
+        <div v-if="links.length > 0" class="report-form-field">
+          <dt>{{ links.length === 1 ? 'Link' : 'Links' }}</dt>
+          <dd id="pkg-link" class="report-metadata-links">
+            <span
+              v-for="(link, index) in links"
+              :key="index"
+              :class="['report-metadata-link', {'is-closed': !link.active}]"
+              :title="link.active ? null : 'Closed'"
+            >
+              <ExternalLink :link="link" />
+            </span>
+          </dd>
+        </div>
+        <div v-if="relatedReviews > 0" class="report-form-field">
+          <dt>Actions</dt>
+          <dd>
+            <a id="related-reviews" :href="`/search?q=${encodeURIComponent(externalLink)}`" target="_blank">
+              {{ relatedReviews === 1 ? '1 related review' : `${relatedReviews} related reviews` }}
+            </a>
+          </dd>
+        </div>
+      </dl>
       <dl class="report-metadata-list">
+        <div class="report-form-field is-wide">
+          <dt>Documents</dt>
+          <dd id="report-documents">
+            <report-documents :pkg-id="pkgId" :documents="derivedDocuments" @error="notifyError" />
+          </dd>
+        </div>
+        <div v-if="checkoutUrl !== null" class="report-form-field">
+          <dt>Checkout</dt>
+          <dd id="checkout-url">
+            <a :href="checkoutUrl" target="_blank">{{ pkgChecksum }}</a>
+          </dd>
+        </div>
+        <div v-if="pkgVersion !== null" class="report-form-field">
+          <dt>Version</dt>
+          <dd id="pkg-version">{{ pkgVersion }}</dd>
+        </div>
+      </dl>
+      <dl class="report-metadata-list">
+        <div v-if="productsHtml !== null" :class="['report-form-field', {'is-wide': pkgEphemeral !== true}]">
+          <dt>Products</dt>
+          <dd id="pkg-products" v-html="productsHtml"></dd>
+        </div>
         <div v-if="state !== null" class="report-form-field">
           <dt>State</dt>
           <dd>
@@ -67,73 +118,25 @@
             <span v-if="ephemeralDelete !== ''" class="report-ephemeral-hint">deleted {{ ephemeralDelete }}</span>
           </dd>
         </div>
-        <div v-if="pkgPriority !== null" class="report-form-field">
-          <dt>Priority</dt>
-          <dd id="pkg-priority">{{ pkgPriority }}</dd>
-        </div>
       </dl>
-      <dl v-if="pkgUrl !== null || pkgShortname !== null || pkgVersion !== null" class="report-metadata-list">
-        <div v-if="pkgUrl !== null" class="report-form-field is-wide">
-          <dt>URL</dt>
-          <dd id="pkg-url">
-            <a :href="pkgUrl" target="_blank">{{ pkgUrl }}</a>
+      <dl
+        v-if="pkgPriority !== null || pkgShortname !== null || unpackedFiles > 0"
+        class="report-metadata-list is-secondary"
+      >
+        <div v-if="unpackedFiles > 0" class="report-form-field is-wide">
+          <dt>Unpacked</dt>
+          <dd id="unpacked-files">
+            {{ unpackedFilesLabel }}
+            <small>{{ unpackedSize }}</small>
           </dd>
         </div>
         <div v-if="pkgShortname !== null" class="report-form-field">
           <dt>Shortname</dt>
           <dd id="pkg-shortname">{{ pkgShortname }}</dd>
         </div>
-        <div v-if="pkgVersion !== null" class="report-form-field">
-          <dt>Version</dt>
-          <dd id="pkg-version">{{ pkgVersion }}</dd>
-        </div>
-      </dl>
-      <dl v-if="links.length > 0 || productsHtml !== null || relatedReviews > 0" class="report-metadata-list">
-        <div v-if="links.length > 0" class="report-form-field is-wide">
-          <dt>{{ links.length === 1 ? 'Link' : 'Links' }}</dt>
-          <dd id="pkg-link" class="report-metadata-links">
-            <span
-              v-for="(link, index) in links"
-              :key="index"
-              :class="['report-metadata-link', {'is-closed': !link.active}]"
-              :title="link.active ? null : 'Closed'"
-            >
-              <ExternalLink :link="link" />
-            </span>
-          </dd>
-        </div>
-        <div v-if="productsHtml !== null" class="report-form-field">
-          <dt>Products</dt>
-          <dd id="pkg-products" v-html="productsHtml"></dd>
-        </div>
-        <div v-if="relatedReviews > 0" class="report-form-field">
-          <dt>Actions</dt>
-          <dd>
-            <a id="related-reviews" :href="`/search?q=${encodeURIComponent(externalLink)}`" target="_blank">
-              {{ relatedReviews === 1 ? '1 related review' : `${relatedReviews} related reviews` }}
-            </a>
-          </dd>
-        </div>
-      </dl>
-      <dl class="report-metadata-list">
-        <div class="report-form-field is-wide">
-          <dt>Documents</dt>
-          <dd id="report-documents">
-            <report-documents :pkg-id="pkgId" :documents="derivedDocuments" @error="notifyError" />
-          </dd>
-        </div>
-        <div v-if="checkoutUrl !== null" class="report-form-field">
-          <dt>Checkout</dt>
-          <dd id="checkout-url">
-            <a :href="checkoutUrl" target="_blank">{{ pkgChecksum }}</a>
-          </dd>
-        </div>
-        <div v-if="unpackedFiles > 0" class="report-form-field">
-          <dt>Unpacked</dt>
-          <dd id="unpacked-files">
-            {{ unpackedFilesLabel }}
-            <small>{{ unpackedSize }}</small>
-          </dd>
+        <div v-if="pkgPriority !== null" class="report-form-field">
+          <dt>Priority</dt>
+          <dd id="pkg-priority">{{ pkgPriority }}</dd>
         </div>
       </dl>
       <footer v-if="timelineSteps.length > 0" id="review-timeline" class="report-form-foot">
@@ -1298,7 +1301,8 @@ export default {
 .report-metadata-list + .report-metadata-list {
   border-top: 1px solid var(--cavil-border-muted);
 }
-/* Quarter-width steps line fields up across rows with different field counts; the last one takes the rest */
+/* Every row shares the 50% line: the left half holds one field, the right half one field or two quarters.
+   The last field takes the rest. */
 .report-form-field {
   flex: 0 0 25%;
   min-width: 0;
@@ -1306,6 +1310,10 @@ export default {
 }
 .report-form-field + .report-form-field {
   border-left: 1px solid var(--cavil-border-muted);
+}
+/* Admin details, read rarely: last row, muted so it stays out of the reviewer's way */
+.report-metadata-list.is-secondary dd {
+  color: var(--cavil-fg-muted);
 }
 .report-form-field.is-wide {
   flex-basis: 50%;
