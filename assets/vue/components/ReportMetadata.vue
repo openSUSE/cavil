@@ -140,7 +140,39 @@
       <header class="review-information-card-bar">
         <i class="fa-solid fa-caret-right"></i>
         <span>why this needs review</span>
+        <button
+          type="button"
+          class="cavil-notice-help-button"
+          aria-label="Help: Why this needs review"
+          title="What is this?"
+          @click="$refs.reviewHelp.open()"
+        >
+          <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
+        </button>
       </header>
+      <HelpDialog ref="reviewHelp" title="Why this needs review">
+        <p>
+          Cavil compares every new package with earlier accepted versions of the same software. This box says what it
+          found, and why the package was or was not accepted automatically.
+        </p>
+        <div class="help-example">
+          <div class="help-example-file">Example</div>
+          <pre>
+Diff to closest match <strong>573150</strong>
+
+  New licenses (by risk)
+    5  GPL-3.0-or-later</pre
+          >
+        </div>
+        <p>
+          The number links to the closest earlier report. Below it is only what changed since then, like new licenses
+          with their risk or text Cavil could not match, which is usually the best place to start.
+        </p>
+        <p>
+          "Limitation noted" means a reviewer set a condition on an earlier version, so every new version needs a human
+          review until the limitation is removed.
+        </p>
+      </HelpDialog>
       <!-- prettier-ignore -->
       <pre class="review-information-card-body"><span
         v-for="(segment, index) in noticeSegments"
@@ -341,12 +373,30 @@
       </form>
     </div>
     <cavil-notice-panel
-      v-if="hasNoticeFormat"
+      v-if="noticeFile !== null"
       id="spec-legal-review-notices"
       icon="fa-solid fa-user-pen"
       title="Legal review notices from packagers"
       :note="legalReviewNotices.length > 0 ? null : 'None'"
     >
+      <template #help>
+        <p>
+          Packagers can leave a note for the legal reviewer as a comment in the packaging file. It shows up in this
+          panel.
+        </p>
+        <div class="help-example">
+          <div class="help-example-file">{{ noticeFile }}</div>
+          <pre>
+# <strong>Legal-Review-Notice:</strong> The bundled libfoo sources are never built,
+#                      the system libfoo is used instead.</pre
+          >
+        </div>
+        <p>
+          Use it to explain something the report flags, like bundled code that is never shipped, or which license was
+          chosen for dual-licensed code.
+        </p>
+        <p>Cavil does not check what a notice says, so treat it as the packager's explanation, not as a fact.</p>
+      </template>
       <template v-if="legalReviewNotices.length > 0" #default>
         <ul class="cavil-notice-list">
           <!-- eslint-disable-next-line vue/no-v-for-template-key -->
@@ -372,6 +422,32 @@
       title="Legal documents"
       :note="documentsNote"
     >
+      <template #help>
+        <p>
+          These are the package's own license files, like LICENSE, COPYING or NOTICE. License files in folders for
+          bundled code, tests, examples or documentation are left out, they show up in the report below.
+        </p>
+        <ul class="cavil-notice-list help-example">
+          <li v-for="example in DOCUMENT_EXAMPLES" :key="example.path" class="cavil-notice-item legal-document-item">
+            <span class="legal-document-path">{{ example.path }}</span>
+            <span class="legal-document-lines">
+              <span class="legal-document-tally">{{ documentTally(example) }}</span>
+              <span class="legal-document-meter" aria-hidden="true"
+                ><i
+                  v-for="block in 5"
+                  :key="block"
+                  :class="['legal-document-block', {'is-covered': block <= documentBlocks(example)}]"
+                ></i
+              ></span>
+            </span>
+          </li>
+        </ul>
+        <p>
+          The bar shows how much of each file Cavil recognises as known license text. Anything else can be harmless,
+          like a different copyright line, or extra terms, like a ban on commercial use, so open the file and read the
+          parts Cavil does not know.
+        </p>
+      </template>
       <template v-if="documents.length > 0" #default>
         <ul class="cavil-notice-list">
           <li v-for="document in shownDocuments" :key="document.path" class="cavil-notice-item legal-document-item">
@@ -400,7 +476,29 @@
         </ul>
       </template>
     </cavil-notice-panel>
-    <cavil-notice-panel v-if="hasSpec" id="copied-files" icon="fa-regular fa-copy" title="Copied files">
+    <cavil-notice-panel v-if="specFile !== null" id="copied-files" icon="fa-regular fa-copy" title="Copied files">
+      <template #help>
+        <p>
+          These are the files the spec file adds to the finished package for users to read: documentation marked
+          <code>%doc</code> and license texts marked <code>%license</code>.
+        </p>
+        <div class="help-example">
+          <div class="help-example-file">{{ specFile }}</div>
+          <pre>
+%files
+<strong>%license</strong> COPYING
+<strong>%doc</strong> README.md NEWS</pre
+          >
+        </div>
+        <p>
+          Many licenses require their text to be passed on with the software, so "no license text copied" deserves a
+          closer look.
+        </p>
+        <p>
+          The list can be incomplete when the spec file uses macros or installs files in other ways, so check the spec
+          file when in doubt.
+        </p>
+      </template>
       <dl class="cavil-notice-definition-list">
         <dt>%doc</dt>
         <dd v-if="copiedFiles['%doc'] !== null">{{ copiedFiles['%doc'] }}</dd>
@@ -422,6 +520,7 @@ import CommentEditor from './CommentEditor.vue';
 import CopyableText from './CopyableText.vue';
 import ExternalLink from './ExternalLink.vue';
 import FilePath from './FilePath.vue';
+import HelpDialog from './HelpDialog.vue';
 import LegalLoading from './LegalLoading.vue';
 import ListMoreToggle from './ListMoreToggle.vue';
 import PackageName from './PackageName.vue';
@@ -458,6 +557,10 @@ const chatTime = time => ({
   timestamp: time.format('YYYY-MM-DD HH:mm')
 });
 
+const DOCUMENT_EXAMPLES = [
+  {path: 'LICENSE', lines: 21, unexplained: 0},
+  {path: 'NOTICE', lines: 14, unexplained: 6}
+];
 // Only these declaration formats can carry a Legal-Review-Notice comment
 const NOTICE_FORMATS = ['spec', 'dockerfile', 'helm'];
 const FORMAT_ICONS = {
@@ -485,6 +588,7 @@ export default {
     CopyableText,
     ExternalLink,
     FilePath,
+    HelpDialog,
     LegalLoading,
     ListMoreToggle,
     PackageName,
@@ -511,6 +615,7 @@ export default {
       legalDocuments: null,
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
       legalReviewNotices: [],
+      DOCUMENT_EXAMPLES,
       NOTICE_PREVIEW_LINES: 4,
       noticesExpanded: new Set(),
       limitations: [],
@@ -572,11 +677,13 @@ export default {
     formatIcon() {
       return FORMAT_ICONS[this.declarations[0]?.format] ?? null;
     },
-    hasSpec() {
-      return this.declarations.some(d => d.format === 'spec');
+    specFile() {
+      const declaration = this.declarations.find(d => d.format === 'spec');
+      return declaration === undefined ? null : displayName(declaration.file);
     },
-    hasNoticeFormat() {
-      return this.declarations.some(d => NOTICE_FORMATS.includes(d.format));
+    noticeFile() {
+      const declaration = this.declarations.find(d => NOTICE_FORMATS.includes(d.format));
+      return declaration === undefined ? null : displayName(declaration.file);
     },
     canReview() {
       if (this.hasAdminRole === true) return true;
@@ -1393,6 +1500,13 @@ export default {
   color: var(--cavil-grey-4);
   font-size: 11px;
 }
+.help-example .legal-document-item {
+  pointer-events: none;
+}
+.review-information-card-bar .cavil-notice-help-button:hover i,
+.review-information-card-bar .cavil-notice-help-button:focus-visible i {
+  color: var(--cavil-inverse-fg);
+}
 /* The compared report id links to that report, but stays typographically
    part of the tool output - only an underline on hover gives it away. */
 .review-information-card-body a {
@@ -1413,7 +1527,7 @@ export default {
   padding: 0.85rem 0.95rem;
   white-space: pre-wrap;
 }
-#spec-legal-review-notices .cavil-notice-heading:not(:last-child) i {
+#spec-legal-review-notices:has(.cavil-notice-list) .cavil-notice-heading > i:first-child {
   color: var(--cavil-success);
 }
 .ai-recommendation {

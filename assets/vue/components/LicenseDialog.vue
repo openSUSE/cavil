@@ -57,26 +57,31 @@ export default {
 </script>
 
 <style>
-.license-modal {
+.license-modal,
+.help-modal {
   --bs-modal-bg: var(--cavil-canvas);
 }
 /* No shadow reads on a near-black page, so the sheet has to sit above the canvas by tone and a border */
-[data-bs-theme='dark'] .license-modal {
+[data-bs-theme='dark'] .license-modal,
+[data-bs-theme='dark'] .help-modal {
   --bs-modal-bg: var(--cavil-canvas-tint);
   --bs-modal-border-color: var(--cavil-border);
 }
 
 /* Sized to the 70ch column plus its margins */
-.license-modal .modal-dialog {
+.license-modal .modal-dialog,
+.help-modal .modal-dialog {
   --bs-modal-margin: 1.75rem;
   --bs-modal-width: 46rem;
 }
-.license-modal .modal-content {
+.license-modal .modal-content,
+.help-modal .modal-content {
   --bs-modal-border-radius: 12px;
   box-shadow: 0 8px 32px rgba(var(--cavil-shadow-alt-rgb), 0.24);
 }
 
-.license-modal .modal-header {
+.license-modal .modal-header,
+.help-modal .modal-header {
   align-items: baseline;
   background: var(--bs-modal-bg);
   border-bottom-color: var(--cavil-border);
@@ -121,7 +126,8 @@ export default {
 
 /* Bootstrap's own box is 28px and would set the header's content height, stranding the baseline row at
    the top of it; sized to the identifier instead, and centred because it has no baseline of its own */
-.license-modal .btn-close {
+.license-modal .btn-close,
+.help-modal .btn-close {
   align-self: center;
   box-sizing: border-box;
   font-size: 12px;
@@ -135,11 +141,13 @@ export default {
   margin-left: 0.35rem;
 }
 
-.license-modal .modal-body {
+.license-modal .modal-body,
+.help-modal .modal-body {
   padding: 1.25rem 1.75rem 2rem;
 }
 /* Focused only to be scrollable, so it must not read as an active field */
-.license-modal .modal-body:focus-visible {
+.license-modal .modal-body:focus-visible,
+.help-modal .modal-body:focus-visible {
   outline: none;
 }
 </style>

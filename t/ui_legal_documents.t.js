@@ -223,6 +223,35 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       t.equal((await toggle.innerText()).trim(), 'Show full notice (8 lines)', 'and it is clamped again');
     });
 
+    // Non-technical reviewers forget what a panel means, packagers forget the comment syntax
+    await t.test('each panel explains itself in a dialog', async t => {
+      const dialog = page.locator('.help-modal.show');
+      const panels = [
+        ['#review-information', 'Why this needs review', /Diff to closest match 573150\s+New licenses/],
+        [
+          '#spec-legal-review-notices',
+          'Legal review notices from packagers',
+          /legal-docs\.spec\s+# Legal-Review-Notice: /
+        ],
+        ['#legal-documents', 'Legal documents', /LICENSE\s+21 lines\s+NOTICE\s+8 of 14 lines/],
+        ['#copied-files', 'Copied files', /legal-docs\.spec\s+%files\s+%license COPYING/]
+      ];
+      for (const [id, title, example] of panels) {
+        await page.locator(`${id} .cavil-notice-help-button`).click();
+        await dialog.waitFor();
+        t.equal(await dialog.locator('.help-modal-title').innerText(), title, `${title} opens its help`);
+        t.match(await dialog.locator('.modal-body').innerText(), example, 'with an example');
+        await dialog.locator('.btn-close').click();
+        await dialog.waitFor({state: 'detached'});
+        await page.locator('.modal-backdrop').waitFor({state: 'detached'});
+        const focused = await page.evaluate(
+          sel => document.activeElement.matches(sel),
+          `${id} .cavil-notice-help-button`
+        );
+        t.ok(focused, 'and hands focus back to its button');
+      }
+    });
+
     // Indexing records a file only once something matched in it, so the document whose licence nobody has
     // a pattern for has no file id at all - and that is exactly where a reviewer has to start one.
     await t.test('a file nothing matched in can be picked line by line', async t => {
@@ -332,6 +361,8 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       t.equal(await note(documents), 'None', 'no legal documents');
       t.equal(await documents.locator('.cavil-notice-list').count(), 0, 'in a single line too');
       t.match(await copied.innerText(), /%doc\s+none/, 'no %doc files');
+
+      t.equal(await notices.locator('.cavil-notice-help-button').count(), 1, 'the empty slot explains itself too');
 
       await load({...empty, legal_documents: null}, '#copied-files');
       t.equal(await documents.count(), 0, 'documents not computed yet are not claimed to be absent');

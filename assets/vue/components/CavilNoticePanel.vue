@@ -4,7 +4,18 @@
       <i v-if="icon !== null" :class="icon"></i>
       {{ title }}
       <span v-if="note !== null" class="cavil-notice-heading-note">{{ note }}</span>
+      <button
+        v-if="$slots.help"
+        type="button"
+        class="cavil-notice-help-button"
+        :aria-label="`Help: ${title}`"
+        title="What is this?"
+        @click="$refs.help.open()"
+      >
+        <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
+      </button>
     </div>
+    <HelpDialog v-if="$slots.help && title !== null" ref="help" :title="title"><slot name="help"></slot></HelpDialog>
     <!-- Intro prose needs a box of its own, an anonymous flex item cannot be told to shrink -->
     <template v-if="intro">
       <div class="cavil-notice-panel-intro-text"><slot></slot></div>
@@ -19,8 +30,11 @@
 </template>
 
 <script>
+import HelpDialog from './HelpDialog.vue';
+
 export default {
   name: 'CavilNoticePanel',
+  components: {HelpDialog},
   props: {
     icon: {type: String, default: null},
     id: {type: String, default: null},
@@ -106,6 +120,20 @@ export default {
   color: var(--cavil-fg-subtle);
   font-weight: 400;
   margin-left: auto;
+}
+.cavil-notice-help-button {
+  background: none;
+  border: 0;
+  line-height: 1;
+  margin-left: auto;
+  padding: 0;
+}
+.cavil-notice-heading-note + .cavil-notice-help-button {
+  margin-left: 0.2rem;
+}
+.cavil-notice-help-button:hover i,
+.cavil-notice-help-button:focus-visible i {
+  color: var(--cavil-accent);
 }
 .cavil-notice-panel-warning {
   border-color: var(--cavil-attention-3);
