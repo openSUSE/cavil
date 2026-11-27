@@ -37,8 +37,19 @@
         </div>
       </header>
       <dl class="report-metadata-list">
-        <div class="report-form-field">
-          <dt>License</dt>
+        <div id="report-license" class="report-form-field">
+          <dt>
+            License
+            <button
+              type="button"
+              class="cavil-notice-help-button"
+              aria-label="Help: License"
+              title="What is this?"
+              @click="$refs.licenseHelp.open()"
+            >
+              <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
+            </button>
+          </dt>
           <dd id="pkg-declarations" :class="{'metadata-declarations-named': namedDeclarations}">
             <div v-for="(d, index) in declarations" :key="index" class="metadata-declaration">
               <span v-if="namedDeclarations" class="metadata-declaration-name">{{ d.showName ? d.name : '' }}</span>
@@ -155,6 +166,25 @@
         <ReviewTimeline :steps="timelineSteps" />
       </footer>
     </section>
+    <HelpDialog ref="licenseHelp" title="License">
+      <p>
+        This is the license the packager declared. In a spec file it covers the whole package, and a subpackage with a
+        different license gets its own line.
+      </p>
+      <div class="help-example">
+        <div class="help-example-file">{{ specFile ?? 'package.spec' }}</div>
+        <pre>
+<strong>License:</strong>  GPL-2.0-or-later
+
+%package -n libfoo1
+<strong>License:</strong>  LGPL-2.1-or-later</pre>
+      </div>
+      <p>
+        A Dockerfile or Helm chart is different: its license covers only that one file, not the container or chart built
+        from it.
+      </p>
+      <p>Cavil does not check what is declared, so compare it with what the report below found.</p>
+    </HelpDialog>
     <section v-if="notice !== null" id="review-information" class="review-information-card">
       <header class="review-information-card-bar">
         <i class="fa-solid fa-caret-right"></i>
@@ -1362,6 +1392,10 @@ export default {
   font-weight: 600;
   line-height: 1.3;
   margin-bottom: 0.25rem;
+}
+.report-metadata-list dt .cavil-notice-help-button {
+  color: var(--cavil-fg-subtle);
+  margin-left: 0.25rem;
 }
 .report-metadata-list dd {
   margin: 0;

@@ -234,7 +234,8 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
           /legal-docs\.spec\s+# Legal-Review-Notice: /
         ],
         ['#legal-documents', 'Legal documents', /LICENSE\s+21 lines\s+NOTICE\s+8 of 14 lines/],
-        ['#copied-files', 'Copied files', /legal-docs\.spec\s+%files\s+%license COPYING/]
+        ['#copied-files', 'Copied files', /legal-docs\.spec\s+%files\s+%license COPYING/],
+        ['#report-license', 'License', /legal-docs\.spec\s+License: {2}GPL-2\.0-or-later\s+%package -n libfoo1/]
       ];
       for (const [id, title, example] of panels) {
         await page.locator(`${id} .cavil-notice-help-button`).click();
