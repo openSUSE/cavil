@@ -233,7 +233,7 @@ t.test('Cavil UI - review comment editor', skipUnlessOnline, async t => {
       t.equal(
         await page.locator('#review-timeline .review-timeline-step').last().locator('.review-timeline-gap').count(),
         0,
-        'no duration across the untimed scan step'
+        'no duration across the untimed index step'
       );
       t.equal(
         await page.locator('#review-timeline .review-timeline-point.is-pending').count(),

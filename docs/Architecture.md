@@ -164,6 +164,12 @@ A retired review is reopened when a bot submits the same package again or adds a
 re-imported. Missing sources are imported again, as long as they still exist in the build service or Git hosting
 instance they came from.
 
+### Timeline
+
+The timeline on report pages always shows its steps in the same order. Packages still in use are reindexed at least
+once a week, so the time of the indexed step is the last reindex and only shows when hovering over it, the same goes
+for imports and unpacks repeated after the decision.
+
 ### UI
 
 The entire human driven workflow happens via HTTP web UI. These are the most important menu points:

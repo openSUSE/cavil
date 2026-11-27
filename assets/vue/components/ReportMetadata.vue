@@ -708,9 +708,9 @@ export default {
       const redone = epoch => decided !== null && t.reviewed !== null && epoch > t.reviewed;
       const pipeline = [
         step('Requested', t.created, false),
-        step('Fetched', t.imported, redone(t.imported)),
+        step('Imported', t.imported, redone(t.imported)),
         step('Unpacked', t.unpacked, redone(t.unpacked)),
-        step('Scanned', t.indexed, true),
+        step('Indexed', t.indexed, true),
         decided === null
           ? {label: 'Awaiting review', epoch: null, waiting: true}
           : {
