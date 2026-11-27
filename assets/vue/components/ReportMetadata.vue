@@ -1359,7 +1359,8 @@ export default {
 }
 .report-risk .cavil-notice-help-button {
   color: var(--cavil-fg-subtle);
-  margin-left: -0.35rem;
+  font-size: 12px;
+  margin-left: -0.45rem;
 }
 .report-form-foot {
   background: var(--cavil-canvas-subtle);
