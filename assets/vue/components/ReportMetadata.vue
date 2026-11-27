@@ -60,13 +60,10 @@
           </dd>
           <dd v-else id="pkg-embargoed">No</dd>
         </div>
-        <div v-if="pkgEphemeral === true" class="report-form-field">
+        <div v-if="pkgEphemeral === true" class="report-form-field is-flagged">
           <dt>Ephemeral</dt>
-          <dd id="pkg-ephemeral">
-            <span class="badge text-bg-warning" title="One-off review, not part of the legal backlog">
-              <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
-              One-off review
-            </span>
+          <dd id="pkg-ephemeral" title="One-off review, not part of the legal backlog">
+            <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>One-off review
             <span v-if="ephemeralDelete !== ''" class="report-ephemeral-hint">deleted {{ ephemeralDelete }}</span>
           </dd>
         </div>
