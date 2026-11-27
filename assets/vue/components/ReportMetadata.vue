@@ -17,11 +17,13 @@
           <p v-if="pkgSummary !== null" id="pkg-summary" class="report-metadata-summary">{{ pkgSummary }}</p>
         </div>
         <div v-if="pkgRisk !== null" :class="['report-risk', `is-${riskTone}`]">
-          <span class="report-risk-icon"><i :class="RISK_ICONS[riskTone]" aria-hidden="true"></i></span>
-          <span class="report-risk-text">
-            <span class="report-risk-description">{{ riskDescription }}</span>
-            <span class="report-risk-level">Risk {{ pkgRisk }}</span>
+          <span class="report-risk-grade">
+            <svg viewBox="0 0 40 46" aria-hidden="true">
+              <path d="M20 2 L37 8 V21 C37 32 30 40 20 44 C10 40 3 32 3 21 V8 Z" />
+            </svg>
+            <strong>{{ pkgRisk }}</strong>
           </span>
+          <span class="report-risk-description">{{ riskDescription }}</span>
         </div>
       </header>
       <dl class="report-metadata-list">
@@ -570,13 +572,6 @@ const DOCUMENT_EXAMPLES = [
 ];
 // Only these declaration formats can carry a Legal-Review-Notice comment
 const NOTICE_FORMATS = ['spec', 'dockerfile', 'helm'];
-// The shape carries the verdict on its own, for colour-blind reviewers and greyscale printouts
-const RISK_ICONS = {
-  success: 'fa-solid fa-check',
-  warning: 'fa-solid fa-exclamation',
-  danger: 'fa-solid fa-xmark',
-  unknown: 'fa-solid fa-question'
-};
 const FORMAT_ICONS = {
   spec: 'fa-brands fa-suse',
   debian: 'fa-brands fa-debian',
@@ -630,7 +625,6 @@ export default {
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
       legalReviewNotices: [],
       DOCUMENT_EXAMPLES,
-      RISK_ICONS,
       NOTICE_PREVIEW_LINES: 4,
       noticesExpanded: new Set(),
       limitations: [],
@@ -801,9 +795,8 @@ export default {
     unpackedFilesLabel() {
       return this.unpackedFiles === 1 ? '1 file' : `${this.unpackedFilesWithSeparator} files`;
     },
-    // "Risk N" is shown underneath
     riskDescription() {
-      return riskName(this.pkgRisk).replace(/ Risk$/, '');
+      return riskName(this.pkgRisk);
     },
     riskTone() {
       const badge = riskBadgeClass(this.pkgRisk);
@@ -1197,7 +1190,8 @@ export default {
   min-width: 0;
 }
 /* A cell of the title bar: the same neutral divider as the field grid, a tint mixed into the bar's own grey,
-   and a merge-box status circle in Primer's emphasis colours. No tint without a rating. The negative margins
+   and the grade in a shield of Primer's emphasis colours, the shape compliance scanners use for a status. A number, not a check or cross, because risk is
+   an input to the review and not its outcome. No tint without a rating. The negative margins
    cancel the header padding, so it fills the corner. */
 .report-risk {
   --risk-bg: transparent;
@@ -1217,9 +1211,12 @@ export default {
   --risk-bg: var(--cavil-success-bg);
   --risk-emphasis: var(--cavil-success-emphasis);
 }
+/* The priority badges' vivid amber, with a dark number like the old ribbon: Primer's attention emphasis
+   comes out brown at this size */
 .report-risk.is-warning {
   --risk-bg: var(--cavil-attention-bg);
-  --risk-emphasis: var(--cavil-attention);
+  --risk-emphasis: rgb(var(--cavil-attention-vivid-rgb));
+  --risk-glyph: var(--cavil-fg);
 }
 .report-risk.is-danger {
   --risk-bg: var(--cavil-danger-bg);
@@ -1228,26 +1225,32 @@ export default {
 [data-bs-theme='dark'] .report-risk.is-warning {
   --risk-glyph: var(--cavil-canvas);
 }
-.report-risk-icon {
-  align-items: center;
-  background: var(--risk-emphasis);
-  border-radius: 50%;
-  color: var(--risk-glyph);
-  display: flex;
+.report-risk-grade {
+  display: grid;
   flex: 0 0 auto;
-  font-size: 1.15rem;
-  height: 2.75rem;
-  justify-content: center;
-  width: 2.75rem;
+  height: 3.1rem;
+  place-items: center;
+  width: 2.7rem;
 }
-.report-risk-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
+.report-risk-grade svg,
+.report-risk-grade strong {
+  grid-area: 1 / 1;
 }
-.report-risk-level {
-  color: var(--cavil-fg-muted);
-  font-size: 13px;
+.report-risk-grade svg {
+  fill: var(--risk-emphasis);
+  height: 100%;
+  stroke: var(--risk-emphasis);
+  stroke-linejoin: round;
+  stroke-width: 3;
+  width: 100%;
+}
+/* Raised a little, the shield is widest above its middle */
+.report-risk-grade strong {
+  color: var(--risk-glyph);
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 0.25rem;
 }
 .report-risk-description {
   color: var(--cavil-fg);
