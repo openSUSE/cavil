@@ -16,7 +16,7 @@
           </h2>
           <p v-if="pkgSummary !== null" id="pkg-summary" class="report-metadata-summary">{{ pkgSummary }}</p>
         </div>
-        <div v-if="pkgRisk !== null" :class="['report-risk', `is-${riskTone}`]">
+        <div v-if="pkgRisk !== null" id="report-risk" :class="['report-risk', `is-${riskTone}`]">
           <span class="report-risk-grade">
             <svg viewBox="0 0 40 48" aria-hidden="true">
               <path
@@ -34,21 +34,14 @@
             <strong>{{ pkgRisk }}</strong>
           </span>
           <span class="report-risk-description">{{ riskDescription }}</span>
+          <HelpButton label="Risk" @click="$refs.riskHelp.open()" />
         </div>
       </header>
       <dl class="report-metadata-list">
         <div id="report-license" class="report-form-field">
           <dt>
             License
-            <button
-              type="button"
-              class="cavil-notice-help-button"
-              aria-label="Help: License"
-              title="What is this?"
-              @click="$refs.licenseHelp.open()"
-            >
-              <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
-            </button>
+            <HelpButton label="License" @click="$refs.licenseHelp.open()" />
           </dt>
           <dd id="pkg-declarations" :class="{'metadata-declarations-named': namedDeclarations}">
             <div v-for="(d, index) in declarations" :key="index" class="metadata-declaration">
@@ -92,8 +85,8 @@
         </div>
       </dl>
       <dl class="report-metadata-list">
-        <div class="report-form-field is-wide">
-          <dt>Documents</dt>
+        <div id="report-documents-field" class="report-form-field is-wide">
+          <dt>Documents <HelpButton label="Documents" @click="$refs.documentsHelp.open()" /></dt>
           <dd id="report-documents">
             <report-documents :pkg-id="pkgId" :documents="derivedDocuments" @error="notifyError" />
           </dd>
@@ -127,8 +120,8 @@
             >
           </dd>
         </div>
-        <div :class="['report-form-field', {'is-flagged': pkgEmbargoed === true}]">
-          <dt>Embargoed</dt>
+        <div id="report-embargo" :class="['report-form-field', {'is-flagged': pkgEmbargoed === true}]">
+          <dt>Embargoed <HelpButton label="Embargoed" @click="$refs.embargoHelp.open()" /></dt>
           <dd v-if="pkgEmbargoed === true" id="pkg-embargoed" title="Package is embargoed">
             <i class="fa-solid fa-lock" aria-hidden="true"></i>Yes
           </dd>
@@ -185,19 +178,43 @@
       </p>
       <p>Cavil does not check what is declared, so compare it with what the report below found.</p>
     </HelpDialog>
+    <HelpDialog ref="riskHelp" title="Risk">
+      <p>
+        This is the highest risk of anything Cavil found in the source, so a single risky file raises the whole package.
+      </p>
+      <div class="help-example">
+        <div class="help-example-file">Risk levels</div>
+        <!-- prettier-ignore -->
+        <pre><component
+          :is="level.risk === pkgRisk ? 'strong' : 'span'"
+          v-for="level in RISK_SCALE"
+          :key="level.risk"
+        >{{ level.line }}</component></pre>
+      </div>
+      <p>It shows where to look closer, not whether the package is acceptable.</p>
+    </HelpDialog>
+    <HelpDialog ref="documentsHelp" title="Documents">
+      <p>These files are made from the report on request. The first click builds one, the next one downloads it.</p>
+      <div class="help-example">
+        <div class="help-example-file">Documents</div>
+        <pre>
+<strong>SBOM</strong>     the package and its licenses, in the SPDX format
+<strong>Notice</strong>   the licenses and copyright lines found in the source
+<strong>Dossier</strong>  the report's evidence in one file, to upload to an AI assistant</pre>
+      </div>
+    </HelpDialog>
+    <HelpDialog ref="embargoHelp" title="Embargoed">
+      <p>
+        An embargoed package fixes a security issue that is not public yet. AI tools that connect to Cavil cannot see
+        it.
+      </p>
+      <p>The Dossier still works, so only hand it to an AI you are allowed to use for embargoed work.</p>
+    </HelpDialog>
     <section v-if="notice !== null" id="review-information" class="review-information-card">
       <header class="review-information-card-bar">
         <i class="fa-solid fa-caret-right"></i>
         <span>why this needs review</span>
-        <button
-          type="button"
-          class="cavil-notice-help-button"
-          aria-label="Help: Why this needs review"
-          title="What is this?"
-          @click="$refs.reviewHelp.open()"
-        >
-          <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
-        </button>
+        <HelpButton label="Why this needs review" @click="$refs.reviewHelp.open()" />
       </header>
       <HelpDialog ref="reviewHelp" title="Why this needs review">
         <p>
@@ -569,6 +586,7 @@ import CommentEditor from './CommentEditor.vue';
 import CopyableText from './CopyableText.vue';
 import ExternalLink from './ExternalLink.vue';
 import FilePath from './FilePath.vue';
+import HelpButton from './HelpButton.vue';
 import HelpDialog from './HelpDialog.vue';
 import LegalLoading from './LegalLoading.vue';
 import ListMoreToggle from './ListMoreToggle.vue';
@@ -580,7 +598,7 @@ import TemplatePicker from './TemplatePicker.vue';
 import ToastNotifier from './ToastNotifier.vue';
 import {displayName, fileViewUrl, productLink, setupPopoverDelayed} from '../helpers/links.js';
 import {findPlaceholders} from '../helpers/placeholders.js';
-import {riskBadgeClass, riskName} from '../helpers/riskLevels.js';
+import {RISK_LEVELS, riskBadgeClass, riskName} from '../helpers/riskLevels.js';
 import Refresh from '../mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
 import moment from 'moment';
@@ -612,6 +630,22 @@ const DOCUMENT_EXAMPLES = [
 ];
 // Only these declaration formats can carry a Legal-Review-Notice comment
 const NOTICE_FORMATS = ['spec', 'dockerfile', 'helm'];
+const RISK_EXAMPLES = {
+  1: 'CC0-1.0, Unlicense',
+  2: 'MIT, BSD-3-Clause, Apache-2.0',
+  3: 'LGPL-2.1-or-later, MPL-2.0',
+  4: 'GPL-2.0-only, GPL-3.0-or-later',
+  5: 'AGPL-3.0-or-later, BSD-4-Clause',
+  6: 'SSPL-1.0',
+  7: 'CC-BY-NC-4.0, JSON',
+  8: 'a new license nobody has rated yet',
+  9: 'text Cavil could not match to a license'
+};
+// The unrated and unknown levels sit apart from the rated ones, as in the docs
+const RISK_SCALE = Object.entries(RISK_EXAMPLES).map(([risk, examples]) => ({
+  risk,
+  line: `${risk}  ${(RISK_LEVELS[risk] ?? 'Unknown').padEnd(25)}${examples}\n${risk === '7' ? '\n' : ''}`
+}));
 const FORMAT_ICONS = {
   spec: 'fa-brands fa-suse',
   debian: 'fa-brands fa-debian',
@@ -637,6 +671,7 @@ export default {
     CopyableText,
     ExternalLink,
     FilePath,
+    HelpButton,
     HelpDialog,
     LegalLoading,
     ListMoreToggle,
@@ -665,6 +700,7 @@ export default {
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
       legalReviewNotices: [],
       DOCUMENT_EXAMPLES,
+      RISK_SCALE,
       NOTICE_PREVIEW_LINES: 4,
       noticesExpanded: new Set(),
       limitations: [],
@@ -1320,6 +1356,10 @@ export default {
   font-weight: 600;
   line-height: 1.25;
   white-space: nowrap;
+}
+.report-risk .cavil-notice-help-button {
+  color: var(--cavil-fg-subtle);
+  margin-left: -0.35rem;
 }
 .report-form-foot {
   background: var(--cavil-canvas-subtle);
