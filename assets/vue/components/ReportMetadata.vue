@@ -1,16 +1,31 @@
 <template>
   <LegalLoading v-if="pkgName === null" message="Reviewing package information..." />
   <div v-else>
-    <div class="row">
-      <div class="col-10 mt-3">
-        <h2 class="report-metadata-name">
-          <a :href="searchUrl" target="_blank"><PackageName :name="pkgName" :family="pkgFamily" /></a>
-          <span v-if="formatIcon !== null" class="cavil-package-format-icon"
-            >&nbsp;
-            <i :class="formatIcon"></i>
+    <section class="report-form">
+      <header class="report-form-head">
+        <span class="report-form-avatar" aria-hidden="true">
+          <span v-if="formatIcon !== null" class="cavil-package-format-icon"><i :class="formatIcon"></i></span>
+          <i v-else class="fa-solid fa-box-open"></i>
+        </span>
+        <div class="report-form-title">
+          <h2 class="report-metadata-name">
+            <a :href="searchUrl" target="_blank"><PackageName :name="pkgName" :family="pkgFamily" /></a>
+            <copyable-text :value="String(pkgId)" class="report-metadata-id" title="Click to copy ID" id="pkg-id"
+              >#{{ pkgId }}</copyable-text
+            >
+          </h2>
+          <p v-if="pkgSummary !== null" id="pkg-summary" class="report-metadata-summary">{{ pkgSummary }}</p>
+        </div>
+        <div v-if="pkgRisk !== null" :class="['report-risk', `is-${riskTone}`]">
+          <span class="report-risk-icon"><i :class="RISK_ICONS[riskTone]" aria-hidden="true"></i></span>
+          <span class="report-risk-text">
+            <span class="report-risk-description">{{ riskDescription }}</span>
+            <span class="report-risk-level">Risk {{ pkgRisk }}</span>
           </span>
-        </h2>
-        <dl class="report-metadata-list">
+        </div>
+      </header>
+      <dl class="report-metadata-list">
+        <div class="report-form-field">
           <dt>License</dt>
           <dd id="pkg-declarations" :class="{'metadata-declarations-named': namedDeclarations}">
             <div v-for="(d, index) in declarations" :key="index" class="metadata-declaration">
@@ -22,120 +37,112 @@
             </div>
             <span v-if="declarations.length === 0" class="metadata-declaration-undeclared">No license declared</span>
           </dd>
-          <dt>Embargoed</dt>
-          <dd v-if="pkgEmbargoed === true" id="pkg-embargoed">
-            <span class="badge text-bg-warning metadata-status-badge" title="Package is embargoed">
-              <i class="fa-solid fa-lock" aria-hidden="true"></i>
-              Yes
-            </span>
-          </dd>
-          <dd v-else id="pkg-embargoed">No</dd>
-          <template v-if="pkgEphemeral === true">
-            <dt>Ephemeral</dt>
-            <dd id="pkg-ephemeral">
-              <span class="badge text-bg-warning" title="One-off review, not part of the legal backlog">
-                <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
-                One-off review
-              </span>
-              <span v-if="ephemeralDelete !== ''" class="report-ephemeral-hint">deleted {{ ephemeralDelete }}</span>
-            </dd>
-          </template>
-          <template v-if="state !== null">
-            <dt>State</dt>
-            <dd>
-              <span id="pkg-state" class="badge" :class="stateBadgeClass">{{ state }}</span>
-              <a
-                v-if="canViewAudit"
-                :href="`/audit?filter=${encodeURIComponent(pkgName)}`"
-                class="metadata-history-link"
-                target="_blank"
-                >History</a
-              >
-            </dd>
-          </template>
-          <dt>ID</dt>
+        </div>
+      </dl>
+      <dl class="report-metadata-list">
+        <div v-if="state !== null" class="report-form-field">
+          <dt>State</dt>
           <dd>
-            <copyable-text :value="String(pkgId)" class="report-metadata-id" title="Click to copy ID" id="pkg-id"
-              >#{{ pkgId }}</copyable-text
+            <span id="pkg-state" class="badge" :class="stateBadgeClass">{{ state }}</span>
+            <a
+              v-if="canViewAudit"
+              :href="`/audit?filter=${encodeURIComponent(pkgName)}`"
+              class="metadata-history-link"
+              target="_blank"
+              >History</a
             >
           </dd>
-          <template v-if="relatedReviews > 0">
-            <dt>Actions</dt>
-            <dd>
-              <a id="related-reviews" :href="`/search?q=${encodeURIComponent(externalLink)}`" target="_blank">
-                {{ relatedReviews === 1 ? '1 related review' : `${relatedReviews} related reviews` }}
-              </a>
-            </dd>
-          </template>
-          <template v-if="links.length > 0">
-            <dt>{{ links.length === 1 ? 'Link' : 'Links' }}</dt>
-            <dd id="pkg-link" class="report-metadata-links">
-              <span
-                v-for="(link, index) in links"
-                :key="index"
-                :class="['report-metadata-link', {'is-closed': !link.active}]"
-                :title="link.active ? null : 'Closed'"
-              >
-                <ExternalLink :link="link" />
-              </span>
-            </dd>
-          </template>
-          <template v-if="productsHtml !== null">
-            <dt>Products</dt>
-            <dd id="pkg-products" v-html="productsHtml"></dd>
-          </template>
-          <template v-if="pkgVersion !== null">
-            <dt>Version</dt>
-            <dd id="pkg-version">{{ pkgVersion }}</dd>
-          </template>
-          <template v-if="pkgSummary !== null">
-            <dt>Summary</dt>
-            <dd id="pkg-summary">{{ pkgSummary }}</dd>
-          </template>
-          <template v-if="pkgUrl !== null">
-            <dt>URL</dt>
-            <dd id="pkg-url">
-              <a :href="pkgUrl" target="_blank">{{ pkgUrl }}</a>
-            </dd>
-          </template>
+        </div>
+        <div :class="['report-form-field', {'is-flagged': pkgEmbargoed === true}]">
+          <dt>Embargoed</dt>
+          <dd v-if="pkgEmbargoed === true" id="pkg-embargoed" title="Package is embargoed">
+            <i class="fa-solid fa-lock" aria-hidden="true"></i>Yes
+          </dd>
+          <dd v-else id="pkg-embargoed">No</dd>
+        </div>
+        <div v-if="pkgEphemeral === true" class="report-form-field">
+          <dt>Ephemeral</dt>
+          <dd id="pkg-ephemeral">
+            <span class="badge text-bg-warning" title="One-off review, not part of the legal backlog">
+              <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
+              One-off review
+            </span>
+            <span v-if="ephemeralDelete !== ''" class="report-ephemeral-hint">deleted {{ ephemeralDelete }}</span>
+          </dd>
+        </div>
+        <div v-if="pkgPriority !== null" class="report-form-field">
+          <dt>Priority</dt>
+          <dd id="pkg-priority">{{ pkgPriority }}</dd>
+        </div>
+      </dl>
+      <dl v-if="pkgUrl !== null || pkgShortname !== null || pkgVersion !== null" class="report-metadata-list">
+        <div v-if="pkgUrl !== null" class="report-form-field is-wide">
+          <dt>URL</dt>
+          <dd id="pkg-url">
+            <a :href="pkgUrl" target="_blank">{{ pkgUrl }}</a>
+          </dd>
+        </div>
+        <div v-if="pkgShortname !== null" class="report-form-field">
+          <dt>Shortname</dt>
+          <dd id="pkg-shortname">{{ pkgShortname }}</dd>
+        </div>
+        <div v-if="pkgVersion !== null" class="report-form-field">
+          <dt>Version</dt>
+          <dd id="pkg-version">{{ pkgVersion }}</dd>
+        </div>
+      </dl>
+      <dl v-if="links.length > 0 || productsHtml !== null || relatedReviews > 0" class="report-metadata-list">
+        <div v-if="links.length > 0" class="report-form-field is-wide">
+          <dt>{{ links.length === 1 ? 'Link' : 'Links' }}</dt>
+          <dd id="pkg-link" class="report-metadata-links">
+            <span
+              v-for="(link, index) in links"
+              :key="index"
+              :class="['report-metadata-link', {'is-closed': !link.active}]"
+              :title="link.active ? null : 'Closed'"
+            >
+              <ExternalLink :link="link" />
+            </span>
+          </dd>
+        </div>
+        <div v-if="productsHtml !== null" class="report-form-field">
+          <dt>Products</dt>
+          <dd id="pkg-products" v-html="productsHtml"></dd>
+        </div>
+        <div v-if="relatedReviews > 0" class="report-form-field">
+          <dt>Actions</dt>
+          <dd>
+            <a id="related-reviews" :href="`/search?q=${encodeURIComponent(externalLink)}`" target="_blank">
+              {{ relatedReviews === 1 ? '1 related review' : `${relatedReviews} related reviews` }}
+            </a>
+          </dd>
+        </div>
+      </dl>
+      <dl class="report-metadata-list">
+        <div class="report-form-field is-wide">
           <dt>Documents</dt>
           <dd id="report-documents">
             <report-documents :pkg-id="pkgId" :documents="derivedDocuments" @error="notifyError" />
           </dd>
-          <template v-if="pkgShortname !== null">
-            <dt>Shortname</dt>
-            <dd id="pkg-shortname">{{ pkgShortname }}</dd>
-          </template>
-          <template v-if="checkoutUrl !== null">
-            <dt>Checkout</dt>
-            <dd id="checkout-url">
-              <a :href="checkoutUrl" target="_blank">{{ pkgChecksum }}</a>
-            </dd>
-          </template>
-          <template v-if="unpackedFiles > 0">
-            <dt>Unpacked</dt>
-            <dd id="unpacked-files">
-              {{ unpackedFilesLabel }}
-              <small>{{ unpackedSize }}</small>
-            </dd>
-          </template>
-          <template v-if="pkgPriority !== null">
-            <dt>Priority</dt>
-            <dd id="pkg-priority">{{ pkgPriority }}</dd>
-          </template>
-          <template v-if="timelineSteps.length > 0">
-            <dt>Timeline</dt>
-            <dd id="review-timeline"><ReviewTimeline :steps="timelineSteps" /></dd>
-          </template>
-        </dl>
-      </div>
-      <div class="col-2">
-        <div v-if="pkgRisk !== null" class="cavil-ribbon float-end" :class="ribbonColor">
-          <div class="cavil-ribbon-risk">{{ pkgRisk }}</div>
-          <div class="cavil-ribbon-description">{{ ribbonDescription }}</div>
         </div>
-      </div>
-    </div>
+        <div v-if="checkoutUrl !== null" class="report-form-field">
+          <dt>Checkout</dt>
+          <dd id="checkout-url">
+            <a :href="checkoutUrl" target="_blank">{{ pkgChecksum }}</a>
+          </dd>
+        </div>
+        <div v-if="unpackedFiles > 0" class="report-form-field">
+          <dt>Unpacked</dt>
+          <dd id="unpacked-files">
+            {{ unpackedFilesLabel }}
+            <small>{{ unpackedSize }}</small>
+          </dd>
+        </div>
+      </dl>
+      <footer v-if="timelineSteps.length > 0" id="review-timeline" class="report-form-foot">
+        <ReviewTimeline :steps="timelineSteps" />
+      </footer>
+    </section>
     <section v-if="notice !== null" id="review-information" class="review-information-card">
       <header class="review-information-card-bar">
         <i class="fa-solid fa-caret-right"></i>
@@ -531,7 +538,7 @@ import TemplatePicker from './TemplatePicker.vue';
 import ToastNotifier from './ToastNotifier.vue';
 import {displayName, fileViewUrl, productLink, setupPopoverDelayed} from '../helpers/links.js';
 import {findPlaceholders} from '../helpers/placeholders.js';
-import {riskName} from '../helpers/riskLevels.js';
+import {riskBadgeClass, riskName} from '../helpers/riskLevels.js';
 import Refresh from '../mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
 import moment from 'moment';
@@ -563,6 +570,13 @@ const DOCUMENT_EXAMPLES = [
 ];
 // Only these declaration formats can carry a Legal-Review-Notice comment
 const NOTICE_FORMATS = ['spec', 'dockerfile', 'helm'];
+// The shape carries the verdict on its own, for colour-blind reviewers and greyscale printouts
+const RISK_ICONS = {
+  success: 'fa-solid fa-check',
+  warning: 'fa-solid fa-exclamation',
+  danger: 'fa-solid fa-xmark',
+  unknown: 'fa-solid fa-question'
+};
 const FORMAT_ICONS = {
   spec: 'fa-brands fa-suse',
   debian: 'fa-brands fa-debian',
@@ -616,6 +630,7 @@ export default {
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
       legalReviewNotices: [],
       DOCUMENT_EXAMPLES,
+      RISK_ICONS,
       NOTICE_PREVIEW_LINES: 4,
       noticesExpanded: new Set(),
       limitations: [],
@@ -786,16 +801,13 @@ export default {
     unpackedFilesLabel() {
       return this.unpackedFiles === 1 ? '1 file' : `${this.unpackedFilesWithSeparator} files`;
     },
-    ribbonColor() {
-      if (this.pkgRisk === '1' || this.pkgRisk === '2' || this.pkgRisk === '3' || this.pkgRisk === '4') {
-        return 'cavil-green-ribbon';
-      }
-      if (this.pkgRisk === '5') return 'cavil-orange-ribbon';
-      if (this.pkgRisk === '6' || this.pkgRisk === '7') return 'cavil-red-ribbon';
-      return 'cavil-gray-ribbon';
+    // "Risk N" is shown underneath
+    riskDescription() {
+      return riskName(this.pkgRisk).replace(/ Risk$/, '');
     },
-    ribbonDescription() {
-      return riskName(this.pkgRisk);
+    riskTone() {
+      const badge = riskBadgeClass(this.pkgRisk);
+      return badge.startsWith('text-bg-') ? badge.slice(8) : 'unknown';
     },
     // Fixed order, never sorted by time: every package is reindexed at least weekly, so "indexed" (and anything
     // restamped after the decision) is a last-run time that keeps its place and only shows in the tooltip
@@ -1153,33 +1165,166 @@ export default {
 </script>
 
 <style>
+.report-form {
+  border: 1px solid var(--cavil-border);
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+.report-form-head {
+  align-items: center;
+  background: var(--cavil-canvas-subtle);
+  border-bottom: 1px solid var(--cavil-border);
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+}
+.report-form-avatar {
+  align-items: center;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(var(--cavil-shadow-alt-rgb), 0.08);
+  color: var(--cavil-fg-muted);
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 1.6rem;
+  height: 3.5rem;
+  justify-content: center;
+  width: 3.5rem;
+}
+.report-form-title {
+  min-width: 0;
+}
+/* A cell of the title bar: the same neutral divider as the field grid, a tint mixed into the bar's own grey,
+   and a merge-box status circle in Primer's emphasis colours. No tint without a rating. The negative margins
+   cancel the header padding, so it fills the corner. */
+.report-risk {
+  --risk-bg: transparent;
+  --risk-emphasis: var(--cavil-risk-unknown-bg);
+  --risk-glyph: var(--cavil-on-accent);
+  align-items: center;
+  align-self: stretch;
+  background: color-mix(in srgb, var(--risk-bg) 60%, var(--cavil-canvas-subtle));
+  border-left: 1px solid var(--cavil-border);
+  border-top-right-radius: 7px;
+  display: flex;
+  gap: 0.85rem;
+  margin: -1rem -1.25rem -1rem auto;
+  padding: 0 1.75rem 0 1rem;
+}
+.report-risk.is-success {
+  --risk-bg: var(--cavil-success-bg);
+  --risk-emphasis: var(--cavil-success-emphasis);
+}
+.report-risk.is-warning {
+  --risk-bg: var(--cavil-attention-bg);
+  --risk-emphasis: var(--cavil-attention);
+}
+.report-risk.is-danger {
+  --risk-bg: var(--cavil-danger-bg);
+  --risk-emphasis: var(--cavil-danger);
+}
+[data-bs-theme='dark'] .report-risk.is-warning {
+  --risk-glyph: var(--cavil-canvas);
+}
+.report-risk-icon {
+  align-items: center;
+  background: var(--risk-emphasis);
+  border-radius: 50%;
+  color: var(--risk-glyph);
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 1.15rem;
+  height: 2.75rem;
+  justify-content: center;
+  width: 2.75rem;
+}
+.report-risk-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.report-risk-level {
+  color: var(--cavil-fg-muted);
+  font-size: 13px;
+}
+.report-risk-description {
+  color: var(--cavil-fg);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.report-form-foot {
+  background: var(--cavil-canvas-subtle);
+  border-radius: 0 0 8px 8px;
+  border-top: 1px solid var(--cavil-border);
+  padding: 1rem 1.25rem 0.85rem;
+}
+.report-metadata-summary {
+  color: var(--cavil-fg-muted);
+  margin: 0.25rem 0 0;
+}
 .report-metadata-name {
-  font-weight: 500;
+  font-size: 1.5rem;
+  font-weight: 600;
   letter-spacing: -0.01em;
-  margin-bottom: 1.1rem;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+.report-metadata-name a {
+  color: var(--cavil-fg);
+  text-decoration: none;
+}
+.report-metadata-name a:hover,
+.report-metadata-name a:focus {
+  color: var(--cavil-accent);
+}
+.report-metadata-name .report-metadata-id {
+  color: var(--cavil-fg-subtle);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 300;
+  margin-left: 0.3rem;
 }
 .report-metadata-list {
   color: var(--cavil-fg);
-  display: grid;
+  display: flex;
   font-feature-settings: 'liga', 'kern';
   font-size: 15px;
   font-variant-numeric: tabular-nums;
-  gap: 0.6rem 1.75rem;
-  grid-template-columns: max-content minmax(0, 1fr);
-  line-height: 1.55;
+  line-height: 1.5;
   margin: 0;
 }
+.report-metadata-list + .report-metadata-list {
+  border-top: 1px solid var(--cavil-border-muted);
+}
+/* Quarter-width steps line fields up across rows with different field counts; the last one takes the rest */
+.report-form-field {
+  flex: 0 0 25%;
+  min-width: 0;
+  padding: 0.75rem 1rem;
+}
+.report-form-field + .report-form-field {
+  border-left: 1px solid var(--cavil-border-muted);
+}
+.report-form-field.is-wide {
+  flex-basis: 50%;
+}
+.report-form-field:last-child {
+  flex-grow: 1;
+}
 .report-metadata-list dt {
-  color: var(--cavil-fg-subtle);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  padding-top: 0.12rem;
-  text-transform: uppercase;
+  color: var(--cavil-fg-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-bottom: 0.25rem;
 }
 .report-metadata-list dd {
   margin: 0;
-  min-width: 0;
   overflow-wrap: anywhere;
 }
 .report-metadata-list a:not(.cavil-external-link-target) {
@@ -1203,10 +1348,13 @@ export default {
   padding: 0.4em 0.65em;
   vertical-align: baseline;
 }
-.metadata-status-badge {
-  align-items: center;
-  display: inline-flex;
-  gap: 0.35rem;
+/* A fact that needs attention tints its whole cell, like the risk pane, instead of carrying a badge */
+.report-form-field.is-flagged {
+  background: color-mix(in srgb, var(--cavil-attention-bg) 60%, var(--cavil-canvas));
+}
+.report-form-field.is-flagged dd i {
+  color: var(--cavil-attention);
+  margin-right: 0.4rem;
 }
 .report-ephemeral-hint {
   color: var(--cavil-fg-muted);
@@ -1304,19 +1452,28 @@ export default {
   outline: none;
 }
 #pkg-shortname,
-#checkout-url a,
-#pkg-version,
-#pkg-priority {
+#checkout-url a {
   font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 14px;
 }
 @media (max-width: 700px) {
-  .report-metadata-list {
-    grid-template-columns: 1fr;
-    gap: 0.25rem 0;
+  .report-form-head {
+    flex-wrap: wrap;
   }
-  .report-metadata-list dd {
-    margin-bottom: 0.45rem;
+  .report-risk {
+    border-left: 0;
+    border-radius: 0;
+    border-top: 1px solid var(--cavil-border);
+    flex: 1 0 100%;
+    margin: 0 -1.25rem -1rem;
+    padding: 0.6rem 1.25rem;
+  }
+  .report-metadata-list {
+    flex-direction: column;
+  }
+  .report-form-field + .report-form-field {
+    border-left: 0;
+    border-top: 1px solid var(--cavil-border-muted);
   }
 }
 .metadata-count-pill {
@@ -1418,8 +1575,10 @@ export default {
 .legal-document-block.is-covered {
   background: var(--cavil-success);
 }
+/* Breaks inside a word only when nothing else fits, so the grid cannot squeeze a column below its longest word */
 #pkg-declarations {
   align-items: baseline;
+  overflow-wrap: break-word;
   display: grid;
   gap: 0.25rem 1rem;
   grid-template-columns: repeat(3, auto);
@@ -1886,94 +2045,5 @@ export default {
   background-color: var(--cavil-accent-deep-2);
   color: var(--cavil-canvas);
   width: 150px;
-}
-.cavil-package-format-icon i {
-  color: var(--cavil-fg-secondary);
-}
-
-/* The fills stay put across themes: they are saturated chips carrying white text, and the
-   brighter dark-mode greens and reds would drop that below legible. The neutral one is the
-   exception, because its light value inverts to a pale grey. */
-.cavil-green-ribbon {
-  --cavil-ribbon-bg-color: #198754;
-}
-.cavil-orange-ribbon {
-  --cavil-ribbon-bg-color: #ffc107;
-  --cavil-ribbon-color: #000;
-}
-.cavil-red-ribbon {
-  --cavil-ribbon-bg-color: #dc3545;
-}
-.cavil-gray-ribbon {
-  --cavil-ribbon-bg-color: var(--cavil-risk-unknown-bg);
-}
-/* Tinted rather than filled, matching the risk chips. The ribbon is still the loudest thing
-   on the page: at this size the emphasis comes from the shape, so it does not also need a
-   saturated fill, which next to the chips just read as dated. No border, because clip-path
-   cuts the arrow out of the element and would cut the border with it. */
-[data-bs-theme='dark'] .cavil-green-ribbon {
-  --cavil-ribbon-bg-color: rgba(var(--cavil-success-rgb), 0.22);
-  --cavil-ribbon-color: var(--cavil-success);
-}
-[data-bs-theme='dark'] .cavil-orange-ribbon {
-  --cavil-ribbon-bg-color: rgba(var(--cavil-attention-border-rgb), 0.22);
-  --cavil-ribbon-color: var(--cavil-attention-deep);
-}
-[data-bs-theme='dark'] .cavil-red-ribbon {
-  --cavil-ribbon-bg-color: rgba(var(--cavil-danger-rgb), 0.22);
-  --cavil-ribbon-color: var(--cavil-danger);
-}
-[data-bs-theme='dark'] .cavil-gray-ribbon {
-  --cavil-ribbon-bg-color: var(--cavil-neutral-bg);
-  --cavil-ribbon-color: var(--cavil-fg-muted);
-}
-.cavil-ribbon {
-  color: var(--cavil-ribbon-color, var(--cavil-on-accent));
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    'Helvetica Neue',
-    'Noto Sans',
-    'Liberation Sans',
-    Arial,
-    sans-serif,
-    'Apple Color Emoji',
-    'Segoe UI Emoji',
-    'Segoe UI Symbol',
-    'Noto Color Emoji';
-  width: 110px;
-}
-.cavil-ribbon {
-  --r: 0.8em;
-  border-inline: 0.5em solid #0000;
-  padding: 0.5em 0.2em calc(var(--r) + 0.2em);
-  clip-path: polygon(
-    0 0,
-    100% 0,
-    100% 100%,
-    calc(100% - 0.5em) calc(100% - var(--r)),
-    50% 100%,
-    0.5em calc(100% - var(--r)),
-    0 100%
-  );
-  background:
-    radial-gradient(50% 0.2em at top, rgba(0, 0, 0, 0), #0000) border-box,
-    var(--cavil-ribbon-bg-color) padding-box;
-}
-
-.cavil-ribbon-risk {
-  font-size: 2.5rem;
-  font-weight: bold;
-  padding: 0.3em;
-  text-align: center;
-}
-.cavil-ribbon-description {
-  font-size: 0.7rem;
-  font-weight: bold;
-  padding: 0.6rem;
-  text-align: center;
-  word-break: break-word;
 }
 </style>

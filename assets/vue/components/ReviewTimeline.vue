@@ -4,7 +4,7 @@
       <span
         v-if="index > 0"
         :class="['review-timeline-connector', {'is-pending': item.pending, 'has-gap': item.gap}]"
-        :style="item.width ? {flexBasis: item.width} : null"
+        :style="item.weight ? {flexGrow: item.weight} : null"
       >
         <span v-if="item.gap" class="review-timeline-gap">{{ item.gap }}</span>
       </span>
@@ -12,6 +12,7 @@
         :class="[
           'review-timeline-point',
           {'is-pending': item.pending, 'is-first': index === 0, 'is-last': index === items.length - 1},
+          {'is-current': item.current},
           {'is-trail-pending': items[index + 1]?.pending},
           item.tone ? `is-${item.tone}` : null
         ]"
@@ -59,8 +60,11 @@ export default {
       return this.steps.map(step => {
         const item = {...step};
         if (step.pending) {
-          if (firstPending && previous !== null) {
-            item.when = step.waiting ? `waiting ${duration(Date.now() / 1000 - previous)}` : 'in progress';
+          if (firstPending) {
+            item.current = true;
+            if (previous !== null) {
+              item.when = step.waiting ? `waiting ${duration(Date.now() / 1000 - previous)}` : 'in progress';
+            }
           }
           firstPending = false;
           return item;
@@ -85,7 +89,7 @@ export default {
           const seconds = Math.max(0, step.epoch - previous);
           item.gap = duration(seconds);
           // Log scale, so weeks of waiting read longer than a minute of unpacking without crushing the rest
-          item.width = `${(2.5 + 1.3 * Math.log10(1 + seconds)).toFixed(2)}rem`;
+          item.weight = (2.5 + 1.3 * Math.log10(1 + seconds)).toFixed(2);
         }
         previous = step.epoch;
         adjacent = true;
@@ -132,36 +136,42 @@ export default {
 .review-timeline-point.is-first {
   align-items: flex-start;
 }
-.is-first .review-timeline-track::before {
-  display: none;
+.review-timeline-point.is-last {
+  align-items: flex-end;
 }
+.is-first .review-timeline-track::before,
 .is-last .review-timeline-track::after {
-  border-top-color: transparent;
+  display: none;
 }
 .is-pending .review-timeline-track::before,
 .is-trail-pending .review-timeline-track::after,
 .review-timeline-connector.is-pending {
   border-top-style: dashed;
 }
+/* Done steps are rings filled at the centre, pending ones hollow */
 .review-timeline-dot {
-  background: var(--cavil-fg-muted);
-  border: 2px solid var(--cavil-fg-muted);
+  --dot: var(--cavil-fg-muted);
+  background: var(--dot);
+  border: 2px solid var(--dot);
   border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--cavil-canvas);
   flex: none;
-  height: 9px;
-  width: 9px;
+  height: 13px;
+  width: 13px;
 }
 .is-pending .review-timeline-dot {
+  --dot: var(--cavil-border-strong);
   background: var(--cavil-canvas);
-  border-color: var(--cavil-border-strong);
+}
+.is-current .review-timeline-dot {
+  --dot: var(--cavil-accent);
+  box-shadow: 0 0 0 3px rgba(var(--cavil-accent-rgb), 0.18);
 }
 .is-success .review-timeline-dot {
-  background: var(--cavil-success);
-  border-color: var(--cavil-success);
+  --dot: var(--cavil-success);
 }
 .is-danger .review-timeline-dot {
-  background: var(--cavil-danger);
-  border-color: var(--cavil-danger);
+  --dot: var(--cavil-danger);
 }
 .review-timeline-label {
   color: var(--cavil-fg-muted);
@@ -173,30 +183,36 @@ export default {
   color: var(--cavil-fg-disabled);
   font-weight: 400;
 }
+.is-current .review-timeline-label {
+  color: var(--cavil-fg);
+  font-weight: 600;
+}
 .review-timeline-when {
   color: var(--cavil-fg-disabled);
   font-size: 12px;
 }
-/* Never wraps, connectors shrink in proportion instead, down to what their gap label needs */
+/* Spans the full width: connectors grow by their weight and never wrap, shrinking down to what their gap label needs */
 .review-timeline-connector {
-  flex: 0 1 2.5rem;
+  flex: 2.5 1 0;
   margin-top: 6px;
   min-width: 1.5rem;
   position: relative;
 }
 .review-timeline-connector.has-gap {
-  min-width: 3.25rem;
-}
-.review-timeline-connector.is-pending {
-  flex: 0 0 1.5rem;
+  min-width: 4rem;
 }
 .review-timeline-gap {
-  bottom: 3px;
-  color: var(--cavil-fg-subtle);
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
+  border-radius: 2em;
+  color: var(--cavil-fg-muted);
   font-size: 11px;
   left: 50%;
+  line-height: 1;
+  padding: 0.15rem 0.45rem;
   position: absolute;
-  transform: translateX(-50%);
+  top: 0;
+  transform: translate(-50%, -50%);
   white-space: nowrap;
 }
 </style>

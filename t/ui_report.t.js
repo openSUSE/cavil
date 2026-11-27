@@ -335,11 +335,16 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
 
       await page.goto(url);
       await page.click('text=Artistic');
-      const badge = page.locator('#pkg-embargoed .metadata-status-badge');
-      await badge.waitFor();
-      t.equal(await badge.innerText(), 'Yes');
-      t.equal(await badge.getAttribute('title'), 'Package is embargoed');
-      t.equal(await badge.locator('.fa-lock').count(), 1, 'embargoed yes includes a lock icon');
+      const embargoed = page.locator('#pkg-embargoed');
+      await embargoed.locator('.fa-lock').waitFor();
+      t.equal(await embargoed.innerText(), 'Yes');
+      t.equal(await embargoed.getAttribute('title'), 'Package is embargoed');
+      t.equal(await embargoed.locator('.fa-lock').count(), 1, 'embargoed yes includes a lock icon');
+      t.equal(
+        await page.locator('.report-form-field.is-flagged #pkg-embargoed').count(),
+        1,
+        'the whole field is highlighted'
+      );
 
       await page.unroute('**/reviews/meta/1');
     });

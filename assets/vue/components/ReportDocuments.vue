@@ -149,8 +149,8 @@ export default {
 <style scoped>
 .report-documents {
   display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
 }
 .report-documents-row {
   align-items: center;
