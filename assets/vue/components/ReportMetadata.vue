@@ -1362,10 +1362,13 @@ export default {
   font-size: 12px;
   margin-left: -0.45rem;
 }
+/* A soft shade falling from the top rule, like the compatibility matrix's explanation panel, setting the timeline
+   apart from the fields. Shorter and stronger than there, a grey surface swallows the matrix values. */
 .report-form-foot {
   background: var(--cavil-canvas-subtle);
   border-radius: 0 0 8px 8px;
   border-top: 1px solid var(--cavil-border);
+  box-shadow: inset 0 7px 9px -7px rgba(var(--cavil-shadow-cool-rgb), 0.22);
   padding: 1rem 1.25rem 0.85rem;
 }
 .report-metadata-summary {
