@@ -1242,16 +1242,11 @@ export default {
   border-radius: 8px;
   margin-top: 1rem;
 }
-/* The risk colour washes in from the shield's edge, the report's row wash idiom stretched across the title bar.
-   Without a rating the wash stays neutral. Each hue has its own strength, measured to look equally strong: amber
-   is bright, grey barely shows on grey. */
 .report-form-head {
   --risk-emphasis: var(--cavil-risk-unknown-bg);
   --risk-glyph: var(--cavil-on-accent);
-  --risk-rgb: var(--cavil-neutral-alt-rgb);
-  --risk-wash: 0.19;
   align-items: center;
-  background: linear-gradient(270deg, rgba(var(--risk-rgb), var(--risk-wash)), var(--cavil-canvas-subtle) 35%);
+  background: var(--cavil-canvas-subtle);
   border-bottom: 1px solid var(--cavil-border);
   border-radius: 8px 8px 0 0;
   display: flex;
@@ -1283,6 +1278,19 @@ export default {
   gap: 0.85rem;
   margin-left: auto;
 }
+/* The risk washes its colour in from the shield's edge, the report's row wash idiom stretched across the title bar.
+   Unrated and unknown take the annotation blue, a neutral highlight: a grey wash reads as depth in this UI. Each hue
+   has its own strength, measured to look equally strong. */
+.report-form-head.is-success,
+.report-form-head.is-warning,
+.report-form-head.is-danger,
+.report-form-head.is-unknown {
+  background: linear-gradient(270deg, rgba(var(--risk-rgb), var(--risk-wash)), var(--cavil-canvas-subtle) 35%);
+}
+.report-form-head.is-unknown {
+  --risk-rgb: var(--cavil-accent-rgb);
+  --risk-wash: 0.11;
+}
 .report-form-head.is-success {
   --risk-wash: 0.1;
   --risk-rgb: var(--cavil-success-rgb);
@@ -1301,8 +1309,8 @@ export default {
   --risk-rgb: var(--cavil-danger-rgb);
   --risk-emphasis: var(--cavil-danger);
 }
-[data-bs-theme='dark'] .report-form-head {
-  --risk-wash: 0.23;
+[data-bs-theme='dark'] .report-form-head.is-unknown {
+  --risk-wash: 0.12;
 }
 [data-bs-theme='dark'] .report-form-head.is-success {
   --risk-wash: 0.065;
