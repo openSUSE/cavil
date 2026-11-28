@@ -1242,13 +1242,21 @@ export default {
   border-radius: 8px;
   margin-top: 1rem;
 }
+/* Raised like the glass badges: their gloss settling into the grey, a lit top edge and a faint shaded bottom one */
 .report-form-head {
   --risk-emphasis: var(--cavil-risk-unknown-bg);
   --risk-glyph: var(--cavil-on-accent);
+  --risk-layer: linear-gradient(transparent, transparent);
   align-items: center;
-  background: var(--cavil-canvas-subtle);
+  background:
+    var(--risk-layer),
+    linear-gradient(180deg, var(--cavil-badge-gloss-top), var(--cavil-badge-gloss-bottom) 55%, transparent),
+    var(--cavil-canvas-subtle);
   border-bottom: 1px solid var(--cavil-border);
-  border-radius: 8px 8px 0 0;
+  border-radius: 7px 7px 0 0;
+  box-shadow:
+    inset 0 1px 0 var(--cavil-badge-rim),
+    inset 0 -1px 0 rgba(var(--cavil-shadow-rgb), 0.06);
   display: flex;
   gap: 1rem;
   padding: 1rem 1.25rem;
@@ -1285,21 +1293,21 @@ export default {
 .report-form-head.is-warning,
 .report-form-head.is-danger,
 .report-form-head.is-unknown {
-  background: linear-gradient(270deg, rgba(var(--risk-rgb), var(--risk-wash)), var(--cavil-canvas-subtle) 35%);
+  --risk-layer: linear-gradient(270deg, rgba(var(--risk-rgb), var(--risk-wash)), transparent 35%);
 }
 .report-form-head.is-unknown {
   --risk-rgb: var(--cavil-accent-rgb);
-  --risk-wash: 0.11;
+  --risk-wash: 0.078;
 }
 .report-form-head.is-success {
-  --risk-wash: 0.1;
+  --risk-wash: 0.088;
   --risk-rgb: var(--cavil-success-rgb);
   --risk-emphasis: var(--cavil-success-emphasis);
 }
 /* The priority badges' vivid amber, with a dark number like the old ribbon: Primer's attention emphasis
    comes out brown at this size */
 .report-form-head.is-warning {
-  --risk-wash: 0.06;
+  --risk-wash: 0.07;
   --risk-rgb: var(--cavil-attention-vivid-rgb);
   --risk-emphasis: rgb(var(--cavil-attention-vivid-rgb));
   --risk-glyph: var(--cavil-fg);
@@ -1310,17 +1318,17 @@ export default {
   --risk-emphasis: var(--cavil-danger);
 }
 [data-bs-theme='dark'] .report-form-head.is-unknown {
-  --risk-wash: 0.12;
+  --risk-wash: 0.08;
 }
 [data-bs-theme='dark'] .report-form-head.is-success {
-  --risk-wash: 0.065;
+  --risk-wash: 0.054;
 }
 [data-bs-theme='dark'] .report-form-head.is-warning {
   --risk-glyph: var(--cavil-canvas);
-  --risk-wash: 0.055;
+  --risk-wash: 0.065;
 }
 [data-bs-theme='dark'] .report-form-head.is-danger {
-  --risk-wash: 0.065;
+  --risk-wash: 0.072;
 }
 .report-risk-grade {
   display: grid;
