@@ -2,7 +2,7 @@
   <LegalLoading v-if="pkgName === null" message="Reviewing package information..." />
   <div v-else>
     <section class="report-form">
-      <header class="report-form-head">
+      <header :class="['report-form-head', pkgRisk !== null && `is-${riskTone}`]">
         <span class="report-form-avatar" aria-hidden="true">
           <span v-if="formatIcon !== null" class="cavil-package-format-icon"><i :class="formatIcon"></i></span>
           <i v-else class="fa-solid fa-box-open"></i>
@@ -16,7 +16,7 @@
           </h2>
           <p v-if="pkgSummary !== null" id="pkg-summary" class="report-metadata-summary">{{ pkgSummary }}</p>
         </div>
-        <div v-if="pkgRisk !== null" id="report-risk" :class="['report-risk', `is-${riskTone}`]">
+        <div v-if="pkgRisk !== null" id="report-risk" class="report-risk">
           <span class="report-risk-text">
             <span class="report-risk-label">Risk <HelpButton label="Risk" @click="$refs.riskHelp.open()" /></span>
             <span class="report-risk-description">{{ riskDescription }}</span>
@@ -1242,9 +1242,16 @@ export default {
   border-radius: 8px;
   margin-top: 1rem;
 }
+/* The risk colour washes in from the shield's edge, the report's row wash idiom stretched across the title bar.
+   Without a rating the wash stays neutral. Each hue has its own strength, measured to look equally strong: amber
+   is bright, grey barely shows on grey. */
 .report-form-head {
+  --risk-emphasis: var(--cavil-risk-unknown-bg);
+  --risk-glyph: var(--cavil-on-accent);
+  --risk-rgb: var(--cavil-neutral-alt-rgb);
+  --risk-wash: 0.19;
   align-items: center;
-  background: var(--cavil-canvas-subtle);
+  background: linear-gradient(270deg, rgba(var(--risk-rgb), var(--risk-wash)), var(--cavil-canvas-subtle) 35%);
   border-bottom: 1px solid var(--cavil-border);
   border-radius: 8px 8px 0 0;
   display: flex;
@@ -1271,27 +1278,41 @@ export default {
 /* The grade in a shield of Primer's emphasis colours, the shape compliance scanners use for a status. A number, not
    a check or cross, because risk is an input to the review and not its outcome. */
 .report-risk {
-  --risk-emphasis: var(--cavil-risk-unknown-bg);
-  --risk-glyph: var(--cavil-on-accent);
   align-items: center;
   display: flex;
   gap: 0.85rem;
   margin-left: auto;
 }
-.report-risk.is-success {
+.report-form-head.is-success {
+  --risk-wash: 0.1;
+  --risk-rgb: var(--cavil-success-rgb);
   --risk-emphasis: var(--cavil-success-emphasis);
 }
 /* The priority badges' vivid amber, with a dark number like the old ribbon: Primer's attention emphasis
    comes out brown at this size */
-.report-risk.is-warning {
+.report-form-head.is-warning {
+  --risk-wash: 0.06;
+  --risk-rgb: var(--cavil-attention-vivid-rgb);
   --risk-emphasis: rgb(var(--cavil-attention-vivid-rgb));
   --risk-glyph: var(--cavil-fg);
 }
-.report-risk.is-danger {
+.report-form-head.is-danger {
+  --risk-wash: 0.08;
+  --risk-rgb: var(--cavil-danger-rgb);
   --risk-emphasis: var(--cavil-danger);
 }
-[data-bs-theme='dark'] .report-risk.is-warning {
+[data-bs-theme='dark'] .report-form-head {
+  --risk-wash: 0.23;
+}
+[data-bs-theme='dark'] .report-form-head.is-success {
+  --risk-wash: 0.065;
+}
+[data-bs-theme='dark'] .report-form-head.is-warning {
   --risk-glyph: var(--cavil-canvas);
+  --risk-wash: 0.055;
+}
+[data-bs-theme='dark'] .report-form-head.is-danger {
+  --risk-wash: 0.065;
 }
 .report-risk-grade {
   display: grid;
