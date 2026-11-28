@@ -17,6 +17,10 @@
           <p v-if="pkgSummary !== null" id="pkg-summary" class="report-metadata-summary">{{ pkgSummary }}</p>
         </div>
         <div v-if="pkgRisk !== null" id="report-risk" :class="['report-risk', `is-${riskTone}`]">
+          <span class="report-risk-text">
+            <span class="report-risk-label">Risk <HelpButton label="Risk" @click="$refs.riskHelp.open()" /></span>
+            <span class="report-risk-description">{{ riskDescription }}</span>
+          </span>
           <span class="report-risk-grade">
             <svg viewBox="0 0 40 48" aria-hidden="true">
               <path
@@ -33,8 +37,6 @@
             </svg>
             <strong>{{ pkgRisk }}</strong>
           </span>
-          <span class="report-risk-description">{{ riskDescription }}</span>
-          <HelpButton label="Risk" @click="$refs.riskHelp.open()" />
         </div>
       </header>
       <dl class="report-metadata-list">
@@ -871,8 +873,9 @@ export default {
     unpackedFilesLabel() {
       return this.unpackedFiles === 1 ? '1 file' : `${this.unpackedFilesWithSeparator} files`;
     },
+    // Shown under a "Risk" label
     riskDescription() {
-      return riskName(this.pkgRisk);
+      return riskName(this.pkgRisk).replace(/ Risk$/, '');
     },
     riskTone() {
       const badge = riskBadgeClass(this.pkgRisk);
@@ -1265,37 +1268,26 @@ export default {
 .report-form-title {
   min-width: 0;
 }
-/* A cell of the title bar: the same neutral divider as the field grid, a tint mixed into the bar's own grey,
-   and the grade in a shield of Primer's emphasis colours, the shape compliance scanners use for a status. A number, not a check or cross, because risk is
-   an input to the review and not its outcome. No tint without a rating. The negative margins
-   cancel the header padding, so it fills the corner. */
+/* The grade in a shield of Primer's emphasis colours, the shape compliance scanners use for a status. A number, not
+   a check or cross, because risk is an input to the review and not its outcome. */
 .report-risk {
-  --risk-bg: transparent;
   --risk-emphasis: var(--cavil-risk-unknown-bg);
   --risk-glyph: var(--cavil-on-accent);
   align-items: center;
-  align-self: stretch;
-  background: color-mix(in srgb, var(--risk-bg) 60%, var(--cavil-canvas-subtle));
-  border-left: 1px solid var(--cavil-border);
-  border-top-right-radius: 7px;
   display: flex;
   gap: 0.85rem;
-  margin: -1rem -1.25rem -1rem auto;
-  padding: 0 1.75rem 0 1rem;
+  margin-left: auto;
 }
 .report-risk.is-success {
-  --risk-bg: var(--cavil-success-bg);
   --risk-emphasis: var(--cavil-success-emphasis);
 }
 /* The priority badges' vivid amber, with a dark number like the old ribbon: Primer's attention emphasis
    comes out brown at this size */
 .report-risk.is-warning {
-  --risk-bg: var(--cavil-attention-bg);
   --risk-emphasis: rgb(var(--cavil-attention-vivid-rgb));
   --risk-glyph: var(--cavil-fg);
 }
 .report-risk.is-danger {
-  --risk-bg: var(--cavil-danger-bg);
   --risk-emphasis: var(--cavil-danger);
 }
 [data-bs-theme='dark'] .report-risk.is-warning {
@@ -1304,9 +1296,9 @@ export default {
 .report-risk-grade {
   display: grid;
   flex: 0 0 auto;
-  height: 3.1rem;
+  height: 3.5rem;
   place-items: center;
-  width: 2.7rem;
+  width: 3.05rem;
 }
 .report-risk-grade svg,
 .report-risk-grade strong {
@@ -1342,7 +1334,7 @@ export default {
 /* Raised a little, the shield is widest above its middle */
 .report-risk-grade strong {
   color: var(--risk-glyph);
-  font-size: 1.3rem;
+  font-size: 1.45rem;
   font-weight: 700;
   line-height: 1;
   margin-bottom: 0.35rem;
@@ -1350,17 +1342,31 @@ export default {
     0 -1px 0 rgba(0, 0, 0, 0.25),
     0 1px 0 rgba(255, 255, 255, 0.2);
 }
+/* A field like the others, label and help above the value, mirroring the name and summary on the left */
+.report-risk-text {
+  display: flex;
+  flex-direction: column;
+  text-align: right;
+}
 .report-risk-description {
   color: var(--cavil-fg);
-  font-size: 16px;
+  font-size: 1.15rem;
   font-weight: 600;
-  line-height: 1.25;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
   white-space: nowrap;
 }
-.report-risk .cavil-notice-help-button {
-  color: var(--cavil-fg-subtle);
+.report-risk-label {
+  color: var(--cavil-fg-muted);
   font-size: 12px;
-  margin-left: -0.45rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-bottom: 0.2rem;
+}
+.report-metadata-list dt .cavil-notice-help-button,
+.report-risk-label .cavil-notice-help-button {
+  color: var(--cavil-fg-subtle);
+  margin-left: 0.25rem;
 }
 /* A soft shade falling from the top rule, like the compatibility matrix's explanation panel, setting the timeline
    apart from the fields. Shorter and stronger than there, a grey surface swallows the matrix values. */
@@ -1436,10 +1442,6 @@ export default {
   font-weight: 600;
   line-height: 1.3;
   margin-bottom: 0.25rem;
-}
-.report-metadata-list dt .cavil-notice-help-button {
-  color: var(--cavil-fg-subtle);
-  margin-left: 0.25rem;
 }
 .report-metadata-list dd {
   margin: 0;
@@ -1590,14 +1592,6 @@ export default {
 @media (max-width: 700px) {
   .report-form-head {
     flex-wrap: wrap;
-  }
-  .report-risk {
-    border-left: 0;
-    border-radius: 0;
-    border-top: 1px solid var(--cavil-border);
-    flex: 1 0 100%;
-    margin: 0 -1.25rem -1rem;
-    padding: 0.6rem 1.25rem;
   }
   .report-metadata-list {
     flex-direction: column;
